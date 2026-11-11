@@ -92,12 +92,12 @@ jobs:
       - run: npm run build
       - run: bin/check-links
 
-  # Push to main only, and only once this repo is public: a fresh build, pushed as one commit to
+  # Push to main (or a manual run on main), and only once this repo is public: a fresh build, pushed as one commit to
   # gliders-rb/gliders-rb.github.io, which GitHub Pages serves at the org root. SITE_DEPLOY_KEY is a deploy key
   # with write access to that one repo. While this repo is private the job is skipped, so nothing is published.
   deploy:
     name: deploy to gliders-rb.github.io
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !github.event.repository.private
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && !github.event.repository.private
     needs: [build-core, build-adapters, links]
     runs-on: ubuntu-latest
     environment:
