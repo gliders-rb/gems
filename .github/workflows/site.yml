@@ -1,0 +1,147 @@
+name: site
+
+# Builds and checks the docs site whenever it, the gems it runs, or this workflow changes.
+# Deploys to GitHub Pages only on a push to main. GitHub-hosted runners only.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'gems/**'
+      - 'adapters/**'
+      - '.github/workflows/site.yml'
+  pull_request:
+    paths:
+      - 'site/**'
+      - 'gems/**'
+      - 'adapters/**'
+      - '.github/workflows/site.yml'
+  workflow_dispatch:
+
+# Pull request code runs here, so the token stays read-only. The deploy job raises it for itself.
+permissions:
+  contents: read
+
+concurrency:
+  group: site-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: site
+
+jobs:
+  # Core lane: the build, then every page outside adapters/ against Gemfile.
+  build-core:
+    name: build + code blocks (core)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+          working-directory: site
+      - run: npm ci
+      - run: npm run build
+      - name: Check the core code blocks
+        run: bin/check-code-blocks $(find src/content/docs -name '*.md' -o -name '*.mdx' | grep -v '/adapters/' | sort)
+
+  # Adapter lane: the build, then the adapters/ pages against Gemfile.edge.
+  build-adapters:
+    name: build + code blocks (adapters)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+          working-directory: site
+      - run: npm ci
+      - run: npm run build
+      - name: Install the edge bundle
+        run: bundle install
+        env:
+          BUNDLE_GEMFILE: ${{ github.workspace }}/site/Gemfile.edge
+      - name: Check the adapter code blocks
+        run: bin/check-code-blocks $(find src/content/docs/adapters -name '*.md' -o -name '*.mdx' | sort)
+
+  # Every internal link in the content resolves to a built page.
+  links:
+    name: internal links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: bin/check-links
+
+  # Push to main only, and only once this repo is public: a fresh build, pushed as one commit to
+  # gliders-rb/gliders-rb.github.io, which GitHub Pages serves at the org root. SITE_DEPLOY_KEY is a deploy key
+  # with write access to that one repo. While this repo is private the job is skipped, so nothing is published.
+  deploy:
+    name: deploy to gliders-rb.github.io
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !github.event.repository.private
+    needs: [build-core, build-adapters, links]
+    runs-on: ubuntu-latest
+    environment:
+      name: org-site
+      url: https://gliders-rb.github.io/
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - name: Push the build to gliders-rb/gliders-rb.github.io
+        env:
+          SITE_DEPLOY_KEY: ${{ secrets.SITE_DEPLOY_KEY }}
+        run: |
+          key="$RUNNER_TEMP/site_deploy_key"
+          install -m 600 /dev/null "$key"
+          printf '%s\n' "$SITE_DEPLOY_KEY" > "$key"
+          export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+          cd dist
+          # Astro writes _astro/; without .nojekyll, Pages' Jekyll step drops underscore directories.
+          touch .nojekyll
+          git init -q -b main
+          git add -A
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -q -m "Site build from gliders-rb/gems@${GITHUB_SHA::7}"
+          # The target holds only built output, so each deploy replaces it with one fresh commit.
+          git push -f git@github.com:gliders-rb/gliders-rb.github.io.git main
+          rm -f "$key"
+
+  # The one check to require in branch protection. A skipped deploy (any pull request) does not count against it.
+  required:
+    name: site (required)
+    if: always()
+    needs: [build-core, build-adapters, links]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Every gating job succeeded
+        run: |
+          echo '${{ toJSON(needs) }}'
+          test "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}" = "false"

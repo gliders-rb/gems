@@ -1,0 +1,18 @@
+inherit_from: ../../.rubocop.yml
+
+# The shared Exclude globs are relative to the repo root, so repeat them for this gem directory.
+Metrics/BlockLength:
+  Exclude:
+    - 'spec/**/*'
+    - '*.gemspec'
+    - 'Rakefile'
+    - 'rakelib/**/*'
+
+# Field.new's keyword signature is fixed by the spec (4.6).
+Metrics/ParameterLists:
+  CountKeywordArgs: false
+
+# Benchmarks define small throwaway models at the top level.
+Style/OneClassPerFile:
+  Exclude:
+    - 'benchmarks/**/*'

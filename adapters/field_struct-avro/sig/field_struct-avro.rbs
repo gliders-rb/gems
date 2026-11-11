@@ -1,0 +1,97 @@
+# The field_struct namespace.
+module FieldStruct
+  # Apache Avro for field_struct classes.
+  module Avro
+    TIMESTAMPS: ::Array[::Symbol]
+    VERSION: ::String
+
+    # The Avro record schema of a struct class.
+    # 
+    # _@param_ `klass` — a named +FieldStruct::Base+ subclass
+    # 
+    # _@param_ `serialization` — the +serialize+ format whose names become Avro field names
+    # 
+    # _@param_ `timestamp` — +:micros+, +:nanos+ or +:millis+
+    # 
+    # _@return_ — a fresh Hash
+    def self.schema: (singleton(FieldStruct::Base) klass, ?serialization: (::Symbol | ::String), ?timestamp: ::Symbol) -> ::Hash[::String, ::Object]
+
+    # An instance as the Hash the avro gem writes.
+    # 
+    # _@param_ `struct` — an instance of a struct class
+    # 
+    # _@param_ `serialization`
+    # 
+    # _@param_ `timestamp`
+    def self.to_datum: (FieldStruct::Base struct, ?serialization: (::Symbol | ::String), ?timestamp: ::Symbol) -> ::Hash[::String, ::Object]
+
+    # A struct built from a datum Hash.
+    # 
+    # _@param_ `klass` — a +FieldStruct::Base+ subclass
+    # 
+    # _@param_ `datum` — the Hash the avro gem reads
+    # 
+    # _@param_ `serialization`
+    def self.from_datum: (singleton(FieldStruct::Base) klass, ::Hash[::String, ::Object] datum, ?serialization: (::Symbol | ::String)) -> FieldStruct::Base
+
+    # An instance as Avro binary (one datum, no header or container).
+    # 
+    # _@param_ `struct`
+    # 
+    # _@param_ `serialization`
+    # 
+    # _@param_ `timestamp`
+    # 
+    # _@return_ — binary bytes
+    def self.encode: (FieldStruct::Base struct, ?serialization: (::Symbol | ::String), ?timestamp: ::Symbol) -> ::String
+
+    # A struct read from Avro binary, written with the class's own schema or an older one.
+    # 
+    # _@param_ `klass` — a named +FieldStruct::Base+ subclass
+    # 
+    # _@param_ `bytes`
+    # 
+    # _@param_ `writer_schema` — the schema older bytes were written with: a Hash, a JSON String or a parsed +Avro::Schema+
+    # 
+    # _@param_ `serialization`
+    # 
+    # _@param_ `timestamp`
+    def self.decode: (
+                       singleton(FieldStruct::Base) klass,
+                       ::String bytes,
+                       ?writer_schema: (::Hash[::String, ::Object] | ::String | ::Object)?,
+                       ?serialization: (::Symbol | ::String),
+                       ?timestamp: ::Symbol
+                     ) -> FieldStruct::Base
+
+    # Forgets every cached schema, property list and checked writer schema. The cache keeps classes alive:
+    # under code reloading call this on each reload.
+    def self.clear_cache: () -> void
+
+    # Opt-in: +include FieldStruct::Avro::Methods+ in a struct adds +to_avro_schema+, +to_avro+ and +from_avro+.
+    module Methods
+      # _@param_ `base`
+      def self.included: (::Class base) -> void
+
+      # _@param_ `options` — the options of {FieldStruct::Avro.encode}
+      # 
+      # _@return_ — Avro binary
+      def to_avro: (**::Object options) -> ::String
+
+      # The class-level methods +Methods+ adds.
+      module ClassMethods
+        # _@param_ `options` — the options of {FieldStruct::Avro.schema}
+        # 
+        # _@return_ — see {FieldStruct::Avro.schema}
+        def to_avro_schema: (**::Object options) -> ::Hash[::String, ::Object]
+
+        # _@param_ `bytes` — Avro binary
+        # 
+        # _@param_ `options` — the options of {FieldStruct::Avro.decode}
+        # 
+        # _@return_ — an instance of the class
+        def from_avro: (::String bytes, **::Object options) -> FieldStruct::Base
+      end
+    end
+  end
+end

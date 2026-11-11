@@ -1,0 +1,69 @@
+name: field_struct-avro-native
+
+# Runs when the native encoder, the adapter it wraps, the base gem, or this workflow changes. GitHub-hosted runners only.
+# Precompiled platform gems (rb-sys cross builds) are a follow-up; this only builds from source and tests.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'adapters/field_struct-avro-native/**'
+      - 'adapters/field_struct-avro/**'
+      - 'gems/field_struct/**'
+      - '.github/workflows/field_struct-avro-native.yml'
+  pull_request:
+    paths:
+      - 'adapters/field_struct-avro-native/**'
+      - 'adapters/field_struct-avro/**'
+      - 'gems/field_struct/**'
+      - '.github/workflows/field_struct-avro-native.yml'
+  workflow_dispatch:
+
+# Pull request code runs here, so the token stays read-only.
+permissions:
+  contents: read
+
+concurrency:
+  group: field_struct-avro-native-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: adapters/field_struct-avro-native
+
+jobs:
+  # Compile, specs, field_struct-avro's suite with native on, RuboCop, clippy and cargo test, on every supported Ruby.
+  test:
+    name: Ruby ${{ matrix.ruby }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ['3.3', '3.4', '4.0']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oxidize-rb/actions/setup-ruby-and-rust@ec90b4aa48795518d79be3f5cc478d1d7ccd02a8 # v1.5.0
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+          cargo-cache: true
+          rustup-components: clippy
+          working-directory: adapters/field_struct-avro-native
+      # The upstream task runs field_struct-avro's specs with its own bundle.
+      - run: bundle install
+        working-directory: adapters/field_struct-avro
+      - run: bundle exec rake
+
+  # The one check to require in branch protection: green only when every gating job passed.
+  required:
+    name: field_struct-avro-native (required)
+    if: always()
+    needs: [test]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Every gating job succeeded
+        run: |
+          echo '${{ toJSON(needs) }}'
+          test "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}" = "false"

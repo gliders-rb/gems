@@ -1,0 +1,146 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Runs the runnable Ruby fences of every page.
+#
+#   bin/check-code-blocks                 # every page under src/content/docs
+#   bin/check-code-blocks FILE [FILE...]  # only these pages
+#
+# A fence is runnable when its language is `ruby` and its meta has the word `run`. All runnable blocks of one page
+# run in order in one fresh Ruby process that shares classes, constants and locals. `expr # => expected` lines are
+# assertions. Pages under adapters/ use Gemfile.edge (or $SITE_EDGE_GEMFILE), every other page uses Gemfile.
+require 'English'
+require 'ripper'
+require 'tempfile'
+require 'pathname'
+
+SITE = Pathname.new(__dir__).join('..').expand_path
+DOCS = SITE.join('src/content/docs')
+
+Block = Struct.new(:line, :code)
+
+# Pulls the runnable blocks out of one Markdown or MDX file.
+def extract_blocks(path)
+  blocks = []
+  lines = File.readlines(path, chomp: true)
+  i = 0
+  while i < lines.size
+    if (m = lines[i].match(/\A(\s*)(`{3,}|~{3,})\s*(\w+)?\s*(.*)\z/))
+      indent, fence, lang, meta = m.captures
+      start = i + 1
+      i += 1
+      body = []
+      while i < lines.size && !lines[i].strip.start_with?(fence)
+        body << lines[i].sub(/\A {0,#{indent.size}}/, '')
+        i += 1
+      end
+      runnable = lang == 'ruby' && meta.gsub(/title="[^"]*"/, '').match?(/\brun\b/)
+      blocks << Block.new(start + 1, body.join("\n") + "\n") if runnable
+    end
+    i += 1
+  end
+  blocks
+end
+
+# Marks every `expr # => expected` line as an assertion, keeping line numbers, and drops the ones that do not parse.
+def instrument(code, file, first_line)
+  lines = code.lines
+  comments = Ripper.lex(code).select { |t| t[1] == :on_comment }
+  candidates = comments.filter_map do |(row, col), _, text|
+    next unless (m = text.match(/\A#\s*=>\s*(.*?)\s*\z/))
+
+    before = lines[row - 1][0, col].to_s
+    next if before.strip.empty?
+
+    [row - 1, before, m[1]]
+  end
+  candidates.each do |idx, before, expected|
+    original = lines[idx]
+    lead = before[/\A\s*/]
+    expr = before.strip
+    lines[idx] = "#{lead}__af_assert(#{file.inspect}, #{first_line + idx}, (#{expr}), #{expected.inspect}, binding)\n"
+    lines[idx] = original unless RubyVM::InstructionSequence.compile(lines.join) && true
+  rescue SyntaxError
+    lines[idx] = original
+  end
+  lines.join
+end
+
+DRIVER = <<~'RUBY'
+  require 'field_struct'
+  require 'actionable'
+
+  $af_failures = []
+
+  def __af_assert(file, line, actual, expected_src, bnd)
+    return actual if expected_src.start_with?('#')
+
+    expected = begin
+      eval(expected_src, bnd) # rubocop:disable Security/Eval
+    rescue SyntaxError
+      return actual
+    end
+    unless expected == actual
+      $af_failures << "#{file}:#{line}: documented #{expected.inspect}, got #{actual.inspect}"
+    end
+    actual
+  end
+
+  page, blocks = Marshal.load(File.binread(ARGV.fetch(0)))
+  bnd = binding
+  blocks.each do |first_line, code|
+    eval(code, bnd, page, first_line) # rubocop:disable Security/Eval
+  end
+  $af_failures.each { |f| warn f }
+  exit($af_failures.empty? ? 0 : 1)
+RUBY
+
+def gemfile_for(path)
+  if path.to_s.start_with?("#{DOCS}/adapters/")
+    ENV.fetch('SITE_EDGE_GEMFILE', SITE.join('Gemfile.edge').to_s)
+  else
+    SITE.join('Gemfile').to_s
+  end
+end
+
+def run_page(path)
+  rel = Pathname.new(path).relative_path_from(SITE).to_s
+  blocks = extract_blocks(path)
+  return [0, true] if blocks.empty?
+
+  prepared = blocks.map { |b| [b.line, instrument(b.code, rel, b.line)] }
+  Tempfile.create(['page', '.bin']) do |data|
+    data.binmode
+    data.write(Marshal.dump([rel, prepared]))
+    data.flush
+    Tempfile.create(['driver', '.rb']) do |driver|
+      driver.write(DRIVER)
+      driver.flush
+      env = { 'BUNDLE_GEMFILE' => gemfile_for(path) }
+      ok = system(env, 'bundle', 'exec', 'ruby', driver.path, data.path)
+      [blocks.size, ok]
+    end
+  end
+end
+
+files = ARGV.empty? ? Dir[DOCS.join('**/*.{md,mdx}').to_s].sort : ARGV.map { |f| File.expand_path(f) }
+total = 0
+failed = []
+files.each do |file|
+  count, ok = run_page(file)
+  total += count
+  next if count.zero?
+
+  puts "#{ok ? 'ok  ' : 'FAIL'} #{Pathname.new(file).relative_path_from(SITE)} (#{count} blocks)"
+  failed << file unless ok
+end
+
+if total.zero?
+  warn 'check-code-blocks: no runnable blocks found'
+  exit 1
+end
+if failed.any?
+  warn "check-code-blocks: #{failed.size} page(s) failed"
+  exit 1
+end
+puts "check-code-blocks: #{total} blocks passed"

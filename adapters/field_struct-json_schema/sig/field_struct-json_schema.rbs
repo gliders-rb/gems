@@ -1,0 +1,44 @@
+# The field_struct namespace; this gem adds {JSONSchema}.
+module FieldStruct
+  # JSON Schema generation for field_struct classes.
+  module JSONSchema
+    EMPTY_STRING: ::Hash[::String, ::Object]
+    BLANK_STRING: ::Hash[::String, ::String]
+    DECIMAL_PATTERN: ::String
+    DRAFT: ::String
+    VERSION: ::String
+
+    # The JSON Schema of the JSON +klass+ writes with +to_json+.
+    # 
+    # _@param_ `klass` — a +FieldStruct::Base+ subclass
+    # 
+    # _@param_ `serialization` — the serialization whose +serialize+ names the properties use
+    # 
+    # _@return_ — a fresh deep copy; mutating it changes nothing else
+    def self.generate: (singleton(FieldStruct::Base) klass, ?serialization: (::Symbol | ::String)) -> ::Hash[::String, ::Object]
+
+    # An ECMA-262 pattern matching exactly the strings +regexp+ matches (under the +u+ flag), or nil.
+    # 
+    # _@param_ `regexp`
+    # 
+    # _@return_ — nil when no exact, safe equivalent exists
+    def self.pattern_for: (::Regexp regexp) -> ::String?
+
+    # Empties the schema cache (it holds classes alive: call it on code reload).
+    def self.clear_cache: () -> void
+
+    # Opt-in: adds +to_json_schema+ to a struct class.
+    module Methods
+      # _@param_ `base`
+      def self.included: (::Class base) -> void
+
+      # The class-level method +Methods+ adds.
+      module ClassMethods
+        # _@param_ `serialization` — the serialization whose names the schema uses
+        # 
+        # _@return_ — see {FieldStruct::JSONSchema.generate}
+        def to_json_schema: (?serialization: (::Symbol | ::String)) -> ::Hash[::String, ::Object]
+      end
+    end
+  end
+end

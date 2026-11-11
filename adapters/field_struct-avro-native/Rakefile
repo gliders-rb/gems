@@ -1,0 +1,51 @@
+# frozen_string_literal: true
+
+require 'bundler/gem_tasks'
+require 'rb_sys/extensiontask'
+
+# The cross-compile container (rb-sys-dock) has no rspec or rubocop; `rake native:<platform> gem` only needs the above.
+begin
+  require 'rspec/core/rake_task'
+  require 'rubocop/rake_task'
+rescue LoadError
+  nil
+end
+
+Bundler::GemHelper.tag_prefix = 'field_struct-avro-native/'
+
+GEMSPEC = Gem::Specification.load(File.expand_path('field_struct-avro-native.gemspec', __dir__))
+
+RbSys::ExtensionTask.new('field_struct_avro_native', GEMSPEC) do |ext|
+  ext.lib_dir = 'lib/field_struct/avro'
+  ext.ext_dir = 'ext/field_struct_avro_native'
+  # Precompiled platform gems (spec decision R1): `bundle exec rake native:<platform> gem` inside rb-sys-dock, or
+  # `bundle exec rb-sys-dock --platform <platform> --ruby-versions 3.3,3.4,4.0 --build`. The result lands in pkg/.
+  ext.cross_compile = true
+  ext.cross_platform = %w[x86_64-linux aarch64-linux arm64-darwin]
+end
+
+# The doctests start a Ruby process per example block; they run in release:check (docs:test).
+if defined?(RSpec::Core::RakeTask)
+  RSpec::Core::RakeTask.new(:spec) { |task| task.rspec_opts = '--tag ~doctest' }
+  RuboCop::RakeTask.new(:rubocop)
+end
+
+namespace :cargo do
+  desc 'Clippy on both crates, warnings as errors'
+  task(:clippy) { sh 'cargo clippy --workspace --all-targets -- -D warnings' }
+
+  desc 'Unit tests of the Ruby-free kernel crate (the extension crate links against Ruby and has none)'
+  task(:test) { sh 'cargo test -p field_struct_avro_kernel' }
+end
+
+desc "field_struct-avro's whole spec suite with the native encoder loaded"
+task :upstream do
+  Bundler.with_unbundled_env do
+    sh({ 'FIELD_STRUCT_AVRO_NATIVE' => '1' }, 'bundle exec rspec', chdir: File.expand_path('../field_struct-avro', __dir__))
+  end
+end
+
+task spec: :compile
+task upstream: :compile
+task 'docs:test': :compile
+task default: %i[compile spec upstream rubocop cargo:clippy cargo:test]

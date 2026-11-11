@@ -1,0 +1,98 @@
+[
+  {
+    "gem": "field_struct-avro",
+    "workload": "schema (cached)",
+    "items": 1,
+    "yjit": true,
+    "ips": 78601.27534113386,
+    "stddev_pct": 1.2913276477955913,
+    "allocs_per_call": 272.005,
+    "us_per_item": 12.72243987975952,
+    "allocs_per_item": 272.005,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "field_struct-avro",
+    "workload": "schema (cold: cache cleared)",
+    "items": 1,
+    "yjit": true,
+    "ips": 12883.902667809614,
+    "stddev_pct": 1.9636907117601843,
+    "allocs_per_call": 1091.095,
+    "us_per_item": 77.61623366641045,
+    "allocs_per_item": 1091.095,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "field_struct-avro",
+    "workload": "to_datum",
+    "items": 1,
+    "yjit": true,
+    "ips": 38968.70856817495,
+    "stddev_pct": 4.544672033207546,
+    "allocs_per_call": 374.0,
+    "us_per_item": 25.66161509433962,
+    "allocs_per_item": 374.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "field_struct-avro",
+    "workload": "from_datum",
+    "items": 1,
+    "yjit": true,
+    "ips": 17837.256869572313,
+    "stddev_pct": 2.3097721976679626,
+    "allocs_per_call": 524.0,
+    "us_per_item": 56.0624319822321,
+    "allocs_per_item": 524.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "field_struct-avro",
+    "workload": "encode, 1 order",
+    "items": 1,
+    "yjit": true,
+    "ips": 17669.9693227757,
+    "stddev_pct": 2.1901566037309217,
+    "allocs_per_call": 671.0,
+    "us_per_item": 56.59319389485585,
+    "allocs_per_item": 671.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "field_struct-avro",
+    "workload": "decode, 1 order",
+    "items": 1,
+    "yjit": true,
+    "ips": 13368.62134869005,
+    "stddev_pct": 2.431065938088266,
+    "allocs_per_call": 622.0,
+    "us_per_item": 74.80202886425434,
+    "allocs_per_item": 622.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "field_struct-avro",
+    "workload": "encode, 1000 orders",
+    "items": 1000,
+    "yjit": true,
+    "ips": 17.480704678988708,
+    "stddev_pct": 0.0,
+    "allocs_per_call": 670936.0,
+    "us_per_item": 57.205931818181824,
+    "allocs_per_item": 670.936,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "field_struct-avro",
+    "workload": "decode, 1000 orders",
+    "items": 1000,
+    "yjit": true,
+    "ips": 13.391228745171912,
+    "stddev_pct": 0.0,
+    "allocs_per_call": 622000.0,
+    "us_per_item": 74.67574626865671,
+    "allocs_per_item": 622.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [arm64-darwin23]"
+  }
+]

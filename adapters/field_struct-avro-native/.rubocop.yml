@@ -1,0 +1,15 @@
+inherit_from: ../../.rubocop.yml
+
+AllCops:
+  Exclude:
+    - 'vendor/**/*'
+    - 'tmp/**/*'
+    - 'target/**/*'
+
+# The shared Exclude globs are relative to the repo root, so repeat them for this gem directory.
+Metrics/BlockLength:
+  Exclude:
+    - 'spec/**/*'
+    - '*.gemspec'
+    - 'Rakefile'
+    - 'rakelib/**/*'

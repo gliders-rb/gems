@@ -1,0 +1,21 @@
+# frozen_string_literal: true
+
+# Bundle for pages under adapters/. No lockfile is committed, so unreleased adapter code is always checked
+# against what is in the repo. Set SITE_EDGE_GEMFILE to point the checker at another Gemfile.
+# Delete this file when the adapters ship and their pages move to the main Gemfile.
+source 'https://rubygems.org'
+
+gem 'actionable-rb', path: '../gems/actionable'
+gem 'actionable-otel', path: '../adapters/actionable-otel'
+gem 'actionable-tools', path: '../adapters/actionable-tools'
+gem 'field_struct', path: '../gems/field_struct'
+gem 'field_struct-avro', path: '../adapters/field_struct-avro'
+gem 'field_struct-json_schema', path: '../adapters/field_struct-json_schema'
+gem 'field_struct-protobuf', path: '../adapters/field_struct-protobuf'
+
+# Libraries the adapter pages use: a validator for the JSON Schema page, the in-memory exporter for the
+# OpenTelemetry page, and the two tool libraries the tools page wraps.
+gem 'json_schemer', '~> 2.5'
+gem 'mcp', '~> 1.8'
+gem 'opentelemetry-sdk', '~> 1.13'
+gem 'ruby_llm', '~> 2.1'

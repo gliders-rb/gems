@@ -1,0 +1,10 @@
+# frozen_string_literal: true
+
+# Bundle for the pages that document the gems in this repo. The checker runs them against the local sources.
+source 'https://rubygems.org'
+
+gem 'actionable-rb', path: '../gems/actionable'
+gem 'field_struct', path: '../gems/field_struct'
+
+# Extra libraries that how-to pages need. Ruby 4 no longer ships logger as a default gem.
+gem 'logger'

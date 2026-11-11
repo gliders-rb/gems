@@ -1,0 +1,131 @@
+# The actionable-rb namespace; this gem adds {Tools}.
+module Actionable
+  # Expose actions as LLM tools.
+  module Tools
+    RESULT_KEYS: ::Array[::String]
+    VERSION: ::String
+
+    # Builds the tool description of one named action.
+    # 
+    # _@param_ `action` — an +Actionable::Action+ subclass with an +input+ block
+    # 
+    # _@param_ `description` — what the tool does, written for a model
+    # 
+    # _@param_ `name` — the tool name; defaults to the action's snake-cased class name
+    # 
+    # _@param_ `context` — input fields the server fills in, each from a proc taking the source
+    # 
+    # _@param_ `annotations` — behaviour hints (MCP: read_only, destructive, idempotent, open_world)
+    def self.definition: (
+                           Class action,
+                           description: ::String,
+                           ?name: ::String?,
+                           ?context: ::Hash[::Symbol, ::Proc],
+                           ?annotations: ::Hash[::Symbol, bool]
+                         ) -> Actionable::Tools::Definition
+
+    # Wraps a {Definition} as an +MCP::Tool+ subclass for the MCP Ruby SDK.
+    module MCP
+      HINTS: ::Hash[::Symbol, ::Symbol]
+
+      # Builds the tool class of one action.
+      # 
+      # _@param_ `action` — an +Actionable::Action+ subclass
+      # 
+      # _@param_ `options` — the keywords of {Tools.definition}
+      # 
+      # _@return_ — an +MCP::Tool+ subclass
+      def self.tool: (Class action, **Object options) -> Class
+
+      # Builds the tool class of a definition.
+      # 
+      # _@param_ `definition`
+      # 
+      # _@return_ — an +MCP::Tool+ subclass
+      def self.from: (Actionable::Tools::Definition definition) -> Class
+
+      # Maps annotation hints to the SDK's keywords.
+      # 
+      # _@param_ `hints`
+      # 
+      # _@return_ — nil when there are no hints
+      def self.annotations: (::Hash[::Symbol, bool] hints) -> ::Hash[::Symbol, bool]?
+    end
+
+    # Wraps a {Definition} as a +RubyLLM::Tool+ subclass.
+    module RubyLLM
+      # Builds the tool class of one action.
+      # 
+      # _@param_ `action` — an +Actionable::Action+ subclass
+      # 
+      # _@param_ `approval` — true makes the chat pause for a decision before the tool runs
+      # 
+      # _@param_ `options` — the keywords of {Tools.definition}
+      # 
+      # _@return_ — a +RubyLLM::Tool+ subclass; construct it with the source handed to the context procs
+      def self.tool: (Class action, ?approval: bool, **Object options) -> Class
+
+      # Builds the tool class of a definition.
+      # 
+      # _@param_ `definition`
+      # 
+      # _@param_ `approval`
+      # 
+      # _@return_ — a +RubyLLM::Tool+ subclass
+      def self.from: (Actionable::Tools::Definition definition, ?approval: bool) -> Class
+    end
+
+    # Form-neutral description of one action as a tool: name, description, annotations, schemas and +call+.
+    # Immutable once built (AT-I7).
+    class Definition
+      # _@param_ `action` — an +Actionable::Action+ subclass
+      # 
+      # _@param_ `description`
+      # 
+      # _@param_ `name`
+      # 
+      # _@param_ `context`
+      # 
+      # _@param_ `annotations` — frozen in place (the caller's Hash)
+      def initialize: (
+                        Class action,
+                        description: ::String,
+                        name: ::String?,
+                        context: ::Hash[::Symbol, ::Proc],
+                        annotations: ::Hash[::Symbol, bool]
+                      ) -> void
+
+      # Runs the action for a model's arguments and returns the six-key result envelope (AT-B20, AT-B21). Exceptions
+      # the action raises propagate (AT-B22).
+      # 
+      # _@param_ `arguments` — what the model sent, under external (JSON) names
+      # 
+      # _@param_ `source` — handed to each context proc
+      # 
+      # _@return_ — status, code, message, output, errors, metadata
+      def call: (::Hash[::Object, ::Object] arguments, ?Object? source) -> ::Hash[::String, ::Object]
+
+      # _@param_ `result` — an envelope from {#call}
+      # 
+      # _@return_ — true only for a failure (a skip is not an error)
+      def error?: (::Hash[::String, ::Object] result) -> bool
+
+      # _@return_ — the action
+      attr_reader action: Class
+
+      attr_reader name: ::String
+
+      # _@return_ — as given, not stripped
+      attr_reader description: ::String
+
+      # _@return_ — frozen
+      attr_reader annotations: ::Hash[::Symbol, bool]
+
+      # _@return_ — JSON Schema of the arguments the model sends; frozen (shallowly)
+      attr_reader input_schema: ::Hash[::String, ::Object]
+
+      # _@return_ — JSON Schema of the result envelope {Tools::RESULT_KEYS}; frozen (shallowly)
+      attr_reader output_schema: ::Hash[::String, ::Object]
+    end
+  end
+end

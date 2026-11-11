@@ -1,0 +1,12 @@
+# frozen_string_literal: true
+
+# The report-only types lane (rake types:report). Steep 2.1 needs Ruby 3.3 or newer.
+source 'https://rubygems.org'
+
+gemspec path: '..'
+
+gem 'field_struct', path: '../../field_struct'
+
+gem 'rake', '~> 13.0'
+gem 'rbs', '>= 3.0'
+gem 'steep', '~> 2.1'

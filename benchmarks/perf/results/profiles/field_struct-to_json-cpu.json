@@ -1,0 +1,90 @@
+{
+  "gem": "field_struct",
+  "workload": "to_json",
+  "mode": "cpu",
+  "yjit": true,
+  "samples": 13985,
+  "gc_wall_pct": 9.8,
+  "top": [
+    {
+      "name": "FieldStruct::JsonCodec.convert",
+      "file": "gems/field_struct/lib/field_struct/json_codec.rb",
+      "line": 48,
+      "self_pct": 71.9,
+      "total_pct": 91.9,
+      "hot_line": 50
+    },
+    {
+      "name": "BigDecimal#to_s",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 11.0,
+      "total_pct": 11.0,
+      "hot_line": null
+    },
+    {
+      "name": "Oj.dump",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 2.7,
+      "total_pct": 4.4,
+      "hot_line": null
+    },
+    {
+      "name": "FieldStruct::Types::Rfc3339Format#render",
+      "file": "gems/field_struct/lib/field_struct/types/rfc3339_format.rb",
+      "line": 40,
+      "self_pct": 2.4,
+      "total_pct": 3.5,
+      "hot_line": 44
+    },
+    {
+      "name": "Enumerable#to_h",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 1.9,
+      "total_pct": 95.4,
+      "hot_line": null
+    },
+    {
+      "name": "Float#to_s",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 1.7,
+      "total_pct": 1.7,
+      "hot_line": null
+    },
+    {
+      "name": "Array#map",
+      "file": "<internal:array>",
+      "line": 237,
+      "self_pct": 1.3,
+      "total_pct": 55.6,
+      "hot_line": 246
+    },
+    {
+      "name": "Kernel#public_send",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 1.1,
+      "total_pct": 2.2,
+      "hot_line": null
+    },
+    {
+      "name": "Kernel#format",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 1.1,
+      "total_pct": 1.1,
+      "hot_line": null
+    },
+    {
+      "name": "FieldStruct::JsonCodec.as_json",
+      "file": "gems/field_struct/lib/field_struct/json_codec.rb",
+      "line": 13,
+      "self_pct": 1.0,
+      "total_pct": 95.4,
+      "hot_line": 17
+    }
+  ]
+}

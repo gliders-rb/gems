@@ -1,0 +1,90 @@
+{
+  "gem": "field_struct-avro",
+  "workload": "schema (cold: cache cleared)",
+  "mode": "cpu",
+  "yjit": true,
+  "samples": 14181,
+  "gc_wall_pct": 14.8,
+  "top": [
+    {
+      "name": "FieldStruct::Avro::Entry.deep_copy",
+      "file": "adapters/field_struct-avro/lib/field_struct/avro/entry.rb",
+      "line": 37,
+      "self_pct": 39.8,
+      "total_pct": 45.0,
+      "hot_line": 41
+    },
+    {
+      "name": "JSON::Ext::Parser.parse",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 6.8,
+      "total_pct": 6.8,
+      "hot_line": null
+    },
+    {
+      "name": "Symbol#to_s",
+      "file": "<internal:symbol>",
+      "line": 10,
+      "self_pct": 4.0,
+      "total_pct": 4.0,
+      "hot_line": 12
+    },
+    {
+      "name": "FieldStruct::Avro::Trail#label",
+      "file": "adapters/field_struct-avro/lib/field_struct/avro/trail.rb",
+      "line": 45,
+      "self_pct": 4.0,
+      "total_pct": 9.9,
+      "hot_line": 46
+    },
+    {
+      "name": "Array#map",
+      "file": "<internal:array>",
+      "line": 237,
+      "self_pct": 3.7,
+      "total_pct": 67.9,
+      "hot_line": 246
+    },
+    {
+      "name": "Avro::Schema.real_parse",
+      "file": "gems/avro-1.12.2/lib/avro/schema.rb",
+      "line": 49,
+      "self_pct": 3.4,
+      "total_pct": 16.2,
+      "hot_line": 112
+    },
+    {
+      "name": "Array#join",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 3.1,
+      "total_pct": 6.0,
+      "hot_line": null
+    },
+    {
+      "name": "String#split",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 2.8,
+      "total_pct": 2.8,
+      "hot_line": null
+    },
+    {
+      "name": "FieldStruct::Avro::ScalarTypes#call",
+      "file": "adapters/field_struct-avro/lib/field_struct/avro/scalar_types.rb",
+      "line": 30,
+      "self_pct": 2.2,
+      "total_pct": 4.2,
+      "hot_line": 35
+    },
+    {
+      "name": "String#=~",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 2.1,
+      "total_pct": 2.1,
+      "hot_line": null
+    }
+  ]
+}

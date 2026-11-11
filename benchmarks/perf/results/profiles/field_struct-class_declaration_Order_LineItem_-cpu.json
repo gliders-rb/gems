@@ -1,0 +1,90 @@
+{
+  "gem": "field_struct",
+  "workload": "class declaration (Order + LineItem)",
+  "mode": "cpu",
+  "yjit": true,
+  "samples": 15098,
+  "gc_wall_pct": 19.6,
+  "top": [
+    {
+      "name": "Module#define_method",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 22.1,
+      "total_pct": 22.1,
+      "hot_line": null
+    },
+    {
+      "name": "String#split",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 12.6,
+      "total_pct": 12.6,
+      "hot_line": null
+    },
+    {
+      "name": "Method#parameters",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 9.1,
+      "total_pct": 9.1,
+      "hot_line": null
+    },
+    {
+      "name": "Array#[]",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 5.4,
+      "total_pct": 5.4,
+      "hot_line": null
+    },
+    {
+      "name": "FieldStruct::Types::Base.instantiate",
+      "file": "gems/field_struct/lib/field_struct/types/base.rb",
+      "line": 51,
+      "self_pct": 5.3,
+      "total_pct": 5.4,
+      "hot_line": 52
+    },
+    {
+      "name": "PerfModel.order",
+      "file": "benchmarks/perf/order_model.rb",
+      "line": 29,
+      "self_pct": 4.3,
+      "total_pct": 77.7,
+      "hot_line": 30
+    },
+    {
+      "name": "Hash#merge",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 3.8,
+      "total_pct": 3.8,
+      "hot_line": null
+    },
+    {
+      "name": "FieldStruct::FieldBuilder.call",
+      "file": "gems/field_struct/lib/field_struct/field_builder.rb",
+      "line": 15,
+      "self_pct": 3.5,
+      "total_pct": 54.7,
+      "hot_line": 24
+    },
+    {
+      "name": "FieldStruct::FieldBuilder.resolve_type",
+      "file": "gems/field_struct/lib/field_struct/field_builder.rb",
+      "line": 70,
+      "self_pct": 3.2,
+      "total_pct": 11.9,
+      "hot_line": 77
+    },
+    {
+      "name": "FieldStruct::Field#setter_name",
+      "file": "gems/field_struct/lib/field_struct/field.rb",
+      "line": 79,
+      "self_pct": 2.8,
+      "total_pct": 2.8,
+      "hot_line": 80
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+--no-private
+--markup markdown
+--exclude lib/actionable/tools/envelope.rb
+--exclude lib/actionable/tools/input_schema.rb
+--exclude lib/actionable/tools/output_schema.rb
+lib/**/*.rb
+-
+README.md
+CHANGELOG.md

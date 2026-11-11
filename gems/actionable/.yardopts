@@ -1,0 +1,8 @@
+--no-private
+--markup markdown
+lib/**/*.rb
+-
+README.md
+USAGE.md
+docs/getting_started.md
+CHANGELOG.md

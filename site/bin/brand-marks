@@ -1,0 +1,90 @@
+#!/usr/bin/env node
+// Draws the placeholder brand marks from a few geometry constants.
+// Run from site/: bin/brand-marks. Writes SVGs and PNGs to src/assets/brand and public/brand.
+import { mkdirSync, writeFileSync } from 'node:fs';
+import sharp from 'sharp';
+
+const STROKE = 3.4;
+const ORBIT = 36;
+const NODE_R = 6.5;
+const CORE_R = 15;
+const GAP = 9; // degrees trimmed from each end of an arc so it meets a node's side
+const ANGLES = [-90, 30, 150];
+const GARNET = '#e0456b';
+const SLATE = '#7d8cc2';
+
+const rad = (d) => (d * Math.PI) / 180;
+const pt = (cx, cy, r, a) => [cx + r * Math.cos(rad(a)), cy + r * Math.sin(rad(a))];
+const f = (n) => Number(n.toFixed(2));
+const hex = (cx, cy, r) =>
+  Array.from({ length: 6 }, (_, i) => pt(cx, cy, r, 60 * i - 90).map(f).join(',')).join(' ');
+
+function core(kind, ink, small) {
+  if (kind === 'actionable') {
+    const [x1, y1] = pt(50, 50, 8, 0);
+    const [x2, y2] = pt(50, 50, 8, 120);
+    const [x3, y3] = pt(50, 50, 8, 240);
+    return `<polygon points="${[x1, y1, x2, y2, x3, y3].map(f).join(' ')}" fill="${ink}"/>`;
+  }
+  const rows = [-7, 0, 7];
+  return rows
+    .map((dy) => {
+      const y = 50 + dy;
+      const line = `<line x1="${small ? 41 : 50}" y1="${y}" x2="57" y2="${y}" stroke="${ink}" stroke-width="${small ? 2.6 : 2.2}" stroke-linecap="round"/>`;
+      return small ? line : `<rect x="42" y="${y - 2}" width="4" height="4" rx="0.8" fill="${ink}"/>` + line;
+    })
+    .join('');
+}
+
+function mark(kind, { outline, node, ink, small = false }) {
+  if (small) {
+    return `<polygon points="${hex(50, 50, 42)}" fill="none" stroke="${outline}" stroke-width="9" stroke-linejoin="round"/>${core(kind, ink, true)}`;
+  }
+  const arcs = ANGLES.map((a) => {
+    const [sx, sy] = pt(50, 50, ORBIT, a + GAP);
+    const [ex, ey] = pt(50, 50, ORBIT, a + 120 - GAP);
+    return `<path d="M${f(sx)} ${f(sy)} A${ORBIT} ${ORBIT} 0 0 1 ${f(ex)} ${f(ey)}" fill="none" stroke="${outline}" stroke-width="${STROKE}" stroke-linecap="round"/>`;
+  }).join('');
+  const nodes = ANGLES.map((a) => {
+    const [x, y] = pt(50, 50, ORBIT, a);
+    return `<polygon points="${hex(x, y, NODE_R)}" fill="${node}"/>`;
+  }).join('');
+  const center = `<polygon points="${hex(50, 50, CORE_R)}" fill="none" stroke="${outline}" stroke-width="${STROKE}" stroke-linejoin="round"/>`;
+  return arcs + nodes + center + core(kind, ink, false);
+}
+
+const svg = (w, h, body, title) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img"><title>${title}</title>${body}</svg>\n`;
+
+const colour = { outline: GARNET, node: GARNET, ink: SLATE };
+const mono = { outline: 'currentColor', node: 'currentColor', ink: 'currentColor' };
+
+const files = {
+  'actionable-mark.svg': svg(100, 100, mark('actionable', colour), 'actionable'),
+  'field-struct-mark.svg': svg(100, 100, mark('field', colour), 'field_struct'),
+  'actionable-mark-mono.svg': svg(100, 100, mark('actionable', mono), 'actionable'),
+  'field-struct-mark-mono.svg': svg(100, 100, mark('field', mono), 'field_struct'),
+  'favicon.svg': svg(100, 100, mark('field', colour, true).replaceAll(GARNET, '#e0456b'), 'field_struct'),
+  'pair.svg': svg(
+    210,
+    100,
+    `<g>${mark('field', colour)}</g><g transform="translate(110 0)">${mark('actionable', colour)}</g>`,
+    'field_struct and actionable',
+  ),
+};
+
+for (const dir of ['src/assets/brand', 'public/brand']) {
+  mkdirSync(dir, { recursive: true });
+  for (const [name, body] of Object.entries(files)) writeFileSync(`${dir}/${name}`, body);
+}
+
+const png = async (name, size, src, pad = 0) => {
+  const inner = size - pad * 2;
+  const img = await sharp(Buffer.from(files[src]), { density: 300 }).resize(inner, inner).png().toBuffer();
+  const base = sharp({ create: { width: size, height: size, channels: 4, background: pad ? '#0e1120' : { r: 0, g: 0, b: 0, alpha: 0 } } });
+  await base.composite([{ input: img, top: pad, left: pad }]).png().toFile(`public/brand/${name}`);
+};
+await png('field-struct-mark-512.png', 512, 'field-struct-mark.svg');
+await png('actionable-mark-512.png', 512, 'actionable-mark.svg');
+await png('apple-touch-icon.png', 180, 'field-struct-mark.svg', 20);
+console.log('brand marks written');

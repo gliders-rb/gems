@@ -1,0 +1,140 @@
+/* Theme sheet. Palette values are fixed; everything else here is layout of the file. */
+
+/* ---- typography ---- */
+
+:root {
+  --af-font-code: 'JetBrains Mono Variable', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --af-font-body: 'Instrument Sans Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --af-font-display: 'Bricolage Grotesque Variable', 'Avenir Next', 'Segoe UI', system-ui, sans-serif;
+  --sl-font-system-mono: var(--af-font-code);
+  --sl-font: var(--af-font-body);
+}
+
+h1,
+h2,
+h3,
+h4,
+.site-title,
+.hero h1 {
+  font-weight: 700;
+  font-family: var(--af-font-display);
+  letter-spacing: -0.02em;
+}
+
+h1,
+#_top {
+  letter-spacing: -0.03em;
+}
+
+/* Ligatures stay off in code so `=>` and `!=` read literally. */
+code,
+pre,
+kbd,
+samp,
+.expressive-code {
+  font-feature-settings: 'liga' 0, 'calt' 0;
+  font-variant-ligatures: none;
+  font-family: var(--af-font-code);
+}
+
+/* ---- dark scheme (the default) ---- */
+
+:root {
+  /* project tokens */
+  --af-spark: #ff7d98;
+  --af-result: #7ee0b4;
+  --af-success: #8fe3b0;
+  --af-success-bg: #12301f;
+  --af-failure: #ffb0bf;
+  --af-failure-bg: #3d1222;
+  --af-skipped: #c4cadf;
+  --af-skipped-bg: #232944;
+
+  /* Starlight ramp, darkest to lightest */
+  --sl-color-black: #0e1120;
+  --sl-color-gray-7: #151a2c;
+  --sl-color-gray-6: #232944;
+  --sl-color-gray-5: #3a4163;
+  --sl-color-gray-4: #7882aa;
+  --sl-color-gray-3: #99a1c0;
+  --sl-color-gray-2: #c4cadf;
+  --sl-color-gray-1: #e1e5f2;
+  --sl-color-white: #f2f4fb;
+
+  /* accent */
+  --sl-color-accent-low: #3d1222;
+  --sl-color-accent: #ff7d98;
+  --sl-color-accent-high: #ffc2cf;
+}
+
+/* ---- light scheme ---- */
+
+:root[data-theme='light'] {
+  --af-spark: #a8133a;
+  --af-result: #0b6b3a;
+  --af-success: #0b5a2c;
+  --af-success-bg: #dff4e7;
+  --af-failure: #8c1030;
+  --af-failure-bg: #fbe7ec;
+  --af-skipped: #2d3552;
+  --af-skipped-bg: #e4e8f3;
+
+  --sl-color-black: #fbfbfe;
+  --sl-color-gray-7: #f2f4fb;
+  --sl-color-gray-6: #e4e8f3;
+  --sl-color-gray-5: #c3c9de;
+  --sl-color-gray-4: #5f6889;
+  --sl-color-gray-3: #4a5273;
+  --sl-color-gray-2: #2d3552;
+  --sl-color-gray-1: #1b2033;
+  --sl-color-white: #0f1322;
+
+  --sl-color-accent-low: #fbe7ec;
+  --sl-color-accent: #a8133a;
+  --sl-color-accent-high: #7a0d2a;
+}
+
+/* ---- components ---- */
+
+/* Small rounded square ahead of each h2 in prose pages. */
+.sl-markdown-content h2::before {
+  content: '';
+  display: inline-block;
+  vertical-align: 0.12em;
+  margin-inline-end: 0.5em;
+  width: 0.4em;
+  height: 0.4em;
+  border-radius: 0.12em;
+  background: var(--af-spark);
+}
+
+/* `# =>` results (SI-B9): upright, in the result colour. */
+.expressive-code .af-result,
+.expressive-code .af-result * {
+  font-style: normal !important;
+  color: var(--af-result) !important;
+}
+
+/* Outcome badges: the word is always there, colour only reinforces it. */
+.af-badge {
+  display: inline-block;
+  padding: 0.05em 0.55em;
+  border-radius: 0.375rem;
+  font-weight: 600;
+  font-size: var(--sl-text-sm);
+}
+
+.af-badge.skipped {
+  background: var(--af-skipped-bg);
+  color: var(--af-skipped);
+}
+
+.af-badge.failure {
+  background: var(--af-failure-bg);
+  color: var(--af-failure);
+}
+
+.af-badge.success {
+  background: var(--af-success-bg);
+  color: var(--af-success);
+}

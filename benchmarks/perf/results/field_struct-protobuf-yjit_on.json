@@ -1,0 +1,122 @@
+[
+  {
+    "gem": "field_struct-protobuf",
+    "workload": "to_message, 1 order",
+    "items": 1,
+    "yjit": true,
+    "ips": 55310.63042661484,
+    "stddev_pct": 3.5110791271428567,
+    "allocs_per_call": 184.005,
+    "us_per_item": 18.079707142857142,
+    "allocs_per_item": 184.005,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "field_struct-protobuf",
+    "workload": "from_message, 1 order",
+    "items": 1,
+    "yjit": true,
+    "ips": 20402.703318495725,
+    "stddev_pct": 2.666313338521401,
+    "allocs_per_call": 420.07,
+    "us_per_item": 49.013112840466924,
+    "allocs_per_item": 420.07,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "field_struct-protobuf",
+    "workload": "encode, 1 order",
+    "items": 1,
+    "yjit": true,
+    "ips": 53601.36270467739,
+    "stddev_pct": 3.177158031191979,
+    "allocs_per_call": 185.0,
+    "us_per_item": 18.656242109171927,
+    "allocs_per_item": 185.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "field_struct-protobuf",
+    "workload": "decode, 1 order",
+    "items": 1,
+    "yjit": true,
+    "ips": 18958.891931806775,
+    "stddev_pct": 3.2544096048402347,
+    "allocs_per_call": 439.0,
+    "us_per_item": 52.7456986197769,
+    "allocs_per_item": 439.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "field_struct-protobuf",
+    "workload": "to_message, 1000 orders",
+    "items": 1000,
+    "yjit": true,
+    "ips": 53.961805833830816,
+    "stddev_pct": 3.706325185185185,
+    "allocs_per_call": 184000.0,
+    "us_per_item": 18.531625925925923,
+    "allocs_per_item": 184.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "field_struct-protobuf",
+    "workload": "from_message, 1000 orders",
+    "items": 1000,
+    "yjit": true,
+    "ips": 19.3267285068847,
+    "stddev_pct": 0.0,
+    "allocs_per_call": 424666.6666666667,
+    "us_per_item": 51.74181443298969,
+    "allocs_per_item": 424.6666666666667,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "field_struct-protobuf",
+    "workload": "encode, 1000 orders",
+    "items": 1000,
+    "yjit": true,
+    "ips": 52.41469954365459,
+    "stddev_pct": 3.815723484848485,
+    "allocs_per_call": 185000.0,
+    "us_per_item": 19.078617424242424,
+    "allocs_per_item": 185.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "field_struct-protobuf",
+    "workload": "decode, 1000 orders",
+    "items": 1000,
+    "yjit": true,
+    "ips": 18.915907441876396,
+    "stddev_pct": 5.286555789473684,
+    "allocs_per_call": 439000.0,
+    "us_per_item": 52.86555789473684,
+    "allocs_per_item": 439.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "field_struct-protobuf",
+    "workload": "reference: raw message encode (google-protobuf only)",
+    "items": 1,
+    "yjit": true,
+    "ips": 3617536.4464867553,
+    "stddev_pct": 2.715162692981029,
+    "allocs_per_call": 1.0,
+    "us_per_item": 0.2764312163243498,
+    "allocs_per_item": 1.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "field_struct-protobuf",
+    "workload": "reference: raw message decode (google-protobuf only)",
+    "items": 1,
+    "yjit": true,
+    "ips": 1373025.2725091563,
+    "stddev_pct": 3.227835706112573,
+    "allocs_per_call": 3.0,
+    "us_per_item": 0.7283187134440247,
+    "allocs_per_item": 3.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [arm64-darwin23]"
+  }
+]

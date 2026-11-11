@@ -1,0 +1,74 @@
+[
+  {
+    "gem": "actionable-tools",
+    "workload": "Definition build (cold: schema + envelope)",
+    "items": 1,
+    "yjit": false,
+    "ips": 43546.11913302509,
+    "stddev_pct": 1.9519535079656862,
+    "allocs_per_call": 218.005,
+    "us_per_item": 22.964158917243367,
+    "allocs_per_item": 218.005,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "actionable-tools",
+    "workload": "call, success",
+    "items": 1,
+    "yjit": false,
+    "ips": 27966.540204998597,
+    "stddev_pct": 2.5995349967174692,
+    "allocs_per_call": 159.0,
+    "us_per_item": 35.757015085522276,
+    "allocs_per_item": 159.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "actionable-tools",
+    "workload": "call, declared failure",
+    "items": 1,
+    "yjit": false,
+    "ips": 25578.53376336977,
+    "stddev_pct": 2.9868795728006146,
+    "allocs_per_call": 164.0,
+    "us_per_item": 39.09528236650019,
+    "allocs_per_item": 164.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "actionable-tools",
+    "workload": "call, invalid input",
+    "items": 1,
+    "yjit": false,
+    "ips": 38504.215416617786,
+    "stddev_pct": 2.9139666601692737,
+    "allocs_per_call": 115.0,
+    "us_per_item": 25.97118235444986,
+    "allocs_per_item": 115.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "actionable-tools",
+    "workload": "MCP round trip: server.handle(tools/call)",
+    "items": 1,
+    "yjit": false,
+    "ips": 13272.542838669562,
+    "stddev_pct": 3.1945649387144996,
+    "allocs_per_call": 280.0,
+    "us_per_item": 75.34351270553066,
+    "allocs_per_item": 280.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "actionable-tools",
+    "workload": "MCP round trip, JSON in/out (parse + handle + dump)",
+    "items": 1,
+    "yjit": false,
+    "ips": 13060.607334024244,
+    "stddev_pct": 2.3965194879154077,
+    "allocs_per_call": 295.0,
+    "us_per_item": 76.56611782477341,
+    "allocs_per_item": 295.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +PRISM [arm64-darwin23]"
+  }
+]

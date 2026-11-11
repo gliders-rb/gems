@@ -1,0 +1,38 @@
+[
+  {
+    "gem": "actionable-otel-untraced",
+    "workload": "5-step run, success",
+    "items": 1,
+    "yjit": true,
+    "ips": 82829.73939234328,
+    "stddev_pct": 2.4737491811901173,
+    "allocs_per_call": 124.005,
+    "us_per_item": 12.072958424549133,
+    "allocs_per_item": 124.005,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "actionable-otel-untraced",
+    "workload": "5-step run, declared failure",
+    "items": 1,
+    "yjit": true,
+    "ips": 74841.29202385544,
+    "stddev_pct": 2.299532722459463,
+    "allocs_per_call": 123.0,
+    "us_per_item": 13.361607916673233,
+    "allocs_per_item": 123.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "actionable-otel-untraced",
+    "workload": "nested action run",
+    "items": 1,
+    "yjit": true,
+    "ips": 45463.04338704057,
+    "stddev_pct": 2.6681011864370054,
+    "allocs_per_call": 181.0,
+    "us_per_item": 21.99588776947243,
+    "allocs_per_item": 181.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [arm64-darwin23]"
+  }
+]

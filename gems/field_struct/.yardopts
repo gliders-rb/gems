@@ -1,0 +1,17 @@
+--no-private
+--markup markdown
+--exclude lib/field_struct/describer.rb
+--exclude lib/field_struct/json_codec.rb
+--exclude lib/field_struct/option_checker.rb
+--exclude lib/field_struct/field_builder.rb
+--exclude lib/field_struct/restrictions.rb
+--exclude lib/field_struct/types/rfc3339_format.rb
+--exclude lib/field_struct/types/zone.rb
+--exclude lib/field_struct/types/element_options.rb
+--exclude lib/field_struct/types/preset_resolver.rb
+lib/**/*.rb
+-
+README.md
+USAGE.md
+docs/getting_started.md
+CHANGELOG.md

@@ -1,0 +1,27 @@
+--no-private
+--markup markdown
+--exclude lib/field_struct/avro/bytes_reader.rb
+--exclude lib/field_struct/avro/cache.rb
+--exclude lib/field_struct/avro/check.rb
+--exclude lib/field_struct/avro/datum_reader.rb
+--exclude lib/field_struct/avro/datum_writer.rb
+--exclude lib/field_struct/avro/defaults.rb
+--exclude lib/field_struct/avro/entry.rb
+--exclude lib/field_struct/avro/evolution.rb
+--exclude lib/field_struct/avro/names.rb
+--exclude lib/field_struct/avro/options.rb
+--exclude lib/field_struct/avro/projection.rb
+--exclude lib/field_struct/avro/resolution.rb
+--exclude lib/field_struct/avro/scalar_types.rb
+--exclude lib/field_struct/avro/schema_builder.rb
+--exclude lib/field_struct/avro/site.rb
+--exclude lib/field_struct/avro/stamp.rb
+--exclude lib/field_struct/avro/trail.rb
+--exclude lib/field_struct/avro/union_rules.rb
+--exclude lib/field_struct/avro/value_json.rb
+--exclude lib/field_struct/avro/writer_schema.rb
+--exclude lib/field_struct/avro/zone.rb
+lib/**/*.rb
+-
+README.md
+CHANGELOG.md

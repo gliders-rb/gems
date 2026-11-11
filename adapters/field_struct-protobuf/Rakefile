@@ -1,0 +1,13 @@
+# frozen_string_literal: true
+
+require 'bundler/gem_tasks'
+require 'rspec/core/rake_task'
+require 'rubocop/rake_task'
+
+Bundler::GemHelper.tag_prefix = 'field_struct-protobuf/'
+
+# The doctests start a Ruby process per example block; they run in release:check (docs:test).
+RSpec::Core::RakeTask.new(:spec) { |task| task.rspec_opts = '--tag ~doctest' }
+RuboCop::RakeTask.new(:rubocop)
+
+task default: %i[spec rubocop]

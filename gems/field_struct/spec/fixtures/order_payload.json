@@ -1,0 +1,39 @@
+[
+  {
+    "orderId": 1001,
+    "customer": {"firstName": "Ana", "last-name": "Lopez", "email": "ana@example.com", "vip": true},
+    "total": 59.9,
+    "payment": "cc",
+    "zip": "00421",
+    "notes": null,
+    "lines": [
+      {"sku": "A-1", "qty": 2, "price": 10},
+      {"sku": "B-2", "qty": 1, "price": 39.9}
+    ],
+    "tags": ["gift", "rush"],
+    "class": "web"
+  },
+  {
+    "orderId": 1002,
+    "customer": {"firstName": "Bo", "last-name": "Kim", "email": "bo@example.com", "vip": false},
+    "total": 20,
+    "payment": "ach",
+    "zip": "10001",
+    "notes": "leave at door",
+    "lines": [
+      {"sku": "C-3", "qty": 4, "price": 5}
+    ],
+    "tags": [],
+    "class": "app"
+  },
+  {
+    "orderId": 1003,
+    "customer": {"firstName": "Cy", "last-name": "Ng", "email": "cy@example.com", "vip": false},
+    "total": 5.5,
+    "payment": "cc",
+    "zip": "94105",
+    "lines": [],
+    "tags": ["x"],
+    "class": "web"
+  }
+]

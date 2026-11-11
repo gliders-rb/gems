@@ -1,0 +1,9 @@
+[package]
+name = "field_struct_avro_kernel"
+version = "1.0.0"
+edition = "2021"
+license = "MIT"
+publish = false
+description = "Ruby-free Avro binary kernels (zigzag varints, decimal bytes) for field_struct-avro-native."
+
+[dependencies]

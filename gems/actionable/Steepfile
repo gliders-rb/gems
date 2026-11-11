@@ -1,0 +1,11 @@
+# frozen_string_literal: true
+
+# Report-only: the types lane counts Steep's complaints and never gates a release.
+D = Steep::Diagnostic
+
+target :lib do
+  collection_config 'rbs_collection.yaml'
+  signature 'sig', 'support/external'
+  check 'lib'
+  configure_code_diagnostics(D::Ruby.lenient)
+end

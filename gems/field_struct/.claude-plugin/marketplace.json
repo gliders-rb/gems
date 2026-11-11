@@ -1,0 +1,13 @@
+{
+  "name": "field-struct",
+  "owner": {
+    "name": "Adrian Madrid"
+  },
+  "plugins": [
+    {
+      "name": "field-struct",
+      "source": "./",
+      "description": "Skill for defining, debugging and typing Ruby models built with the field_struct gem."
+    }
+  ]
+}

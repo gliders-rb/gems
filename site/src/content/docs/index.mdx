@@ -1,0 +1,89 @@
+---
+title: FieldStruct and Actionable
+description: Two small Ruby gems, typed plain-Ruby objects and typed service objects built on them, with every example run in CI.
+template: splash
+hero:
+  tagline: Two small gems. FieldStruct makes typed plain-Ruby objects, and Actionable builds typed service objects on top of them.
+  actions:
+    - text: Start the tutorial
+      link: /tutorial/trek-planner/
+      icon: right-arrow
+    - text: field_struct on GitHub
+      link: https://github.com/gliders-rb/gems/tree/main/gems/field_struct
+      variant: minimal
+      icon: external
+    - text: actionable on GitHub
+      link: https://github.com/gliders-rb/gems/tree/main/gems/actionable
+      variant: minimal
+      icon: external
+---
+
+## FieldStruct: typed POROs
+
+Declare typed fields on a plain Ruby class and you get an object that coerces what it is given and knows whether it is valid. There is no database in the picture, and no Rails.
+
+```ruby run title="hut.rb"
+class Hut < FieldStruct::Base
+  required :name, :string
+  optional :places, :integer
+end
+
+hut = Hut.new(name: 'Larch Col', places: '24')
+hut.places                          # => 24
+hut.valid?                          # => true
+
+unnamed = Hut.new(name: '  ')
+unnamed.errors.full_messages        # => ["Name is required"]
+```
+
+The places count came in as a string and is an integer now. A blank name didn't raise - it was recorded, and the message is waiting when you ask for it.
+
+## Actionable: service objects
+
+An action is a handful of plain methods, one per step, and every run ends in exactly one result: success, failure or skip. The input is a FieldStruct, so a step never sees bad input.
+
+```ruby run title="reserve_places.rb"
+FREE_PLACES = { 'KR12' => 6 }
+
+class ReservePlaces < Actionable::Action
+  input do
+    required :hut_code, :string
+    required :places, :integer
+  end
+
+  fails :fully_booked, 'not enough free places'
+
+  step :check_room
+  step :confirm
+
+  private
+
+  def check_room
+    fail!(:fully_booked) if input.places > FREE_PLACES.fetch(input.hut_code, 0)
+  end
+
+  def confirm
+    succeed("Reserved #{input.places} at #{input.hut_code}")
+  end
+end
+
+ReservePlaces.run(hut_code: 'KR12', places: '4').message   # => "Reserved 4 at KR12"
+ReservePlaces.run(hut_code: 'KR12', places: 40).code       # => :fully_booked
+```
+
+`fail!` records the failure and stops, so `confirm` doesn't run for the party of forty. The failure code is plain data, which makes it easy to branch on.
+
+## Install
+
+Both gems go in your Gemfile. They are pre-releases for now, so the constraint names the pre-release version.
+
+```ruby
+gem 'field_struct', '~> 1.0.0.pre1'
+gem 'actionable-rb', '~> 2.0.0.pre1'
+```
+
+The second gem is `actionable-rb` because another project owns the short name, but you still `require 'actionable'`. Both need Ruby 3.3 or newer. This site documents field_struct 1.0.0.pre1 and actionable-rb 2.0.0.pre1, and CI executes every runnable example on it, the two above included, against those versions. A wrong `# =>` comment fails the build.
+
+## Adapters
+
+A set of optional gems reads the same field metadata and writes other formats: JSON Schema, Avro, OpenTelemetry, Protobuf, plus actions exposed as LLM and MCP tools. None is released yet. Start at the [adapters overview](/adapters/), or jump to [building your own adapter](/adapters/build-your-own/).

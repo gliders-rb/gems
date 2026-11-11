@@ -1,0 +1,24 @@
+# frozen_string_literal: true
+
+source 'https://rubygems.org'
+
+gemspec
+
+gem 'field_struct', path: '../field_struct'
+gem 'rake', '~> 13.0'
+gem 'rbs', '~> 3.0', require: false
+gem 'rspec', '~> 3.0'
+gem 'rubocop', '~> 1.21'
+gem 'simplecov', require: false
+
+# Adapter specs only (development): the Rails and ActiveJob adapters never depend on them at runtime.
+gem 'activejob', require: false
+gem 'activerecord', require: false
+gem 'sidekiq', require: false
+gem 'sqlite3', require: false
+
+group :bench do
+  gem 'benchmark-ips', require: false
+  gem 'memory_profiler', require: false
+  gem 'stackprof', require: false
+end

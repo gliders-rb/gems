@@ -1,0 +1,31 @@
+# Public methods USAGE.md does not need to name: internals that are public only because another class calls them
+# and are not part of the contract, and the matcher protocol RSpec itself calls.
+adapter_step_sets
+step_set_readers
+define_result_classes
+own_result
+typed_result_class
+label_for
+layout_token
+layout_changed!
+Actionable::Steps::Base#call
+Actionable::Steps::Base#required_methods
+Actionable::Steps::Base#skip?
+Actionable::Steps::Case#call
+Actionable::Steps::Case#required_methods
+Actionable::Steps::Case#branch_steps
+check
+message
+offenses_in
+offenses_in_source
+parse
+Actionable::Coverage::Recorder#run
+description
+does_not_match?
+failure_message
+failure_message_when_negated
+matches?
+output_fields_set=
+register_suite_hook
+suite_finished
+suite_hook_registered?

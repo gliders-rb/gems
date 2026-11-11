@@ -1,0 +1,46 @@
+# Stand-ins for the third-party names sig/actionable.rbs mentions, enough for `rbs validate` (sigs:validate).
+# Dev-only; not packaged. Real projects get these from the gems' own signatures.
+module Rails
+  class Railtie
+  end
+end
+
+module ActiveModel
+  module Validations
+  end
+
+  class Name
+  end
+end
+
+module LintRoller
+  class Plugin
+  end
+
+  class About
+  end
+
+  class Context
+  end
+
+  class Rules
+  end
+end
+
+module RuboCop
+  module Cop
+    class Base
+    end
+  end
+end
+
+module Prism
+  class ParseResult
+  end
+
+  class DefNode
+  end
+
+  class ProgramNode
+  end
+end

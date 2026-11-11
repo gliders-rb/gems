@@ -1,0 +1,9 @@
+/gemfiles/*.lock
+/tmp/
+/.yardoc/
+/.bundle/
+/Gemfile.lock
+/.rspec_status
+/target/
+/lib/field_struct/avro/*.bundle
+/lib/field_struct/avro/*.so

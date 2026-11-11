@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Runs every gem's oracle (bundle exec rake). Exit non-zero if any fails.
+set -u
+root="$(cd "$(dirname "$0")/.." && pwd)"
+status=0
+for dir in "$root"/gems/*/ "$root"/adapters/*/; do
+  [ -f "$dir/Rakefile" ] || continue
+  echo "=== $(basename "$dir")"
+  (cd "$dir" && bundle exec rake) || { echo "FAILED: $(basename "$dir")"; status=1; }
+done
+exit $status

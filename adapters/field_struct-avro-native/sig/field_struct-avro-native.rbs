@@ -1,0 +1,61 @@
+# The field_struct namespace.
+module FieldStruct
+  # Apache Avro for field_struct classes.
+  module Avro
+    # An optional Rust encoder behind +FieldStruct::Avro.encode+. Requiring this file swaps the binary write: the
+    # datum +to_datum+ built is written by an encoding plan compiled once per parsed writer schema. A datum the plan is
+    # not sure about (a value of an unexpected class, out of range, needing rounding) is written by the pure-Ruby path
+    # instead, so the bytes and every error stay what the pure path gives.
+    module Native
+      include FieldStruct::Avro::Native::Write
+      VERSION: ::String
+
+      # _@return_ — whether +FieldStruct::Avro.encode+ goes through the native encoder
+      def self.enabled?: () -> bool
+
+      # The Avro binary of a datum, or nil when the native encoder leaves it to the pure path.
+      # 
+      # _@param_ `schema` — a parsed +Avro::Schema+
+      # 
+      # _@param_ `datum` — what +FieldStruct::Avro.to_datum+ returns for that schema
+      # 
+      # _@return_ — binary bytes, or nil
+      def self.encode: (::Object schema, ::Object datum) -> ::String?
+
+      # Prepended to +FieldStruct::Avro+'s singleton class: the binary write tries the plan first.
+      module Write
+      end
+
+      # Turns a parsed +Avro::Schema+ into the flat node list +Plan.new+ takes, or +nil+ for a schema with a shape the
+      # native encoder does not cover (then every encode with it runs the pure path).
+      # 
+      # Each node is an Array starting with a tag; child nodes are referenced by index, so a recursive record is a
+      # node that points back at itself.
+      class Compiler
+        TAGS: ::Hash[Symbol, Integer]
+        TICKS: ::Hash[String, Integer]
+        CONVERTED: ::Hash[String, [Symbol, String]]
+        PRIMITIVES: ::Array[Symbol]
+        COMPOSITES: ::Array[Symbol]
+
+        # _@param_ `schema` — a parsed +Avro::Schema+
+        # 
+        # _@return_ — the nodes and the root index, or nil when unsupported
+        def self.call: (::Object schema) -> [::Array[::Array[::Object]], ::Integer]?
+
+        def initialize: () -> void
+
+        # _@param_ `schema` — a parsed +Avro::Schema+
+        # 
+        # _@return_ — the node index of the schema, compiling it on first sight
+        def index: (::Object schema) -> ::Integer
+
+        attr_reader nodes: ::Array[::Array[::Object]]
+
+        # Raised inside the walk for a shape with no native encoding.
+        class Unsupported < StandardError
+        end
+      end
+    end
+  end
+end

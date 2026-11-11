@@ -1,0 +1,103 @@
+# The field_struct namespace.
+module FieldStruct
+  # Protocol Buffers for field_struct classes.
+  module Protobuf
+    VERSION: ::String
+
+    # Describes the protobuf file for a struct class.
+    # 
+    # _@param_ `klass` — a named +FieldStruct::Base+ subclass
+    # 
+    # _@param_ `serialization` — the +serialize+ format whose names become field names
+    # 
+    # _@return_ — a +Google::Protobuf::FileDescriptorProto+
+    def self.file_descriptor: (singleton(FieldStruct::Base) klass, ?serialization: ::Symbol) -> ::Object
+
+    # Prints the `.proto` text for a struct class.
+    # 
+    # _@param_ `klass`
+    # 
+    # _@param_ `serialization`
+    def self.proto: (singleton(FieldStruct::Base) klass, ?serialization: ::Symbol) -> ::String
+
+    # Looks up (building and registering it the first time) the message class for a struct class.
+    # 
+    # _@param_ `klass` — a named +FieldStruct::Base+ subclass
+    # 
+    # _@param_ `serialization` — the +serialize+ format whose names become field names
+    # 
+    # _@return_ — a +Google::Protobuf+ message class
+    def self.message_class: (singleton(FieldStruct::Base) klass, ?serialization: ::Symbol) -> ::Class
+
+    # Converts a struct to an instance of its message class.
+    # 
+    # _@param_ `struct` — an instance of a struct class
+    # 
+    # _@param_ `serialization`
+    # 
+    # _@return_ — a message instance
+    def self.to_message: (FieldStruct::Base struct, ?serialization: ::Symbol) -> ::Object
+
+    # Converts a message instance back to a struct.
+    # 
+    # _@param_ `klass` — a named +FieldStruct::Base+ subclass
+    # 
+    # _@param_ `message` — a message instance of the class's message
+    # 
+    # _@param_ `serialization`
+    def self.from_message: (singleton(FieldStruct::Base) klass, ::Object message, ?serialization: ::Symbol) -> FieldStruct::Base
+
+    # Serializes a struct to protobuf wire bytes.
+    # 
+    # _@param_ `struct` — an instance of a struct class
+    # 
+    # _@param_ `serialization`
+    # 
+    # _@return_ — ASCII-8BIT bytes
+    def self.encode: (FieldStruct::Base struct, ?serialization: ::Symbol) -> ::String
+
+    # Parses protobuf wire bytes into a struct.
+    # 
+    # _@param_ `klass` — a named +FieldStruct::Base+ subclass
+    # 
+    # _@param_ `bytes` — protobuf binary
+    # 
+    # _@param_ `serialization`
+    def self.decode: (singleton(FieldStruct::Base) klass, ::String bytes, ?serialization: ::Symbol) -> FieldStruct::Base
+
+    # _@param_ `klass` — a named class
+    # 
+    # _@return_ — the package; empty for a top-level class
+    def self.package: (::Class klass) -> ::String
+
+    # _@param_ `klass` — a named class
+    # 
+    # _@return_ — the message name
+    def self.message_name: (::Class klass) -> ::String
+
+    # _@param_ `klass` — a named class
+    # 
+    # _@return_ — the full name with a leading dot
+    def self.full_name: (::Class klass) -> ::String
+
+    # _@param_ `klass` — a named class
+    # 
+    # _@return_ — the file name
+    def self.file_name: (::Class klass) -> ::String
+
+    # Property lists per (serialization, class), so a conversion does not rebuild the node tree of every field.
+    # An entry remembers the Field objects and the +serialize+ mapping it was read from and is dropped as soon as
+    # either changed (FS-B159), so a field added after registration still reaches the message and fails as before
+    # (PB-B31). Entries are immutable and swapped whole, so readers need no lock.
+    module Properties
+      # _@param_ `klass`
+      # 
+      # _@param_ `serialization`
+      # 
+      # _@return_ — the frozen list, shared between calls
+      def self.for: (singleton(FieldStruct::Base) klass, ::Symbol serialization) -> ::Array[FieldStruct::Introspection::Property]
+
+      def self.clear: () -> void
+    end
+  end
+end

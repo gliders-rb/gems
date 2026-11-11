@@ -1,0 +1,1 @@
+# Sord warnings that are accepted as they are. The list must match Sord's [OMIT] and [DUCK] output exactly.

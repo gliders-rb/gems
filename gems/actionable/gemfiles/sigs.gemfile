@@ -1,0 +1,12 @@
+# frozen_string_literal: true
+
+# The signature tooling lane (sigs:*, release:check). Kept apart from the main Gemfile because Sord loads every
+# bundled gem's rbi/ directory, and the prism gem this gem depends on ships one Parlour cannot parse. So this
+# bundle leaves out `gemspec`: YARD reads the source statically and only needs the tools.
+source 'https://rubygems.org'
+
+gem 'field_struct', path: '../../field_struct'
+gem 'rake', '~> 13.0'
+gem 'rbs', '~> 3.0'
+gem 'sord', '~> 7.1.0'
+gem 'yard', '~> 0.9'

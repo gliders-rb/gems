@@ -1,0 +1,41 @@
+inherit_from: ../../.rubocop.yml
+
+# The project dogfoods its own cop.
+plugins:
+  - actionable-rb:
+      require_path: actionable/rubocop
+
+# Actionable's verbs are a vocabulary, not Kernel#raise or predicates.
+Style/SignalException:
+  Enabled: false
+
+Naming/PredicateMethod:
+  Enabled: false
+
+# The shim file is named after the gem so Bundler.require can load it.
+Naming/FileName:
+  Exclude:
+    - 'lib/actionable-rb.rb'
+
+# These cops read fail as Kernel#fail.
+Style/RedundantException:
+  Enabled: false
+
+# Forwarded keywords and blocks are named in the code so YARD can document them.
+Style/ArgumentsForwarding:
+  UseAnonymousForwarding: false
+
+# Benchmarks define small throwaway classes at the top level.
+Style/OneClassPerFile:
+  Exclude:
+    - 'benchmarks/**/*'
+
+Metrics/BlockLength:
+  Exclude:
+    - 'spec/**/*'
+    - '*.gemspec'
+    - 'Rakefile'
+    - 'rakelib/**/*'
+
+Naming/BlockForwarding:
+  EnforcedStyle: explicit

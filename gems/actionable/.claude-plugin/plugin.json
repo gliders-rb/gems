@@ -1,0 +1,9 @@
+{
+  "name": "actionable",
+  "description": "Skill for writing, debugging and testing Ruby service objects built with the actionable-rb gem.",
+  "author": {
+    "name": "Adrian Madrid"
+  },
+  "license": "MIT",
+  "skills": "./skills"
+}

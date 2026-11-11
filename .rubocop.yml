@@ -1,0 +1,33 @@
+AllCops:
+  NewCops: enable
+  TargetRubyVersion: 3.3
+  SuggestExtensions: false
+  Exclude:
+    - 'vendor/**/*'
+    # CI installs gems under each gem's vendor/bundle; some ship their own .rubocop.yml.
+    - '**/vendor/**/*'
+    - 'tmp/**/*'
+
+Layout/LineLength:
+  Max: 140
+
+Metrics/BlockLength:
+  Exclude:
+    - 'spec/**/*'
+    - '*.gemspec'
+    - 'Rakefile'
+
+Metrics/MethodLength:
+  Max: 25
+
+Metrics/AbcSize:
+  Max: 30
+
+Metrics/ClassLength:
+  Max: 250
+
+Metrics/ModuleLength:
+  Max: 250
+
+Style/Documentation:
+  Enabled: false

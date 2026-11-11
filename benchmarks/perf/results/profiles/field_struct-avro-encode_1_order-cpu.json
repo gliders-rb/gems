@@ -1,0 +1,90 @@
+{
+  "gem": "field_struct-avro",
+  "workload": "encode, 1 order",
+  "mode": "cpu",
+  "yjit": true,
+  "samples": 14796,
+  "gc_wall_pct": 12.7,
+  "top": [
+    {
+      "name": "Integer#chr",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 11.0,
+      "total_pct": 11.0,
+      "hot_line": null
+    },
+    {
+      "name": "FieldStruct::Avro::DatumWriter#struct",
+      "file": "adapters/field_struct-avro/lib/field_struct/avro/datum_writer.rb",
+      "line": 20,
+      "self_pct": 9.3,
+      "total_pct": 52.4,
+      "hot_line": 22
+    },
+    {
+      "name": "Array#zip",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 9.1,
+      "total_pct": 9.1,
+      "hot_line": null
+    },
+    {
+      "name": "Avro::SchemaValidator.validate!",
+      "file": "gems/avro-1.12.2/lib/avro/schema_validator.rb",
+      "line": 74,
+      "self_pct": 8.4,
+      "total_pct": 23.0,
+      "hot_line": 75
+    },
+    {
+      "name": "FieldStruct::Avro::Trail#label",
+      "file": "adapters/field_struct-avro/lib/field_struct/avro/trail.rb",
+      "line": 45,
+      "self_pct": 7.8,
+      "total_pct": 18.2,
+      "hot_line": 46
+    },
+    {
+      "name": "Array#join",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 6.3,
+      "total_pct": 10.4,
+      "hot_line": null
+    },
+    {
+      "name": "Avro::LogicalTypes::BytesDecimal#to_byte_array",
+      "file": "gems/avro-1.12.2/lib/avro/logical_types.rb",
+      "line": 169,
+      "self_pct": 5.6,
+      "total_pct": 5.7,
+      "hot_line": 170
+    },
+    {
+      "name": "Array#pack",
+      "file": "<internal:pack>",
+      "line": 7,
+      "self_pct": 4.5,
+      "total_pct": 4.5,
+      "hot_line": 8
+    },
+    {
+      "name": "FieldStruct::Avro::DatumWriter#property",
+      "file": "adapters/field_struct-avro/lib/field_struct/avro/datum_writer.rb",
+      "line": 28,
+      "self_pct": 4.4,
+      "total_pct": 41.6,
+      "hot_line": 31
+    },
+    {
+      "name": "Symbol#to_s",
+      "file": "<internal:symbol>",
+      "line": 10,
+      "self_pct": 4.0,
+      "total_pct": 4.0,
+      "hot_line": 12
+    }
+  ]
+}

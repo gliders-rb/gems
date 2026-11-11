@@ -1,0 +1,18 @@
+--no-private
+--markup markdown
+--exclude lib/field_struct/protobuf/check.rb
+--exclude lib/field_struct/protobuf/decoder.rb
+--exclude lib/field_struct/protobuf/descriptor_builder.rb
+--exclude lib/field_struct/protobuf/encoder.rb
+--exclude lib/field_struct/protobuf/json_value.rb
+--exclude lib/field_struct/protobuf/names.rb
+--exclude lib/field_struct/protobuf/numbers.rb
+--exclude lib/field_struct/protobuf/printer.rb
+--exclude lib/field_struct/protobuf/references.rb
+--exclude lib/field_struct/protobuf/registry.rb
+--exclude lib/field_struct/protobuf/scalar_types.rb
+--exclude lib/field_struct/protobuf/zone.rb
+lib/**/*.rb
+-
+README.md
+CHANGELOG.md

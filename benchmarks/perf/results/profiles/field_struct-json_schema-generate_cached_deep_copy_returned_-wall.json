@@ -1,0 +1,90 @@
+{
+  "gem": "field_struct-json_schema",
+  "workload": "generate (cached, deep copy returned)",
+  "mode": "wall",
+  "yjit": true,
+  "samples": 39961,
+  "gc_wall_pct": 18.2,
+  "top": [
+    {
+      "name": "FieldStruct::JSONSchema::Copy.deep",
+      "file": "adapters/field_struct-json_schema/lib/field_struct/json_schema/copy.rb",
+      "line": 12,
+      "self_pct": 41.8,
+      "total_pct": 81.1,
+      "hot_line": 16
+    },
+    {
+      "name": "Hash#to_h",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 34.0,
+      "total_pct": 81.1,
+      "hot_line": null
+    },
+    {
+      "name": "Array#map",
+      "file": "<internal:array>",
+      "line": 237,
+      "self_pct": 5.4,
+      "total_pct": 21.3,
+      "hot_line": 246
+    },
+    {
+      "name": "Array#zip",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 4.5,
+      "total_pct": 4.5,
+      "hot_line": null
+    },
+    {
+      "name": "Array#all?",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 2.3,
+      "total_pct": 2.8,
+      "hot_line": null
+    },
+    {
+      "name": "Enumerable#to_a",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 1.9,
+      "total_pct": 3.8,
+      "hot_line": null
+    },
+    {
+      "name": "Hash#each_value",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 1.8,
+      "total_pct": 2.7,
+      "hot_line": null
+    },
+    {
+      "name": "FieldStruct::JSONSchema::Cache#fetch",
+      "file": "adapters/field_struct-json_schema/lib/field_struct/json_schema/cache.rb",
+      "line": 26,
+      "self_pct": 1.6,
+      "total_pct": 98.6,
+      "hot_line": 28
+    },
+    {
+      "name": "Enumerable#all?",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 1.1,
+      "total_pct": 15.1,
+      "hot_line": null
+    },
+    {
+      "name": "Process.clock_gettime",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 0.9,
+      "total_pct": 0.9,
+      "hot_line": null
+    }
+  ]
+}

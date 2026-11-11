@@ -1,0 +1,15 @@
+# Standard-library signatures the gem's own sig refers to (used by Steep and `rbs collection`).
+sources:
+  - type: stdlib
+
+path: .gem_rbs_collection
+
+gems:
+  - name: date
+  - name: time
+  - name: bigdecimal
+  - name: pathname
+  - name: pp
+  # Pulled in by the standard libraries above; not needed to check this gem.
+  - name: rbs
+    ignore: true

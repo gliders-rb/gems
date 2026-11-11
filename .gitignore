@@ -1,0 +1,19 @@
+.bundle/
+.yardoc/
+_yardoc/
+# SimpleCov output at a gem root only (lib/**/coverage is source)
+/gems/*/coverage/
+/adapters/*/coverage/
+/coverage/
+doc/
+pkg/
+tmp/
+Gemfile.lock
+.rspec_status
+.gem_rbs_collection/
+rbs_collection.lock.yaml
+node_modules/
+dist/
+.astro/
+/scrap
+.claude/worktrees/

@@ -1,0 +1,69 @@
+# The actionable-rb namespace; this gem adds {Otel}.
+module Actionable
+  # OpenTelemetry tracing for actionable: a run span per `Action.run`, a step span per executed step and hook.
+  # Requiring `actionable/otel` turns it on. Spans carry class, step and section names, outcomes and result
+  # codes, never an input or output value.
+  module Otel
+    TRACER_NAME: String
+    EXCEPTION_DETAILS: ::Array[Symbol]
+    VERSION: String
+
+    # _@return_ — whether step and hook spans are emitted (default true)
+    def self.step_spans?: () -> bool
+
+    # Turns step spans on (truthy) or off (`false`/`nil`).
+    # 
+    # _@param_ `enabled`
+    # 
+    # _@return_ — the argument
+    def self.step_spans=: (Object enabled) -> Object
+
+    # The tracer of the current provider, cached together with that provider as one frozen pair.
+    # 
+    # _@return_ — an OpenTelemetry tracer
+    def self.tracer: () -> Object
+
+    # Runs the block inside the run span of one `Action.run` and annotates the span with the result.
+    # 
+    # _@param_ `action` — the action class being run
+    # 
+    # _@return_ — the block's result, unchanged
+    def self.trace_run: (Class action) ?{ () -> Actionable::Result } -> Actionable::Result
+
+    # Runs the block inside the span of one executed step or hook (one call of the runner's `record` seam).
+    # 
+    # _@param_ `instance` — the action instance being run
+    # 
+    # _@param_ `section` — `:main`, `:success`, `:failure`, `:skip` or `:always`
+    # 
+    # _@param_ `step` — the step object (`name`, `kind`)
+    # 
+    # _@return_ — the block's value
+    def self.trace_step: (Actionable::Action _instance, Symbol section, Object step) ?{ () -> Object } -> Object
+
+    # The span label of an action class: its name, or `Actionable::Action` when anonymous.
+    # 
+    # _@param_ `klass`
+    def self.label_for: (Class klass) -> String
+
+    # _@return_ — `:type_only` (default) or `:full`
+    def self.exception_details: () -> Symbol
+
+    # Sets how much of an escaping exception the run span records.
+    # 
+    # _@param_ `level` — `:type_only` or `:full`
+    def self.exception_details=: (Symbol value) -> Symbol
+
+    # Prepended onto `Actionable::Action`'s singleton class: wraps `.run` in the run span.
+    module ActionRun
+      # _@param_ `args` — positional run arguments, forwarded verbatim
+      # 
+      # _@param_ `kwargs` — keyword run arguments, forwarded verbatim
+      def run: (*::Array[Object] args, **Object kwargs) -> Actionable::Result
+    end
+
+    # Prepended onto `Actionable::Runner`: wraps its private `record(section, step)` seam in the step span.
+    module RunnerSteps
+    end
+  end
+end

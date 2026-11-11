@@ -1,0 +1,90 @@
+{
+  "gem": "actionable",
+  "workload": "run success, measure none",
+  "mode": "wall",
+  "yjit": true,
+  "samples": 38856,
+  "gc_wall_pct": 9.4,
+  "top": [
+    {
+      "name": "FieldStruct::Base#fs_write",
+      "file": "gems/field_struct/lib/field_struct/base.rb",
+      "line": 353,
+      "self_pct": 10.2,
+      "total_pct": 33.2,
+      "hot_line": 358
+    },
+    {
+      "name": "FieldStruct::Field#ivar_name",
+      "file": "gems/field_struct/lib/field_struct/field.rb",
+      "line": 84,
+      "self_pct": 8.5,
+      "total_pct": 8.5,
+      "hot_line": 85
+    },
+    {
+      "name": "FieldStruct::Field#setter_name",
+      "file": "gems/field_struct/lib/field_struct/field.rb",
+      "line": 79,
+      "self_pct": 5.7,
+      "total_pct": 5.7,
+      "hot_line": 80
+    },
+    {
+      "name": "Kernel#public_send",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 5.1,
+      "total_pct": 38.6,
+      "hot_line": null
+    },
+    {
+      "name": "Enumerable#flat_map",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 3.2,
+      "total_pct": 7.4,
+      "hot_line": null
+    },
+    {
+      "name": "FieldStruct::Base#fs_apply_defaults",
+      "file": "gems/field_struct/lib/field_struct/base.rb",
+      "line": 330,
+      "self_pct": 2.7,
+      "total_pct": 24.0,
+      "hot_line": 334
+    },
+    {
+      "name": "FieldStruct::Restrictions.violated?",
+      "file": "gems/field_struct/lib/field_struct/restrictions.rb",
+      "line": 9,
+      "self_pct": 2.6,
+      "total_pct": 4.0,
+      "hot_line": 12
+    },
+    {
+      "name": "Kernel#BigDecimal",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 2.5,
+      "total_pct": 2.5,
+      "hot_line": null
+    },
+    {
+      "name": "Kernel#instance_variable_set",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 2.4,
+      "total_pct": 2.4,
+      "hot_line": null
+    },
+    {
+      "name": "Enumerable#filter_map",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 2.4,
+      "total_pct": 3.5,
+      "hot_line": null
+    }
+  ]
+}

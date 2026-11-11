@@ -1,0 +1,13 @@
+inherit_from: ../../.rubocop.yml
+
+# The shared Exclude globs are relative to the repo root, so repeat them for this gem directory.
+Metrics/BlockLength:
+  Exclude:
+    - 'spec/**/*'
+    - '*.gemspec'
+    - 'Rakefile'
+    - 'rakelib/**/*'
+
+# YARD and Sord need a named keyword splat (`**options`) to document and type it (SH-B14); anonymous forwarding hides the name.
+Style/ArgumentsForwarding:
+  UseAnonymousForwarding: false

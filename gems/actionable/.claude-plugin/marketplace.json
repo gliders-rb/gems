@@ -1,0 +1,13 @@
+{
+  "name": "actionable",
+  "owner": {
+    "name": "Adrian Madrid"
+  },
+  "plugins": [
+    {
+      "name": "actionable",
+      "source": "./",
+      "description": "Skill for writing, debugging and testing Ruby service objects built with the actionable-rb gem."
+    }
+  ]
+}

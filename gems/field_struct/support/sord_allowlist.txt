@@ -1,0 +1,4 @@
+# Sord warnings that are accepted as they are. The list must match Sord's [OMIT] and [DUCK] output exactly.
+# (A parameter documented as Hash-or-#to_hash: Sord turns the duck type into _ToHash[untyped, untyped].)
+[DUCK ] (FieldStruct::Base#assign_attributes) #to_hash looks like a duck type with an equivalent RBS interface, replacing with _ToHash[untyped, untyped]
+[DUCK ] (FieldStruct::Base#initialize) #to_hash looks like a duck type with an equivalent RBS interface, replacing with _ToHash[untyped, untyped]

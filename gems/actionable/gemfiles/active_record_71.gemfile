@@ -1,0 +1,14 @@
+# frozen_string_literal: true
+
+# The ActiveRecord 7.1 lane (rake spec:rails): transactions work, after_commit refuses to declare (AC-B#railsci).
+source 'https://rubygems.org'
+
+gemspec path: '..'
+
+gem 'activejob', '~> 7.1.0', require: false
+gem 'activerecord', '~> 7.1.0', require: false
+gem 'field_struct', path: '../../field_struct'
+gem 'rake', '~> 13.0'
+gem 'rspec', '~> 3.0'
+gem 'rubocop', '~> 1.21'
+gem 'sqlite3', '>= 1.4', require: false

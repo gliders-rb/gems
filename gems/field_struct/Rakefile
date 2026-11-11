@@ -1,0 +1,23 @@
+# frozen_string_literal: true
+
+require 'rspec/core/rake_task'
+require 'rubocop/rake_task'
+
+# The doctests start a Ruby process per example block; they run in release:check (docs:test).
+RSpec::Core::RakeTask.new(:spec) { |task| task.rspec_opts = '--tag ~doctest' }
+RuboCop::RakeTask.new(:rubocop)
+
+namespace :spec do
+  desc 'Run the suite with ActiveSupport loaded before the gem, under a non-UTC TZ, deprecations raising (FS-I6)'
+  task :active_support do
+    env = {
+      'FIELD_STRUCT_AS' => '1',
+      'TZ' => 'America/Denver',
+      'BUNDLE_GEMFILE' => File.expand_path('gemfiles/active_support.gemfile', __dir__)
+    }
+    sh env, 'bundle', 'install', '--local', '--quiet'
+    sh env, 'bundle', 'exec', 'rspec', '--tag', '~doctest'
+  end
+end
+
+task default: %i[spec rubocop]

@@ -1,0 +1,112 @@
+name: field_struct
+
+# Runs only when the gem (or this workflow) changes. GitHub-hosted runners only.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gems/field_struct/**'
+      - '.github/workflows/field_struct.yml'
+  pull_request:
+    paths:
+      - 'gems/field_struct/**'
+      - '.github/workflows/field_struct.yml'
+  workflow_dispatch:
+
+# Pull request code runs here, so the token stays read-only.
+permissions:
+  contents: read
+
+concurrency:
+  group: field_struct-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: gems/field_struct
+
+jobs:
+  # Full battery: specs, RuboCop, then the README / USAGE / getting-started doctests.
+  test:
+    name: Ruby ${{ matrix.ruby }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ['3.3', '3.4', '4.0']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+          working-directory: gems/field_struct
+      - run: bundle exec rake
+      - run: bundle exec rake docs:test
+
+  # ActiveSupport loaded before the gem, under a non-UTC TZ, deprecations raising (FS-I6).
+  active-support:
+    name: ActiveSupport ${{ matrix.activesupport }}
+    runs-on: ubuntu-latest
+    env:
+      BUNDLE_GEMFILE: ${{ github.workspace }}/gems/field_struct/gemfiles/active_support.gemfile
+      FIELD_STRUCT_AS: '1'
+      FIELD_STRUCT_AS_VERSION: ${{ matrix.requirement }}
+      TZ: America/Denver
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - activesupport: '7.2'
+            requirement: '~> 7.2.0'
+          - activesupport: '8.1'
+            requirement: '~> 8.1.0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        with:
+          ruby-version: '3.4'
+      - run: bundle install
+      - run: bundle exec rspec --tag '~doctest' --format progress
+
+  # Signatures, YARD completeness and the doctests: everything `rake release:check` covers.
+  release-check:
+    name: release:check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+          working-directory: gems/field_struct
+      - run: bundle exec rake release:check
+
+  # Report-only: prints Steep's problem count and never fails.
+  types:
+    name: types (report only)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+          working-directory: gems/field_struct
+      - run: bundle exec rake types:report
+
+  # The one check to require in branch protection: green only when every gating job passed.
+  required:
+    name: field_struct (required)
+    if: always()
+    needs: [test, active-support, release-check]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Every gating job succeeded
+        run: |
+          echo '${{ toJSON(needs) }}'
+          test "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}" = "false"

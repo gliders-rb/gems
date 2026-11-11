@@ -1,0 +1,7 @@
+[workspace]
+members = ["ext/field_struct_avro_native", "ext/field_struct_avro_kernel"]
+resolver = "2"
+
+[profile.release]
+codegen-units = 1
+lto = true

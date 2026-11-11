@@ -1,0 +1,90 @@
+{
+  "gem": "field_struct-json_schema",
+  "workload": "generate (cached, deep copy returned)",
+  "mode": "cpu",
+  "yjit": true,
+  "samples": 14884,
+  "gc_wall_pct": 18.6,
+  "top": [
+    {
+      "name": "FieldStruct::JSONSchema::Copy.deep",
+      "file": "adapters/field_struct-json_schema/lib/field_struct/json_schema/copy.rb",
+      "line": 12,
+      "self_pct": 76.7,
+      "total_pct": 86.0,
+      "hot_line": 16
+    },
+    {
+      "name": "Array#zip",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 8.6,
+      "total_pct": 8.6,
+      "hot_line": null
+    },
+    {
+      "name": "Hash#to_h",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 5.8,
+      "total_pct": 86.0,
+      "hot_line": null
+    },
+    {
+      "name": "Array#map",
+      "file": "<internal:array>",
+      "line": 237,
+      "self_pct": 3.5,
+      "total_pct": 28.2,
+      "hot_line": 246
+    },
+    {
+      "name": "Enumerable#to_a",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 2.1,
+      "total_pct": 2.5,
+      "hot_line": null
+    },
+    {
+      "name": "Enumerable#all?",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 0.9,
+      "total_pct": 12.8,
+      "hot_line": null
+    },
+    {
+      "name": "FieldStruct::JSONSchema::Cache#fetch",
+      "file": "adapters/field_struct-json_schema/lib/field_struct/json_schema/cache.rb",
+      "line": 26,
+      "self_pct": 0.7,
+      "total_pct": 99.8,
+      "hot_line": 27
+    },
+    {
+      "name": "Hash#each_value",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 0.3,
+      "total_pct": 0.4,
+      "hot_line": null
+    },
+    {
+      "name": "Array#all?",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 0.3,
+      "total_pct": 0.4,
+      "hot_line": null
+    },
+    {
+      "name": "FieldStruct::JSONSchema::Stamp#same_fields?",
+      "file": "adapters/field_struct-json_schema/lib/field_struct/json_schema/stamp.rb",
+      "line": 42,
+      "self_pct": 0.2,
+      "total_pct": 9.1,
+      "hot_line": 43
+    }
+  ]
+}

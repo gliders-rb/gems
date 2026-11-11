@@ -1,0 +1,90 @@
+{
+  "gem": "field_struct-avro",
+  "workload": "encode, 1 order",
+  "mode": "wall",
+  "yjit": true,
+  "samples": 39909,
+  "gc_wall_pct": 12.4,
+  "top": [
+    {
+      "name": "Array#join",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 8.7,
+      "total_pct": 11.6,
+      "hot_line": null
+    },
+    {
+      "name": "FieldStruct::Avro::Trail#label",
+      "file": "adapters/field_struct-avro/lib/field_struct/avro/trail.rb",
+      "line": 45,
+      "self_pct": 5.5,
+      "total_pct": 17.1,
+      "hot_line": 46
+    },
+    {
+      "name": "Avro::SchemaValidator.validate!",
+      "file": "gems/avro-1.12.2/lib/avro/schema_validator.rb",
+      "line": 74,
+      "self_pct": 4.2,
+      "total_pct": 26.9,
+      "hot_line": 75
+    },
+    {
+      "name": "Array#zip",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 3.9,
+      "total_pct": 3.9,
+      "hot_line": null
+    },
+    {
+      "name": "FieldStruct::Avro::DatumWriter#property",
+      "file": "adapters/field_struct-avro/lib/field_struct/avro/datum_writer.rb",
+      "line": 28,
+      "self_pct": 3.7,
+      "total_pct": 38.8,
+      "hot_line": 31
+    },
+    {
+      "name": "StringIO#write",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 3.6,
+      "total_pct": 3.6,
+      "hot_line": null
+    },
+    {
+      "name": "Array#to_h",
+      "file": "<cfunc>",
+      "line": null,
+      "self_pct": 3.5,
+      "total_pct": 43.4,
+      "hot_line": null
+    },
+    {
+      "name": "Avro::SchemaValidator.validate_simple",
+      "file": "gems/avro-1.12.2/lib/avro/schema_validator.rb",
+      "line": 118,
+      "self_pct": 3.5,
+      "total_pct": 8.1,
+      "hot_line": 120
+    },
+    {
+      "name": "Avro::SchemaValidator.validate_recursive",
+      "file": "gems/avro-1.12.2/lib/avro/schema_validator.rb",
+      "line": 87,
+      "self_pct": 3.1,
+      "total_pct": 16.5,
+      "hot_line": 88
+    },
+    {
+      "name": "Symbol#to_s",
+      "file": "<internal:symbol>",
+      "line": 10,
+      "self_pct": 2.9,
+      "total_pct": 2.9,
+      "hot_line": 12
+    }
+  ]
+}

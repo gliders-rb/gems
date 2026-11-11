@@ -1,0 +1,69 @@
+#!/usr/bin/env node
+// Checks that every internal link in src/content/docs resolves to a built page or file in dist/.
+//   npm run build && bin/check-links
+// Links are [text](target), href="target" and <a href>. External (scheme) links and pure #anchors are skipped;
+// a #fragment on an internal link must match an id in the target page.
+import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
+import { join, dirname, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const site = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const docs = join(site, 'src/content/docs');
+const dist = join(site, 'dist');
+const base = ''; // the site is served from the domain root
+
+const walk = (d) => readdirSync(d).flatMap((f) => {
+  const p = join(d, f);
+  return statSync(p).isDirectory() ? walk(p) : [p];
+});
+
+if (!existsSync(dist)) { console.error('dist/ missing: run npm run build first'); process.exit(2); }
+
+const pageOf = (file) => {
+  const rel = relative(docs, file).replace(/\.(md|mdx)$/, '').replace(/(^|\/)index$/, '');
+  return `${base}/${rel}${rel ? '/' : ''}`;
+};
+
+const idCache = new Map();
+const idsIn = (htmlPath) => {
+  if (!idCache.has(htmlPath)) {
+    const html = readFileSync(htmlPath, 'utf8');
+    idCache.set(htmlPath, new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1])));
+  }
+  return idCache.get(htmlPath);
+};
+
+const bad = [];
+let count = 0;
+for (const file of walk(docs).filter((f) => /\.mdx?$/.test(f))) {
+  const src = readFileSync(file, 'utf8').split('\n');
+  let fenced = false;
+  src.forEach((rawLine, i) => {
+    if (/^\s*(```|~~~)/.test(rawLine)) fenced = !fenced;
+    if (fenced) return;
+    const line = rawLine.replace(/`[^`]*`/g, '');
+    const targets = [
+      ...[...line.matchAll(/\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g)].map((m) => m[1]),
+      ...[...line.matchAll(/href=["']([^"']+)["']/g)].map((m) => m[1]),
+    ];
+    for (const t of targets) {
+      if (/^[a-z][a-z0-9+.-]*:/i.test(t) || t.startsWith('//')) continue;
+      count++;
+      const [pathPart, frag] = t.split('#');
+      let url = pathPart || pageOf(file);
+      if (!url.startsWith('/')) url = new URL(url, `http://x${pageOf(file)}`).pathname;
+      if (!url.startsWith(`${base}/`) && url !== base) { bad.push(`${relative(site, file)}:${i + 1} ${t} (outside base ${base})`); continue; }
+      const local = join(dist, url.slice(base.length));
+      let target = null;
+      if (existsSync(join(local, 'index.html'))) target = join(local, 'index.html');
+      else if (existsSync(local) && statSync(local).isFile()) target = local;
+      if (!target) { bad.push(`${relative(site, file)}:${i + 1} ${t} (no built page)`); continue; }
+      if (frag && target.endsWith('.html') && !idsIn(target).has(decodeURIComponent(frag))) {
+        bad.push(`${relative(site, file)}:${i + 1} ${t} (no #${frag} in page)`);
+      }
+    }
+  });
+}
+for (const b of bad) console.error(b);
+console.log(`${count} internal links checked, ${bad.length} dead`);
+process.exit(bad.length ? 1 : 0);

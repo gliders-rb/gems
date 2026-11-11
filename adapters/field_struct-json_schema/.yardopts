@@ -1,0 +1,16 @@
+--no-private
+--markup markdown
+--exclude lib/field_struct/json_schema/builder.rb
+--exclude lib/field_struct/json_schema/cache.rb
+--exclude lib/field_struct/json_schema/copy.rb
+--exclude lib/field_struct/json_schema/defaults.rb
+--exclude lib/field_struct/json_schema/nullable.rb
+--exclude lib/field_struct/json_schema/override.rb
+--exclude lib/field_struct/json_schema/pattern.rb
+--exclude lib/field_struct/json_schema/pattern/
+--exclude lib/field_struct/json_schema/scalar.rb
+--exclude lib/field_struct/json_schema/stamp.rb
+lib/**/*.rb
+-
+README.md
+CHANGELOG.md

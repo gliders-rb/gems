@@ -1,0 +1,7 @@
+# Hand-written (AC-B#rbsshipped). actionable/rails prepends this module onto Action's singleton class, which YARD does not
+# see as a mixin, so the generated signature does not carry it. RBS cannot be conditional, so it is declared always.
+module Actionable
+  class Action
+    extend Actionable::Rails::AfterCommit
+  end
+end

@@ -1,0 +1,13 @@
+[package]
+name = "field_struct_avro_native"
+version = "1.0.0"
+edition = "2021"
+license = "MIT"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+magnus = { version = "0.9", features = ["rb-sys"] }
+field_struct_avro_kernel = { path = "../field_struct_avro_kernel" }

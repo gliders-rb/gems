@@ -1,0 +1,26 @@
+[
+  {
+    "gem": "field_struct-json_schema",
+    "workload": "generate (cached, deep copy returned)",
+    "items": 1,
+    "yjit": false,
+    "ips": 36937.235571370795,
+    "stddev_pct": 3.1810718420701622,
+    "allocs_per_call": 285.005,
+    "us_per_item": 27.072951847405633,
+    "allocs_per_item": 285.005,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "field_struct-json_schema",
+    "workload": "generate (cold: cache cleared each call)",
+    "items": 1,
+    "yjit": false,
+    "ips": 7914.94548010988,
+    "stddev_pct": 1.9330518496240603,
+    "allocs_per_call": 1006.0,
+    "us_per_item": 126.34325814536342,
+    "allocs_per_item": 1006.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +PRISM [arm64-darwin23]"
+  }
+]

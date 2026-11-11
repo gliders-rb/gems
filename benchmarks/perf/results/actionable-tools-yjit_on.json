@@ -1,0 +1,74 @@
+[
+  {
+    "gem": "actionable-tools",
+    "workload": "Definition build (cold: schema + envelope)",
+    "items": 1,
+    "yjit": true,
+    "ips": 73891.74809179285,
+    "stddev_pct": 3.3454344549125166,
+    "allocs_per_call": 218.005,
+    "us_per_item": 13.533310901749664,
+    "allocs_per_item": 218.005,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "actionable-tools",
+    "workload": "call, success",
+    "items": 1,
+    "yjit": true,
+    "ips": 59192.07886030225,
+    "stddev_pct": 2.236785775212828,
+    "allocs_per_call": 158.0,
+    "us_per_item": 16.89415238076154,
+    "allocs_per_item": 158.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "actionable-tools",
+    "workload": "call, declared failure",
+    "items": 1,
+    "yjit": true,
+    "ips": 53784.662641040406,
+    "stddev_pct": 2.6624690565732245,
+    "allocs_per_call": 162.0,
+    "us_per_item": 18.592661009589555,
+    "allocs_per_item": 162.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "actionable-tools",
+    "workload": "call, invalid input",
+    "items": 1,
+    "yjit": true,
+    "ips": 74397.21583528415,
+    "stddev_pct": 2.4879963305322126,
+    "allocs_per_call": 115.0,
+    "us_per_item": 13.441363211951447,
+    "allocs_per_item": 115.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "actionable-tools",
+    "workload": "MCP round trip: server.handle(tools/call)",
+    "items": 1,
+    "yjit": true,
+    "ips": 31205.51616038345,
+    "stddev_pct": 8.540156766845328,
+    "allocs_per_call": 279.0,
+    "us_per_item": 32.04561638591118,
+    "allocs_per_item": 279.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "actionable-tools",
+    "workload": "MCP round trip, JSON in/out (parse + handle + dump)",
+    "items": 1,
+    "yjit": true,
+    "ips": 30053.73721119146,
+    "stddev_pct": 2.8282672268907563,
+    "allocs_per_call": 294.0,
+    "us_per_item": 33.27373208106772,
+    "allocs_per_item": 294.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +YJIT +PRISM [arm64-darwin23]"
+  }
+]

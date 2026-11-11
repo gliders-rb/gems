@@ -1,0 +1,17 @@
+# frozen_string_literal: true
+
+source 'https://rubygems.org'
+
+gemspec
+
+gem 'field_struct', path: '../../gems/field_struct'
+gem 'field_struct-avro', path: '../field_struct-avro'
+gem 'rake', '~> 13.0'
+gem 'rake-compiler', '~> 1.2'
+gem 'rbs', '~> 3.0', require: false
+gem 'rspec', '~> 3.13'
+gem 'rubocop', '~> 1.60', require: false
+
+group :bench do
+  gem 'benchmark-ips', require: false
+end

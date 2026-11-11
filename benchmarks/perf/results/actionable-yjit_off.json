@@ -1,0 +1,122 @@
+[
+  {
+    "gem": "actionable",
+    "workload": "run success, measure none",
+    "items": 1,
+    "yjit": false,
+    "ips": 30714.25324296707,
+    "stddev_pct": 2.510235211974568,
+    "allocs_per_call": 143.005,
+    "us_per_item": 32.55817395557157,
+    "allocs_per_item": 143.005,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "actionable",
+    "workload": "run success, measure all (history)",
+    "items": 1,
+    "yjit": false,
+    "ips": 26211.19889291571,
+    "stddev_pct": 2.926230132141352,
+    "allocs_per_call": 166.0,
+    "us_per_item": 38.1516314490398,
+    "allocs_per_item": 166.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "actionable",
+    "workload": "run failure (declared fail!)",
+    "items": 1,
+    "yjit": false,
+    "ips": 29928.000916488912,
+    "stddev_pct": 2.348970791472678,
+    "allocs_per_call": 139.0,
+    "us_per_item": 33.413524772015336,
+    "allocs_per_item": 139.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "actionable",
+    "workload": "run failure (invalid input)",
+    "items": 1,
+    "yjit": false,
+    "ips": 46878.64295039385,
+    "stddev_pct": 2.1587655621150987,
+    "allocs_per_call": 80.0,
+    "us_per_item": 21.331675514971334,
+    "allocs_per_item": 80.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "actionable",
+    "workload": "run failure, measure all",
+    "items": 1,
+    "yjit": false,
+    "ips": 26933.140927201854,
+    "stddev_pct": 2.168332321798285,
+    "allocs_per_call": 146.0,
+    "us_per_item": 37.12897811298433,
+    "allocs_per_item": 146.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "actionable",
+    "workload": "run_each x100, measure none",
+    "items": 100,
+    "yjit": false,
+    "ips": 297.7549709580306,
+    "stddev_pct": 2.686772944297082,
+    "allocs_per_call": 14304.0,
+    "us_per_item": 33.58466180371352,
+    "allocs_per_item": 143.04,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "actionable",
+    "workload": "run_each x100, measure all",
+    "items": 100,
+    "yjit": false,
+    "ips": 255.8882343180372,
+    "stddev_pct": 2.7355693076923076,
+    "allocs_per_call": 16604.0,
+    "us_per_item": 39.07956153846153,
+    "allocs_per_item": 166.04,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "actionable",
+    "workload": "nested action step, measure none",
+    "items": 1,
+    "yjit": false,
+    "ips": 20682.31765985422,
+    "stddev_pct": 2.8188330224307623,
+    "allocs_per_call": 194.0,
+    "us_per_item": 48.35048065918975,
+    "allocs_per_item": 194.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "actionable",
+    "workload": "nested action step, measure all",
+    "items": 1,
+    "yjit": false,
+    "ips": 18025.95848345472,
+    "stddev_pct": 2.9845847059606174,
+    "allocs_per_call": 216.0,
+    "us_per_item": 55.47555215540181,
+    "allocs_per_item": 216.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +PRISM [arm64-darwin23]"
+  },
+  {
+    "gem": "actionable",
+    "workload": "history.to_json (5 steps)",
+    "items": 1,
+    "yjit": false,
+    "ips": 176709.78744709954,
+    "stddev_pct": 1.9155701836907846,
+    "allocs_per_call": 19.0,
+    "us_per_item": 5.658996111346483,
+    "allocs_per_item": 19.0,
+    "ruby": "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +PRISM [arm64-darwin23]"
+  }
+]

@@ -1,0 +1,7 @@
+Actionable/VerbNotLast:
+  Description: 'A plain recording verb must be the last thing a step does; use the bang form to stop.'
+  Enabled: true
+  VersionAdded: '0.1'
+  ActionBaseClasses:
+    - Actionable::Action
+    - ApplicationAction
