@@ -16,7 +16,7 @@ h3,
 h4,
 .site-title,
 .hero h1 {
-  font-weight: 700;
+  font-weight: 600;
   font-family: var(--af-font-display);
   letter-spacing: -0.02em;
 }
@@ -37,61 +37,72 @@ samp,
   font-family: var(--af-font-code);
 }
 
-/* ---- dark scheme (the default) ---- */
+/* ---- dark scheme (the default): warm graphite and amber ---- */
 
 :root {
   /* project tokens */
-  --af-spark: #ff7d98;
-  --af-result: #7ee0b4;
-  --af-success: #8fe3b0;
-  --af-success-bg: #12301f;
-  --af-failure: #ffb0bf;
-  --af-failure-bg: #3d1222;
-  --af-skipped: #c4cadf;
-  --af-skipped-bg: #232944;
+  --af-spark: #e2a65c;
+  --af-result: #a9c08f;
+  --af-success: #8fd1a0;
+  --af-success-bg: #15291c;
+  --af-failure: #f0a0a8;
+  --af-failure-bg: #331a1d;
+  --af-skipped: #b8b3aa;
+  --af-skipped-bg: #26241f;
 
   /* Starlight ramp, darkest to lightest */
-  --sl-color-black: #0e1120;
-  --sl-color-gray-7: #151a2c;
-  --sl-color-gray-6: #232944;
-  --sl-color-gray-5: #3a4163;
-  --sl-color-gray-4: #7882aa;
-  --sl-color-gray-3: #99a1c0;
-  --sl-color-gray-2: #c4cadf;
-  --sl-color-gray-1: #e1e5f2;
-  --sl-color-white: #f2f4fb;
+  --sl-color-black: #14120f;
+  --sl-color-gray-7: #1c1916;
+  --sl-color-gray-6: #2d2924;
+  --sl-color-gray-5: #4a443c;
+  --sl-color-gray-4: #8a8174;
+  --sl-color-gray-3: #a69d90;
+  --sl-color-gray-2: #cfc8bc;
+  --sl-color-gray-1: #ddd6ca;
+  --sl-color-white: #ece6dc;
 
   /* accent */
-  --sl-color-accent-low: #3d1222;
-  --sl-color-accent: #ff7d98;
-  --sl-color-accent-high: #ffc2cf;
+  --sl-color-accent-low: #33261a;
+  --sl-color-accent: #e2a65c;
+  --sl-color-accent-high: #f0c088;
+
+  /* surfaces: one warm family, a step apart */
+  --sl-color-text-accent: var(--sl-color-accent);
+  --sl-color-bg-nav: #181613;
+  --sl-color-bg-sidebar: #1c1916;
+  --sl-color-bg-inline-code: #26221d;
 }
 
-/* ---- light scheme ---- */
+/* ---- light scheme: warm paper and burnt amber ---- */
 
 :root[data-theme='light'] {
-  --af-spark: #a8133a;
-  --af-result: #0b6b3a;
-  --af-success: #0b5a2c;
-  --af-success-bg: #dff4e7;
-  --af-failure: #8c1030;
-  --af-failure-bg: #fbe7ec;
-  --af-skipped: #2d3552;
-  --af-skipped-bg: #e4e8f3;
+  --af-spark: #c47a1e;
+  --af-result: #3f6b2f;
+  --af-success: #1f6b3a;
+  --af-success-bg: #e3f2e7;
+  --af-failure: #9b1c2c;
+  --af-failure-bg: #f8e4e6;
+  --af-skipped: #4f4a42;
+  --af-skipped-bg: #ebe8e2;
 
-  --sl-color-black: #fbfbfe;
-  --sl-color-gray-7: #f2f4fb;
-  --sl-color-gray-6: #e4e8f3;
-  --sl-color-gray-5: #c3c9de;
-  --sl-color-gray-4: #5f6889;
-  --sl-color-gray-3: #4a5273;
-  --sl-color-gray-2: #2d3552;
-  --sl-color-gray-1: #1b2033;
-  --sl-color-white: #0f1322;
+  --sl-color-black: #faf8f4;
+  --sl-color-gray-7: #f2eee7;
+  --sl-color-gray-6: #e3ddd2;
+  --sl-color-gray-5: #c9c1b3;
+  --sl-color-gray-4: #6b6358;
+  --sl-color-gray-3: #5c544a;
+  --sl-color-gray-2: #3a342c;
+  --sl-color-gray-1: #2a251f;
+  --sl-color-white: #1a1612;
 
-  --sl-color-accent-low: #fbe7ec;
-  --sl-color-accent: #a8133a;
-  --sl-color-accent-high: #7a0d2a;
+  --sl-color-accent-low: #f6e7d2;
+  --sl-color-accent: #a35c10;
+  --sl-color-accent-high: #7a4510;
+
+  --sl-color-text-accent: var(--sl-color-accent);
+  --sl-color-bg-nav: #f2eee7;
+  --sl-color-bg-sidebar: #f2eee7;
+  --sl-color-bg-inline-code: #ebe5da;
 }
 
 /* ---- components ---- */
@@ -137,4 +148,54 @@ samp,
 .af-badge.success {
   background: var(--af-success-bg);
   color: var(--af-success);
+}
+
+/* The site title reads as text; the accent stays for links and actions. */
+.site-title {
+  color: var(--sl-color-white);
+}
+
+/* Current sidebar page: a tint, not a solid block of accent. */
+#starlight__sidebar a[aria-current='page'],
+#starlight__sidebar a[aria-current='page']:hover,
+#starlight__sidebar a[aria-current='page']:focus {
+  background-color: var(--sl-color-accent-low);
+  color: var(--sl-color-accent-high);
+}
+
+/* Landing hero: the Gliders mark sits left of the copy on wide screens. */
+@media (min-width: 50rem) {
+  .hero {
+    grid-template-columns: 4fr 7fr;
+  }
+
+  .hero > img {
+    order: 0;
+    width: min(100%, 20rem);
+  }
+}
+
+/* Light scheme: buttons take the brighter amber with dark text; links keep the deeper one for contrast. */
+:root[data-theme='light'] .sl-link-button.primary {
+  background: var(--af-spark);
+  border-color: var(--af-spark);
+  color: #1a1206;
+}
+
+/* Warm air: a soft accent glow in one corner of the sidebar (rising from the bottom left) and
+   of each code block (top right, where the dot leaves the coil). */
+:root {
+  --af-glow: color-mix(in srgb, var(--sl-color-accent) 9%, transparent);
+}
+
+:root[data-theme='light'] {
+  --af-glow: color-mix(in srgb, var(--af-spark) 13%, transparent);
+}
+
+.sidebar-pane {
+  background-image: radial-gradient(120% 45% at 0% 100%, var(--af-glow), transparent 70%);
+}
+
+.sl-markdown-content .expressive-code .frame pre {
+  background: radial-gradient(70% 90% at 100% 0%, var(--af-glow), transparent 70%), var(--code-background);
 }

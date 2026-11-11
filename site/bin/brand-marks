@@ -10,11 +10,11 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import sharp from 'sharp';
 
-const GARNET = '#e0456b'; // the dot, in files shown on any background (READMEs, PNGs)
-const SLATE = '#7d8cc2'; // the line work in those files
+const AMBER = '#d4913f'; // the dot, in files shown on any background (READMEs, PNGs)
+const STONE = '#8a8174'; // the line work in those files
 const THEMES = {
-  dark: { ink: '#f2f4fb', dot: '#ff7d98' }, // the site's text white and accent, dark scheme
-  light: { ink: '#0f1322', dot: '#a8133a' }, // the same, light scheme
+  dark: { ink: '#ece6dc', dot: '#e2a65c' }, // the site's text white and accent, dark scheme
+  light: { ink: '#1a1612', dot: '#c47a1e' }, // the same, light scheme
 };
 const LINE = 2.6;
 
@@ -82,12 +82,12 @@ function gem(pair, { ink, dot: d }) {
 const svg = (w, h, body, title) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w * 2}" height="${h * 2}" role="img"><title>${title}</title>${body}</svg>\n`;
 
-const colour = { ink: SLATE, dot: GARNET };
+const colour = { ink: STONE, dot: AMBER };
 const mono = { ink: 'currentColor', dot: 'currentColor' };
 const favicon =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><title>Gliders</title>' +
   `<style>.i{stroke:${THEMES.light.ink}}@media (prefers-color-scheme: dark){.i{stroke:${THEMES.dark.ink}}}</style>` +
-  glidersSmall({ ink: 'X', dot: GARNET }).replace('stroke="X"', 'class="i"') +
+  glidersSmall({ ink: 'X', dot: AMBER }).replace('stroke="X"', 'class="i"') +
   '</svg>\n';
 
 const files = {
@@ -124,5 +124,5 @@ const png = async (name, size, src, { pad = 0, background } = {}) => {
 await png('gliders-mark-512.png', 512, 'gliders-mark.svg');
 await png('field-struct-mark-512.png', 512, 'field-struct-mark.svg');
 await png('actionable-mark-512.png', 512, 'actionable-mark.svg');
-await png('apple-touch-icon.png', 180, 'gliders-mark-dark.svg', { pad: 24, background: '#0e1120' });
+await png('apple-touch-icon.png', 180, 'gliders-mark-dark.svg', { pad: 24, background: '#14120f' });
 console.log('brand marks written');

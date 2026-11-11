@@ -1,7 +1,7 @@
 import { ExpressiveCodeTheme, definePlugin, addClassName } from '@astrojs/starlight/expressive-code';
 
 /** Builds a code theme from nine colours. */
-function garnetTheme(name, type, c) {
+function thermalTheme(name, type, c) {
   const rule = (scope, foreground, fontStyle) => ({
     scope,
     settings: { foreground, ...(fontStyle ? { fontStyle } : {}) },
@@ -25,28 +25,28 @@ function garnetTheme(name, type, c) {
   });
 }
 
-const dark = garnetTheme('garnet-dark', 'dark', {
-  background: '#151a2c',
-  foreground: '#d5daeb',
-  keyword: '#ff7d98',
-  constant: '#ffc978',
-  symbol: '#6fd6c4',
-  string: '#9cc3e6',
-  number: '#ffb547',
-  method: '#c4b4ff',
-  comment: '#8c95b0',
+const dark = thermalTheme('thermal-dark', 'dark', {
+  background: '#100e0c',
+  foreground: '#ddd6ca',
+  keyword: '#8fb0d6',
+  constant: '#d8c3a0',
+  symbol: '#c4a6cf',
+  string: '#a9c08f',
+  number: '#d4b483',
+  method: '#cdbfae',
+  comment: '#8a8174',
 });
 
-const light = garnetTheme('garnet-light', 'light', {
-  background: '#f2f4fb',
-  foreground: '#1b2033',
-  keyword: '#a8133a',
-  constant: '#8a4a00',
-  symbol: '#0b6b61',
-  string: '#2b5f8a',
-  number: '#954b00',
-  method: '#5a3db3',
-  comment: '#5d6479',
+const light = thermalTheme('thermal-light', 'light', {
+  background: '#f2eee7',
+  foreground: '#1a1612',
+  keyword: '#2f5f8f',
+  constant: '#7a4f12',
+  symbol: '#6b4c9a',
+  string: '#4d6b2f',
+  number: '#7a4f12',
+  method: '#4a433b',
+  comment: '#6b6358',
 });
 
 /** Marks any span that starts with `# =>` so the theme sheet can style it as a result (SI-B9). */
