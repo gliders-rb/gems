@@ -69,6 +69,13 @@ function gliders({ ink, dot: d }) {
   const c = coil(2.6, 3, 22 / 2.6, 34 / 2.6, 53);
   return stroke(c.d, ink, 2.2) + dot(c.tip, 3.6, d);
 }
+
+// Avatar cut (GitHub org, social): the full coil with a heavier line and dot, so it still reads
+// at 20-40px.
+function glidersAvatar({ ink, dot: d }) {
+  const c = coil(2.6, 3, 22 / 2.6, 34 / 2.6, 53);
+  return stroke(c.d, ink, 3.2) + dot(c.tip, 4.6, d);
+}
 function glidersSmall({ ink, dot: d }) {
   const c = coil(1.6, 5, 15, 21, 52);
   return stroke(c.d, ink, 6.5) + dot(c.tip, 7.5, d);
@@ -95,6 +102,7 @@ const files = {
   'gliders-mark-dark.svg': svg(64, 64, gliders(THEMES.dark), 'Gliders'),
   'gliders-mark-light.svg': svg(64, 64, gliders(THEMES.light), 'Gliders'),
   'gliders-mark-mono.svg': svg(64, 64, gliders(mono), 'Gliders'),
+  'gliders-avatar.svg': svg(64, 64, glidersAvatar(THEMES.dark), 'Gliders'),
   'field-struct-mark.svg': svg(64, 64, gem('FS', colour), 'field_struct'),
   'actionable-mark.svg': svg(64, 64, gem('Ac', colour), 'actionable'),
   'field-struct-mark-mono.svg': svg(64, 64, gem('FS', mono), 'field_struct'),
@@ -125,4 +133,5 @@ await png('gliders-mark-512.png', 512, 'gliders-mark.svg');
 await png('field-struct-mark-512.png', 512, 'field-struct-mark.svg');
 await png('actionable-mark-512.png', 512, 'actionable-mark.svg');
 await png('apple-touch-icon.png', 180, 'gliders-mark-dark.svg', { pad: 24, background: '#14120f' });
+await png('gliders-avatar.png', 512, 'gliders-avatar.svg', { pad: 24, background: '#14120f' });
 console.log('brand marks written');
