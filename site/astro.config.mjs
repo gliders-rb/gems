@@ -28,7 +28,11 @@ export default defineConfig({
     starlight({
       title: 'FieldStruct and Actionable',
       description: 'Typed plain-Ruby objects and typed service objects, with every example run in CI.',
-      logo: { alt: 'FieldStruct and Actionable marks', src: './src/assets/brand/pair.svg' },
+      logo: {
+        alt: 'Gliders',
+        light: './src/assets/brand/gliders-mark-light.svg',
+        dark: './src/assets/brand/gliders-mark-dark.svg',
+      },
       favicon: '/brand/favicon.svg',
       head: [{ tag: 'link', attrs: { href: '/brand/apple-touch-icon.png', rel: 'apple-touch-icon' } }],
       customCss: [...fonts, './src/styles/theme.css'],

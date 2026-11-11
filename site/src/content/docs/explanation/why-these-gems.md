@@ -25,6 +25,7 @@ I'm not sure yet how far the strictness should go. A date in the wrong shape is 
 
 ## See also
 
+- [The Gliders idea](/explanation/gliders/)
 - [History](/explanation/history/)
 - [How the two gems fit together](/explanation/how-the-gems-fit/)
 - [Coercion versus validation](/explanation/coercion-and-validation/)

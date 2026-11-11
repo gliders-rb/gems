@@ -40,7 +40,7 @@ A page's runnable blocks go through one fresh Ruby process in order, sharing cla
 - `src/content/docs/` - the pages. A section with no content yet holds a "Coming soon" stub.
 - `src/styles/theme.css` - palette, fonts and the small components.
 - `ec.config.mjs` - the code themes and the plugin that marks `# =>` results.
-- `src/assets/brand/`, `public/brand/` - the placeholder marks, drawn by `bin/brand-marks`.
+- `src/assets/brand/`, `public/brand/` - the Gliders marks (a rising coil for Gliders, top-view spirals with FS and Ac for the gems), drawn by `bin/brand-marks`. Run it again after changing a constant.
 
 ## Agent outputs
 

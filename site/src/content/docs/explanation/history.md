@@ -2,7 +2,7 @@
 title: "History"
 description: "Where the gems came from, who supported the earlier versions, and why this is a complete rewrite."
 sidebar:
-  order: 9
+  order: 10
 ---
 
 FieldStruct and Actionable started as ideas I carried for years. Their first implementations grew up with the support of Acima and later Paymentbox, and both companies released them as open source under the MIT license. I'm grateful to both, and to the colleagues there who used the early versions and pushed back on them, for the room to try these ideas in real systems.

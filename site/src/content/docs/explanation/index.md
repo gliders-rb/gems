@@ -23,3 +23,5 @@ Each page here answers "why is it like this?". Teaching a task is the job of the
 - [ActiveModel-shaped, framework-free](/explanation/framework-independence/): copy the shape, keep Rails optional
 - [How the two gems fit together](/explanation/how-the-gems-fit/): input, output and result are all structs
 - [Why these gems](/explanation/why-these-gems/): where they came from
+- [The Gliders idea](/explanation/gliders/): work with the forces already in a system, not against them
+- [History](/explanation/history/): the earlier versions, and why this is a complete rewrite
