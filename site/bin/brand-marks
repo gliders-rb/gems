@@ -14,7 +14,7 @@ const AMBER = '#d4913f'; // the dot, in files shown on any background (READMEs, 
 const STONE = '#8a8174'; // the line work in those files
 const THEMES = {
   dark: { ink: '#ece6dc', dot: '#e2a65c' }, // the site's text white and accent, dark scheme
-  light: { ink: '#1a1612', dot: '#c47a1e' }, // the same, light scheme
+  light: { ink: '#1a1612', dot: '#cd862b' }, // the same, light scheme
 };
 const LINE = 2.6;
 

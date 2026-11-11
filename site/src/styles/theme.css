@@ -76,7 +76,7 @@ samp,
 /* ---- light scheme: warm paper and burnt amber ---- */
 
 :root[data-theme='light'] {
-  --af-spark: #c47a1e;
+  --af-spark: #cd862b;
   --af-result: #3f6b2f;
   --af-success: #1f6b3a;
   --af-success-bg: #e3f2e7;
@@ -182,7 +182,7 @@ samp,
   color: #1a1206;
 }
 
-/* Warm air: a soft accent glow in one corner of the sidebar (rising from the bottom left) and
+/* Warm air: a soft accent glow in one corner of the sidebar (top left, short) and
    of each code block (top right, where the dot leaves the coil). */
 :root {
   --af-glow: color-mix(in srgb, var(--sl-color-accent) 9%, transparent);
@@ -193,9 +193,23 @@ samp,
 }
 
 .sidebar-pane {
-  background-image: radial-gradient(120% 45% at 0% 100%, var(--af-glow), transparent 70%);
+  background-image: radial-gradient(90% 22% at 0% 0%, var(--af-glow), transparent 70%);
 }
 
 .sl-markdown-content .expressive-code .frame pre {
   background: radial-gradient(70% 90% at 100% 0%, var(--af-glow), transparent 70%), var(--code-background);
+}
+
+/* Landing hero title: the Gliders name, with the two gems as a strong second line. */
+.hero h1 {
+  font-weight: 700;
+}
+
+.hero h1 .af-hero-sub {
+  display: block;
+  margin-top: 0.2em;
+  font-size: 0.48em;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--sl-color-white);
 }

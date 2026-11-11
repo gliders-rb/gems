@@ -26,7 +26,7 @@ export default defineConfig({
   site,
   integrations: [
     starlight({
-      title: 'FieldStruct and Actionable',
+      title: 'Gliders',
       description: 'Typed plain-Ruby objects and typed service objects, with every example run in CI.',
       logo: {
         alt: 'Gliders',
