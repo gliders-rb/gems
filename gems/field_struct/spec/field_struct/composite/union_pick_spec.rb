@@ -131,7 +131,7 @@ RSpec.describe 'Union picks for a Hash (FS-B83a, FS-B83b)' do
         stub_const('Punt', Class.new(FieldStruct::Base) { required :kind, :string, enum: %w[ferry] })
         {
           [[Ferry, Barge], 'kind'] => 'discriminator: on Union expects Symbol or Hash, got String ("kind")',
-          [[Ferry, Barge], { fild: :kind }] => 'discriminator: takes field:, map: and default:, got {fild: :kind}',
+          [[Ferry, Barge], { fild: :kind }] => "discriminator: takes field:, map: and default:, got #{{ fild: :kind }.inspect}",
           [[Ferry, :string], :kind] => 'discriminator: needs every union member to be a FieldStruct class, got String',
           [[Ferry, Raft], :kind] => 'discriminator: :kind is not a field of Raft',
           [[Ferry, Skiff], :kind] => 'discriminator: :kind on Skiff needs enum: (or give the union a map:)',

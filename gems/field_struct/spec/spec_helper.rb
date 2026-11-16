@@ -12,6 +12,8 @@ if ENV['ACTIVE_SUPPORT_LANE']
   require 'active_support/all'
   ActiveSupport.deprecator.behavior = :raise
   ActiveSupport.deprecator.silenced = false
+  # A Rails 7.2 app sets this in its generated defaults; left unset, reading it raises a deprecation (SH-B22).
+  ActiveSupport.to_time_preserves_timezone = true if ActiveSupport.gem_version < Gem::Version.new('8.0')
 end
 
 require 'field_struct'

@@ -19,4 +19,6 @@ gem 'field_struct-protobuf', path: '../adapters/field_struct-protobuf'
 gem 'json_schemer', '~> 2.5'
 gem 'mcp', '~> 1.8'
 gem 'opentelemetry-sdk', '~> 1.13'
+# regexp_parser 2.13.2 (2026-11-16) breaks json_schemer 2.5.0: "undefined method 'implements'" at load.
+gem 'regexp_parser', '< 2.13.2'
 gem 'ruby_llm', '~> 2.1'

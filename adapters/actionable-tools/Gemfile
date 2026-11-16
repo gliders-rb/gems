@@ -14,6 +14,8 @@ gem 'json_schemer', '~> 2.5'
 gem 'mcp', '~> 1.8'
 gem 'rake', '~> 13.0'
 gem 'rbs', '~> 3.0', require: false
+# regexp_parser 2.13.2 (2026-11-16) breaks json_schemer 2.5.0: "undefined method 'implements'" at load.
+gem 'regexp_parser', '< 2.13.2'
 gem 'rspec', '~> 3.13'
 gem 'rubocop', '~> 1.60', require: false
 gem 'ruby_llm', '~> 2.1'
