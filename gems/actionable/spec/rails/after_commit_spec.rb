@@ -192,7 +192,7 @@ RSpec.describe 'Rails adapter: after_commit', skip: (AFTER_COMMIT_SUPPORTED ? fa
   describe 'AC-B#aftercommitdescribe' do
     it 'lists the names in describe and a text line only when non-empty' do
       action = hooked(log)
-      expect(action.describe[:hooks][:after_commit]).to eq([:notify])
+      expect(action.describe[:hooks][:after_commit]).to eq([{ type: :method, name: :notify, options: {}, description: nil }])
       expect(action.describe_text).to include('after_commit: notify')
       expect(build_action.describe[:hooks][:after_commit]).to eq([])
       expect(build_action.describe_text).not_to include('after_commit')
@@ -205,6 +205,22 @@ RSpec.describe 'Rails adapter: after_commit', skip: (AFTER_COMMIT_SUPPORTED ? fa
         def sail = nil
       end
       expect { action.run }.to raise_error(Actionable::DefinitionError, /:ghost/)
+    end
+
+    it 'names them as after_commit hooks in the missing-method message' do
+      action = named_action('Ferry') do
+        step :sail
+        on_success :moor
+        after_commit :ghost
+      end
+      expect { action.run }.to raise_error(Actionable::DefinitionError,
+                                           'Ferry declares step(s) calling :sail and hook(s) calling :moor and ' \
+                                           'after_commit hook(s) calling :ghost but does not implement them')
+    end
+
+    it 'refuses a guard of the wrong type on an after_commit hook' do
+      expect { named_action('Ferry') { after_commit :moor, if: 3 } }
+        .to raise_error(ArgumentError, 'Ferry#moor: if: takes a method name (Symbol or String) or a callable, got Integer (3)')
     end
 
     it 'covers the hooks in the verb check' do

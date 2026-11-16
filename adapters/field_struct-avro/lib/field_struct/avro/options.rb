@@ -22,6 +22,10 @@ module FieldStruct
       NONE = {}.freeze
       private_constant :NONE
 
+      # The keys an +avro:+ Hash may hold (AV-B16).
+      KEYS = %i[type scale precision timestamp enum enum_default].freeze
+      private_constant :KEYS
+
       module_function
 
       # The field's +avro:+ options as a frozen Hash with Symbol keys, read once per Field object (AV-B53).
@@ -39,7 +43,29 @@ module FieldStruct
 
         raise ::ArgumentError, not_a_hash(yield, value) unless value.is_a?(::Hash)
 
-        READ[field] = value.transform_keys { |key| key.respond_to?(:to_sym) ? key.to_sym : key }.freeze
+        READ[field] = checked(value) { block_given? ? yield : field.name.to_s }
+      end
+
+      # The options with Symbol keys, frozen, after refusing any key this adapter doesn't read (AV-B16).
+      #
+      # @param value [::Hash{::Object=>::Object}]
+      # @yieldreturn [::String] +Klass#field+, built only for the error
+      # @return [::Hash{::Symbol=>::Object}]
+      # @raise [::ArgumentError] for an unknown key
+      def checked(value)
+        opts = value.transform_keys { |key| key.respond_to?(:to_sym) ? key.to_sym : key }.freeze
+        unknown = opts.keys.find { |key| !KEYS.include?(key) }
+        raise ::ArgumentError, unknown_key(yield, unknown) unless unknown.nil?
+
+        opts
+      end
+
+      # @param label [::String]
+      # @param key [::Object] the first key +avro:+ does not take
+      # @return [::String]
+      def unknown_key(label, key)
+        hint = FieldStruct::Suggestion.clause(key, KEYS, sigil: '', suffix: ':')
+        "FieldStruct::Avro (#{label}) avro: has no key #{key}:#{hint}; it takes #{KEYS.map { |known| "#{known}:" }.join(', ')}"
       end
 
       # @param label [::String]

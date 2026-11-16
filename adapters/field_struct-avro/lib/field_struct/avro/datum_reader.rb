@@ -29,12 +29,26 @@ module FieldStruct
       def property(value, prop, trail)
         field = prop.field
         opts = Options.read(field) { trail.label(field) }
-        spot = Spot.new(trail, field, opts)
         override = Options.override(opts)
         return nil if value.nil?
-        return overridden(value, prop.node, Options.stringify(override), spot) unless override.nil?
+        return overridden(value, prop.node, Options.stringify(override), Spot.new(trail, field, opts)) unless override.nil?
 
-        node_value(value, prop.node, spot)
+        node = prop.node
+        # Most fields are plain scalars, which never report an error, so they skip building a Spot.
+        return plain_scalar(value, node) if plain_scalar?(node)
+
+        node_value(value, node, Spot.new(trail, field, opts))
+      end
+
+      def plain_scalar?(node)
+        node.is_a?(NODES::ScalarNode) && !node.type.is_a?(Types::Symbol) && !node.type.is_a?(Types::Value)
+      end
+
+      def plain_scalar(value, node)
+        case node.type
+        when Types::Time, Types::DateTime then Zone.apply(value, node.options[:zone])
+        else value
+        end
       end
 
       def node_value(value, node, spot)
@@ -43,6 +57,7 @@ module FieldStruct
         case node
         when NODES::ScalarNode then scalar(value, node, spot)
         when NODES::ArrayNode then array(value, node, spot)
+        when NODES::MapNode then entries(value, node, spot)
         when NODES::StructNode then nested(value, node.klass, spot)
         else union(value, node, spot)
         end
@@ -55,16 +70,22 @@ module FieldStruct
         value.map { |item| node_value(item, element, spot) }
       end
 
+      def entries(value, node, spot)
+        element = node.element
+        return value if element.nil? || !value.is_a?(::Hash)
+
+        value.transform_values { |item| node_value(item, element, spot) }
+      end
+
       def nested(value, klass, spot)
         value.is_a?(::Hash) ? struct(klass, value, spot.enter(klass)) : value
       end
 
       def scalar(value, node, spot)
         case node.type
-        when Types::Time, Types::DateTime then Zone.apply(value, node.options[:zone])
         when Types::Symbol then symbol(value, node, spot)
         when Types::Value then value.is_a?(::String) ? ValueJson.load(value, spot) : value
-        else value
+        else plain_scalar(value, node)
         end
       end
 
@@ -108,6 +129,7 @@ module FieldStruct
         case node
         when NODES::StructNode then nested(value, node.klass, spot)
         when NODES::ArrayNode then overridden_array(value, node, spot)
+        when NODES::MapNode then overridden_entries(value, node, spot)
         when NODES::ScalarNode then overridden_scalar(value, node, type, spot)
         else value
         end
@@ -118,6 +140,13 @@ module FieldStruct
         return value unless value.is_a?(::Array) && element.is_a?(NODES::StructNode)
 
         value.map { |item| nested(item, element.klass, spot) }
+      end
+
+      def overridden_entries(value, node, spot)
+        element = node.element
+        return value unless value.is_a?(::Hash) && element.is_a?(NODES::StructNode)
+
+        value.transform_values { |item| nested(item, element.klass, spot) }
       end
 
       def overridden_scalar(value, node, type, spot)

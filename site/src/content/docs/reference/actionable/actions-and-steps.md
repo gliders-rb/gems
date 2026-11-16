@@ -13,7 +13,7 @@ An action subclasses `Actionable::Action`, and each of its steps is an instance 
 Action.run(*args, **kwargs) # => Result
 ```
 
-When the class has an `input` block, `.run(**kwargs)` builds the input struct and the steps read it as `input` (see [Input and output](/reference/actionable/input-and-output/)). Without the block the action is free-form, so `.run` forwards `*args` and `**kwargs` to `new` and the default constructor discards them. You always get exactly one result back, and a run that records no outcome succeeds on its own (AC §5.4).
+When the class has an `input` block, `.run(**kwargs)` builds the input struct and the steps read it as `input` (see [Input and output](/reference/actionable/input-and-output/)). Without the block the action is free-form, so `.run` forwards `*args` and `**kwargs` to `new` and the default constructor discards them. You always get exactly one result back, and a run that records no outcome succeeds on its own.
 
 ```ruby run
 class StampPass < Actionable::Action
@@ -55,7 +55,7 @@ Actionable::Action.run.success?   # => true
 ```
 
 :::caution
-When an action has an `input` block, the gem calls `new` with no arguments and assigns the input afterwards. An `initialize` override has to work with zero required arguments and call `super`, or `.run` raises Ruby's `ArgumentError` (AC §5.6).
+When an action has an `input` block, the gem calls `new` with no arguments and assigns the input afterwards. An `initialize` override has to work with zero required arguments and call `super`, or `.run` raises Ruby's `ArgumentError`.
 :::
 
 ## `step`
@@ -75,12 +75,34 @@ step(target, **options)
 | `unless:` | all steps | skip when the guard is truthy |
 | `input:` | action steps | names of instance variables to pass to the child |
 | `expose:` | action steps | narrow the child's output fields copied back |
+| `desc:` | all steps and hooks | a description for people, a String (see [Descriptions](/reference/actionable/batches-and-introspection/#descriptions)) |
 
-Steps execute in the order declared, and `step 'name'` is the same step as `step :name`. Any other kind of target (`step 5`) raises `ArgumentError` with `unsupported step target`. A step object answers `name`, `kind` and `options`, and two steps are equal when their class and name match. `Action.steps` lists them in order (AC §5.3).
+Any other key raises `DefinitionError` when the step is declared, with a suggestion when one is close (`unknown step option iff: on Kiln#fire (did you mean if:?)`), so a typo can't quietly turn a guard off. The same check covers hooks, `case_step` and its branches.
+
+### Option keys from adapters
+
+An adapter that reads its own key from `step.options` registers it with `Actionable.register_step_option(name, owner:)` when it's required. `owner:` names the gem or app that reads it and shows up in messages. Registering the same key twice with the same owner does nothing; another owner, or a built-in key, raises `ArgumentError`. `Actionable.registered_step_options` lists what's registered.
+
+```ruby run
+Actionable.register_step_option(:kiln_temp, owner: 'glass-kiln')   # => :kiln_temp
+Actionable.registered_step_options[:kiln_temp]                     # => "glass-kiln"
+
+class Fire < Actionable::Action
+  step :heat, kiln_temp: 540
+
+  private
+
+  def heat = nil
+end
+
+Fire.steps.first.options   # => {kiln_temp: 540}
+```
+
+Steps execute in the order declared, and `step 'name'` is the same step as `step :name`. Any other kind of target (`step 5`) raises `ArgumentError` with `unsupported step target`. A step object answers `name`, `kind` and `options`, and two steps are equal when their class and name match. `Action.steps` lists them in order.
 
 ### Guards
 
-`if:` and `unless:` accept a method name or a callable that gets the instance. If both are present, whichever one asks to skip wins. A step that is skipped this way never runs and leaves no entry in the history. Guard methods can be private, but the missing-method check ignores them, so a misspelled guard raises `NoMethodError` only when it is evaluated, partway through a run (AC-B#guards).
+`if:` and `unless:` accept a method name or a callable that gets the instance; anything else raises `ArgumentError` when the step or hook is declared, naming both (`Kiln#fire: if: takes a method name (Symbol or String) or a callable, got Integer (5)`). If both are present, whichever one asks to skip wins. A step that is skipped this way never runs and leaves no entry in the history. Guard methods can be private, but the missing-method check ignores them, so a misspelled guard raises `NoMethodError` only when it is evaluated, partway through a run.
 
 ```ruby run
 class ClearDeparture < Actionable::Action
@@ -114,7 +136,7 @@ ClearDeparture.steps.to_a[1].options            # => {if: :ballast_dirty?}
 
 Declare a step a second time (same kind, same name) and its options are replaced where it stands, so it keeps its first position. `step :x` and `case_step :x` count as different steps, and so do `on_success :x` and `always :x`, since every hook list is separate.
 
-A subclass takes a copy of the steps, hooks, schemas, declarations, `measure` and `typed_outcomes` at creation time (AC-I6). The parent can change afterwards without affecting it, and redeclaring a step in the subclass touches the subclass only. An inherited step can't be removed, so switch it off with `if:` or `unless:`.
+A subclass takes a copy of the steps, hooks, schemas, declarations, `measure` and `typed_outcomes` at creation time. The parent can change afterwards without affecting it, and redeclaring a step in the subclass touches the subclass only. An inherited step can't be removed, so switch it off with `if:` or `unless:`.
 
 ```ruby run
 class BaseDeparture < Actionable::Action
@@ -151,7 +173,7 @@ A case step calls the named method (private works), then runs the first branch w
 | an Array | any value the Array includes |
 | a Regexp | values whose `to_s` matches |
 
-`Actionable::ValueMatch.matches?(branch_value, value)` is the matcher everything shares. A Range never matches one of its members since it is compared with `==` only, so spell it `(400..499).to_a` rather than `400..499`. A `nil` branch matches `nil` (AC-B#valuematch).
+`Actionable::ValueMatch.matches?(branch_value, value)` is the matcher everything shares. A Range never matches one of its members since it is compared with `==` only, so spell it `(400..499).to_a` rather than `400..499`. A `nil` branch matches `nil`.
 
 ```ruby run
 class AssignQuay < Actionable::Action
@@ -189,7 +211,7 @@ When nothing matches and there is no `default`, the step does nothing and no err
 step ChildAction, input: %i[berth], expose: %i[pass]
 ```
 
-A nested action amounts to `Child.run(berth: @berth)`. For each name listed in `input:`, the parent hands over its instance variable of that name as a keyword, and an unset variable goes in as `nil`. After a success or a skip, the fields the child really set come back to the parent as instance variables, limited by `expose:`. A field the child never set can't overwrite what the parent holds (AC-B#nestedabsorb).
+A nested action amounts to `Child.run(berth: @berth)`. For each name listed in `input:`, the parent hands over its instance variable of that name as a keyword, and an unset variable goes in as `nil`. After a success or a skip, the fields the child really set come back to the parent as instance variables, limited by `expose:`. A field the child never set can't overwrite what the parent holds.
 
 ```ruby run
 class HoldBerth < Actionable::Action
@@ -222,13 +244,13 @@ IssueBoarding.run.message # => "held=true deck=upper"
 IssueBoarding.steps.first.kind # => :action
 ```
 
-When the child fails, the parent fails too and stops. It takes over the child's code, message, errors and metadata directly, never passing through its own `fail`. A parent that declares any failure code has to declare every non-gem code its children can fail with, otherwise `DefinitionError` is raised, while the gem's own `:invalid_input` and `:invalid_output` pass through freely (AC §5.8, AC-B#nesteddeclare). A child's skip doesn't count as an outcome for the parent, which carries on as it would after a success. If the parent measures, the child's history is attached to the matching step record (see [Hooks and history](/reference/actionable/hooks-and-history/)).
+When the child fails, the parent fails too and stops. It takes over the child's code, message, errors and metadata directly, never passing through its own `fail`. A parent that declares any failure code has to declare every non-gem code its children can fail with, otherwise `DefinitionError` is raised, while the gem's own `:invalid_input` and `:invalid_output` pass through freely. A child's skip doesn't count as an outcome for the parent, which carries on as it would after a success. If the parent measures, the child's history is attached to the matching step record (see [Hooks and history](/reference/actionable/hooks-and-history/)).
 
 ## Checks before and during a run
 
-`.run` goes through these stages in order: build and validate the input (invalid input returns its failure right there), instantiate, check for missing methods, check verb positions on the first run, then run the steps (AC-B#runorder).
+`.run` goes through these stages in order: build and validate the input (invalid input returns its failure right there), instantiate, check for missing methods, check verb positions on the first run, then run the steps.
 
-- **Missing methods.** Each step, hook and case-branch method has to exist on the instance, public or private, and can't come from `Kernel`, `Object` or `BasicObject`, so `step :puts` fails. The error is a `DefinitionError`: `<Action> declares step(s) calling :a, :b but does not implement them`. A step whose guard would skip it is still checked.
+- **Missing methods.** Each step, hook and case-branch method has to exist on the instance, public or private, and can't come from `Kernel`, `Object` or `BasicObject`, so `step :puts` fails. The error is a `DefinitionError` that names each kind it found: `<Action> declares step(s) calling :a, :b and hook(s) calling :c but does not implement them`, with `after_commit hook(s)` for the Rails hooks. A step whose guard would skip it is still checked.
 - **Verb position.** The first run of a class raises `DefinitionError` when a plain verb has more code after it. [Errors and guardrails](/reference/actionable/errors/) has the details.
 
 ## See also

@@ -5,7 +5,7 @@ D = Steep::Diagnostic
 
 target :lib do
   collection_config 'rbs_collection.yaml'
-  signature 'sig', 'support/external'
+  signature 'sig'
   check 'lib'
   configure_code_diagnostics(D::Ruby.lenient)
 end

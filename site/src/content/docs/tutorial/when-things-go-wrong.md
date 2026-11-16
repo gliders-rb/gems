@@ -54,7 +54,7 @@ end
 
 ## A skip is not a failure
 
-Handling booking 7 twice should not take places twice, and it isn't an error either. There was simply nothing left to do. That is a skip.
+Handling booking 7 twice should not take places twice, and it isn't an error either. There was nothing left to do. That is a skip.
 
 ```ruby run
 first = ReservePlaces.run(booking_id: 7, hut_code: 'KR12', places: 1)
@@ -119,11 +119,12 @@ bad = ReservePlaces.run(booking_id: 12, hut_code: 'k1', places: 0)
 bad.code                        # => :invalid_input
 bad.errors.to_h.keys            # => [:hut_code, :places]
 bad.errors.full_messages.size   # => 2
-bad.to_h.keys                   # => [:code, :message, :output, :history, :errors, :metadata]
+bad.to_h.keys                   # => [:status, :code, :message, :output, :history, :errors, :metadata]
+bad.as_json[:status]            # => "failure"
 bad.to_api_h(index: 0)          # => {index: 0, status: :failure, id: nil, errors: {hut_code: ["is invalid"], places: ["is invalid"]}}
 ```
 
-`to_h` is the whole result as a hash. `to_api_h` is the small shape a batch API wants: an index, a status, an id and the errors.
+`to_h` is the whole result as a hash, status and errors included, and `as_json` and `to_json` are the same report ready for a log line or a response body. `to_api_h` is the small shape a batch API wants: an index, a status, an id and the errors.
 
 ## An exception is not an outcome
 

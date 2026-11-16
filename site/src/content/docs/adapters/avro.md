@@ -2,9 +2,6 @@
 title: "Avro"
 description: "Write structs as Avro binary, read dispatches saved with an older class, and get an error where a value would have been rounded."
 sidebar:
-  badge:
-    text: Unreleased
-    variant: caution
   label: "Avro"
   order: 3
 ---
@@ -61,9 +58,24 @@ The mapping holds on to as much as Avro allows. Integers become `long`, never `i
 | `:time`, `:datetime` | `long` with `timestamp-micros`, `-nanos` or `-millis` |
 | `:symbol` with `enum:` | a named `enum`; otherwise `string` |
 | arrays | `array`, items nullable |
+| `:hash, of:` | `map`, values nullable |
 | nested structs | a named `record`, referenced by full name after its first use |
 
-A field with a usable default is not nullable, and the schema carries that default. A default Avro can't write (a date, a decimal, a lambda) stays out of the schema, and the struct fills it in on read.
+A `:hash` field is an Avro `map`, whose keys are Strings in both. Its values are nullable for the same reason array items are, and a struct value is a record, read back as a struct:
+
+```ruby run
+module Signals
+  class Watch < FieldStruct::Base
+    required :ranges, :hash, of: :integer
+  end
+end
+
+FieldStruct::Avro.schema(Signals::Watch)['fields'][0]['type']   # => {"type"=>"map", "values"=>["null", "long"]}
+watch = Signals::Watch.new(ranges: {north: 12})
+FieldStruct::Avro.decode(Signals::Watch, FieldStruct::Avro.encode(watch)).ranges   # => {"north" => 12}
+```
+
+A required field declared `nullable: true` is a union with `null` too, with no default. A field with a usable default is not nullable, and the schema carries that default. A default Avro can't write (a date, a decimal, a lambda) stays out of the schema, and the struct fills it in on read.
 
 Each `schema` call gives you a fresh copy. For `Signals::Dispatch.to_avro_schema`, `#to_avro` and `Signals::Dispatch.from_avro`, include `FieldStruct::Avro::Methods`.
 
@@ -173,7 +185,9 @@ Every error is an `ArgumentError` naming the class and field, and none of them e
 
 ## Options
 
-A field's `avro:` option is a Hash. With `type:` you replace the whole mapping by an Avro type of your own, and the other keys adjust the generated one. On array and union fields, every key except `type:` applies to the items.
+A field's `avro:` option is a Hash. With `type:` you replace the whole mapping by an Avro type of your own, and the other keys adjust the generated one. On array, map and union fields, every key except `type:` applies to the items (for a map, its values).
+
+`require 'field_struct/avro'` registers `avro:` as a field option (with `FieldStruct.register_option`), so require the adapter before the classes that use it. Until then, `avro:` on a field raises and says which file to require. A value that isn't a Hash is refused when the field is declared, and an unknown key inside it raises when the schema is built, with a did-you-mean: `avro: has no key timestmp: (did you mean timestamp:?)`.
 
 | Key | Meaning |
 |---|---|

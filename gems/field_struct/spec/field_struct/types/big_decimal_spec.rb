@@ -12,8 +12,8 @@ RSpec.describe FieldStruct::Types::BigDecimal do
     expect(FieldStruct.types.lookup(:big_decimal)).to equal(described_class)
   end
 
-  it 'declares round and in' do
-    expect(described_class.option_schema.keys).to eq(%i[round in])
+  it 'declares round, in and json' do
+    expect(described_class.option_schema.keys).to eq(%i[round in json])
   end
 
   it 'FS-B163: default_round is nil' do

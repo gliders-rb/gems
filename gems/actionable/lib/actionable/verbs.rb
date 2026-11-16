@@ -10,12 +10,20 @@ module Actionable
     private
 
     # Records a Success and continues.
+    #
+    # @param message [String, nil]
+    # @param output [Object] the success output's fields
+    # @return [Boolean] always true
     def succeed(message = nil, **output)
       @result = remember(Success.new(message: message, output: output), output)
       true
     end
 
     # Records a Success and halts.
+    #
+    # @param message [String, nil]
+    # @param output [Object] the success output's fields
+    # @return [void]
     def succeed!(message = nil, **output)
       succeed(message, **output)
       halt!
@@ -23,6 +31,11 @@ module Actionable
 
     # Records a Failure (keywords are errors) and continues. +output:+ is the failure's output when its code
     # declares an output schema, or under typed outcomes (AC-B#outputkw); otherwise it is an error key.
+    #
+    # @param code [Symbol, String]
+    # @param message [String, nil]
+    # @param errors [Object] messages by field
+    # @return [Boolean] always false
     def fail(code, message = nil, **errors)
       failure = build_failure(code, message)
       given = errors.key?(:output) && output_keyword?(:failure, failure.code)
@@ -33,12 +46,23 @@ module Actionable
     end
 
     # Records a Failure and halts.
+    #
+    # @param code [Symbol, String]
+    # @param message [String, nil]
+    # @param errors [Object] messages by field
+    # @return [void]
     def fail!(code, message = nil, **errors)
       fail(code, message, **errors)
       halt!
     end
 
     # Records a Failure that absorbs +source.errors+ and continues.
+    #
+    # @param source [Object] a FieldStruct, a result, or anything whose +errors+ answers +to_h+
+    # @param code [Symbol, String]
+    # @param message [String, nil]
+    # @param output [Object, nil] the failure's output, when its code declares a schema or under typed outcomes
+    # @return [Boolean] always false
     def fail_with(source, code: :invalid, message: nil, output: nil)
       failure = build_failure(code, message)
       unless output.nil?
@@ -53,12 +77,21 @@ module Actionable
     end
 
     # Records a Failure from +source+ and halts.
-    def fail_with!(source, **)
-      fail_with(source, **)
+    #
+    # @param source [Object] as for {#fail_with}
+    # @param options [Object] +code:+, +message:+ and +output:+, as for {#fail_with}
+    # @return [void]
+    def fail_with!(source, **options)
+      fail_with(source, **options)
       halt!
     end
 
     # Records a Skipped and continues.
+    #
+    # @param code [Symbol, String]
+    # @param message [String, nil]
+    # @param output [Object] the skip output's fields
+    # @return [Boolean] always false
     def skip(code = :skipped, message = nil, **output)
       skipped = build_skip(code, message, output)
       refuse_output!(:skip, skipped.code) if typed_without_schema?(:skip, skipped.code) && !output.empty?
@@ -67,12 +100,19 @@ module Actionable
     end
 
     # Records a Skipped and halts.
+    #
+    # @param code [Symbol, String]
+    # @param message [String, nil]
+    # @param output [Object] the skip output's fields
+    # @return [void]
     def skip!(code = :skipped, message = nil, **output)
       skip(code, message, **output)
       halt!
     end
 
     # Stops the main steps without recording anything.
+    #
+    # @return [void]
     def halt!
       throw Actionable::HALT
     end

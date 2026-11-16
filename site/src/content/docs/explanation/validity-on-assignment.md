@@ -25,17 +25,17 @@ Nobody told the object to validate itself. The setter did, for that one field, t
 
 ## What a setter does
 
-A setter coerces the value, stores it, and rewrites that field's errors from scratch. Other fields' errors stay untouched. `new`, `assign_attributes` and `with` are setters called in a loop (FS-I1). The exact steps are in [Validation and errors](/reference/field-struct/validation-and-errors/#the-setter-pipeline).
+A setter coerces the value, stores it, and rewrites that field's errors from scratch. Other fields' errors stay untouched. `new`, `assign_attributes` and `with` are setters called in a loop. The exact steps are in [Validation and errors](/reference/field-struct/validation-and-errors/#the-setter-pipeline).
 
 ## Why per field
 
 The other option is a validation pass that walks every field on request. Most Ruby validation works that way and it is fine. We chose differently, for two reasons.
 
-First, validation follows from mutation anyway. A setter that has to coerce already knows the value is bad, and keeping that is cheaper than discarding it and rediscovering it later. Second, reads cost nothing. `valid?` walks nothing and just reads `errors.empty?` (FS-I3). Cross-field validators are the exception, since they can depend on any field, so `valid?` runs them again.
+First, validation follows from mutation anyway. A setter that has to coerce already knows the value is bad, and keeping that is cheaper than discarding it and rediscovering it later. Second, reads cost nothing. `valid?` walks nothing and just reads `errors.empty?`. Cross-field validators are the exception, since they can depend on any field, so `valid?` runs them again.
 
 ## Building is not validating
 
-`new` returns an instance every time, garbage included, and doesn't raise on a bad value unless you ask for `coercion_policy :raise` (FS-I2). The object lives long enough to say what was wrong, so a form can show all the errors at once and not just the first.
+`new` returns an instance every time, garbage included, and doesn't raise on a bad value unless you ask for `coercion_policy :raise`. The object lives long enough to say what was wrong, so a form can show all the errors at once and not just the first.
 
 An invalid object never passes for a fine one. The errors can be read, `inspect` prints them, and `full_messages` gives plain sentences. Using the value after ignoring `valid?` is your call, made with the evidence in front of you.
 

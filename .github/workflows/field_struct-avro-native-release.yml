@@ -1,15 +1,21 @@
 name: field_struct-avro-native release
 
 # Builds the source gem and the precompiled platform gems (spec decision R1) and uploads them as workflow artifacts.
-# It does NOT publish to RubyGems: the last job holds a disabled publish step for a human to enable.
+# It publishes to RubyGems only when run by hand with `publish` ticked, after field_struct-avro is on RubyGems, through
+# trusted publishing (OIDC, no API key). The publisher on rubygems.org names this file and the environment `rubygems`.
 #
-# Not yet run on GitHub Actions. Treat the first run as a dry run: trigger it with workflow_dispatch before tagging.
+# Not yet run on GitHub Actions. Treat the first run as a dry run: run it by hand with `publish` left unticked.
 on:
   push:
     tags:
       # The repo's release tag convention, as set by the Rakefile's tag_prefix.
       - 'field_struct-avro-native/v*'
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Push the built gems to RubyGems (trusted publishing)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -98,9 +104,9 @@ jobs:
           EXPECT_PRECOMPILED: '1'
         run: support/smoke_install.sh "$(ls "$RUNNER_TEMP"/platform-gem/*.gem)" "$RUNNER_TEMP/platform-install"
 
-  # Gathers the gems for a human to inspect. Publishing is deliberately off.
+  # Gathers the gems for a human to inspect.
   release:
-    name: release (publishing disabled)
+    name: release
     needs: [source-gem, cross-gem, smoke]
     runs-on: ubuntu-latest
     steps:
@@ -111,13 +117,31 @@ jobs:
           path: ${{ runner.temp }}/gems
       - name: List the gems
         run: ls -l "$RUNNER_TEMP/gems"
-      # A human enables this step: uncomment it, add a RubyGems API key as the RUBYGEMS_API_KEY secret (or switch to
-      # trusted publishing with `id-token: write`), and set `if: startsWith(github.ref, 'refs/tags/')`.
-      # - name: Publish to RubyGems
-      #   if: false
-      #   env:
-      #     GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
-      #   run: |
-      #     for gem in "$RUNNER_TEMP"/gems/*.gem; do
-      #       gem push "$gem"
-      #     done
+
+  # Pushes them, only on a manual run with `publish` ticked.
+  publish:
+    name: publish to RubyGems
+    needs: release
+    if: github.event_name == 'workflow_dispatch' && inputs.publish
+    runs-on: ubuntu-latest
+    environment: rubygems
+    permissions:
+      contents: read
+      id-token: write # the OIDC token RubyGems trades for a short-lived push key
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: gem-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/gems
+      - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        with:
+          ruby-version: '3.4'
+      - uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
+      - name: Push the source gem, then each platform gem
+        working-directory: ${{ runner.temp }}/gems
+        run: |
+          # RubyGems refuses a version it already has, so a re-run after a partial publish fails on the first pushed file.
+          for gem in field_struct-avro-native-source.gem $(ls *.gem | grep -v -- -source.gem); do
+            gem push "$gem"
+          done

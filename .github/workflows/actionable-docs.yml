@@ -1,0 +1,107 @@
+name: actionable-docs
+
+# Runs only when the adapter, the base gems it builds against by path, or this workflow changes. GitHub-hosted runners only.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'adapters/actionable-docs/**'
+      - 'gems/field_struct/**'
+      - 'gems/actionable/**'
+      - '.github/workflows/actionable-docs.yml'
+      - 'tools/doctest/**'
+      - 'tools/doccheck/**'
+      - 'site/src/content/docs/**'
+  pull_request:
+    paths:
+      - 'adapters/actionable-docs/**'
+      - 'gems/field_struct/**'
+      - 'gems/actionable/**'
+      - '.github/workflows/actionable-docs.yml'
+      - 'tools/doctest/**'
+      - 'tools/doccheck/**'
+      - 'site/src/content/docs/**'
+  workflow_dispatch:
+
+# Pull request code runs here, so the token stays read-only.
+permissions:
+  contents: read
+
+concurrency:
+  group: actionable-docs-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: adapters/actionable-docs
+
+jobs:
+  # Specs and RuboCop on every supported Ruby.
+  test:
+    name: Ruby ${{ matrix.ruby }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ['3.3', '3.4', '4.0']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+          working-directory: adapters/actionable-docs
+      - run: bundle exec rake
+
+  # Doctests, YARD completeness and the signature guards: everything `rake release:check` covers.
+  release-check:
+    name: release:check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+          working-directory: adapters/actionable-docs
+      - run: bundle exec rake release:check
+
+  # The suite with ActiveSupport loaded first, under a non-UTC TZ, deprecations raising (SH-B22).
+  active-support:
+    name: ActiveSupport ${{ matrix.activesupport }}
+    runs-on: ubuntu-latest
+    env:
+      BUNDLE_GEMFILE: ${{ github.workspace }}/adapters/actionable-docs/gemfiles/active_support.gemfile
+      ACTIVE_SUPPORT_LANE: '1'
+      ACTIVE_SUPPORT_VERSION: ${{ matrix.requirement }}
+      TZ: America/Denver
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - activesupport: '7.2'
+            requirement: '~> 7.2.0'
+          - activesupport: '8.1'
+            requirement: '~> 8.1.0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        with:
+          ruby-version: '3.4'
+      - run: bundle install
+      - run: bundle exec rspec --tag '~doctest' --format progress
+
+  # The one check to require in branch protection: green only when every gating job passed.
+  required:
+    name: actionable-docs (required)
+    if: always()
+    needs: [test, release-check, active-support]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Every gating job succeeded
+        run: |
+          echo '${{ toJSON(needs) }}'
+          test "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}" = "false"

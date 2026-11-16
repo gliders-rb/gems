@@ -1,11 +1,49 @@
 #!/usr/bin/env bash
-# Runs every gem's oracle (bundle exec rake). Exit non-zero if any fails.
+# Runs every gem's oracle (bundle exec rake), then its ActiveSupport lane (rake spec:active_support), then Steep
+# (rake types:check) for a gem that has a types lane.
+# With --rails it also runs the one-file Rails app in integration/rails (SH-B63). Exits non-zero if any fails. Ends with one line per gem and lane, so a failure deep in the log is easy to find.
 set -u
 root="$(cd "$(dirname "$0")/.." && pwd)"
+rails=0
+for arg in "$@"; do
+  case "$arg" in
+    --rails) rails=1 ;;
+    *) echo "usage: bin/oracle [--rails]" >&2; exit 2 ;;
+  esac
+done
 status=0
+summary=()
+
+# run <label> <dir> <rake args...>: one summary line per call
+run() {
+  local label=$1 dir=$2 started=$SECONDS
+  shift 2
+  echo "=== $label"
+  if (cd "$dir" && bundle exec rake "$@"); then
+    summary+=("ok      $label ($((SECONDS - started))s)")
+  else
+    echo "FAILED: $label"
+    summary+=("FAILED  $label ($((SECONDS - started))s)")
+    status=1
+  fi
+}
+
+# The doc-test runner every gem and the site share (SH 4.1), and the doc-coverage checker (SH 4.8).
+run "tools/doctest" "$root/tools/doctest"
+run "tools/doccheck" "$root/tools/doccheck"
 for dir in "$root"/gems/*/ "$root"/adapters/*/; do
   [ -f "$dir/Rakefile" ] || continue
-  echo "=== $(basename "$dir")"
-  (cd "$dir" && bundle exec rake) || { echo "FAILED: $(basename "$dir")"; status=1; }
+  name="$(basename "$dir")"
+  run "$name" "$dir"
+  run "$name active_support" "$dir" spec:active_support
+  # Steep at the error level gates (T-b); only the core gems have a types lane.
+  [ -f "$dir/rakelib/types.rake" ] && run "$name types" "$dir" types:check
 done
+if [ "$rails" = 1 ]; then
+  (cd "$root/integration/rails" && bundle check >/dev/null 2>&1 || bundle install --quiet)
+  run "integration/rails" "$root/integration/rails"
+fi
+echo
+echo "=== summary"
+printf '%s\n' "${summary[@]}"
 exit $status

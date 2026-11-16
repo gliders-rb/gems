@@ -7,8 +7,6 @@ sidebar:
 
 FieldStruct has only three exception classes of its own. Bad input is normally recorded on `errors`, not raised, and the three classes below are for the cases where raising is the whole point. Everything else is a standard Ruby error whose message is a full sentence and never includes an input value.
 
-Rules: section 4.5 of the field_struct spec, FS-I5, FS-I7, FS-I20.
-
 ```
 StandardError
   FieldStruct::Error
@@ -95,14 +93,26 @@ end
 
 | Class | When |
 |---|---|
-| `ArgumentError` | `new` or `assign_attributes` given something other than a Hash or `to_hash` object; `with` given a positional argument; a declaration problem (bad option value, an option on the wrong type, a reserved name, a bad `zone:`, an unknown preset); an unknown class macro value; `from_json` given a root that is not an object; the `RBS` and `Scaffold` helpers given bad input; `serialize` naming an undeclared field |
+| `ArgumentError` | `new` or `assign_attributes` given something other than a Hash or `to_hash` object; `with` given a positional argument; a declaration problem (bad option value, an option on the wrong type, a reserved name, a bad `zone:`, an unknown preset); an unknown class macro value; `from_json` given a root that is not an object; the `RBS` and `Scaffold` helpers given bad input; `serialize` naming an undeclared field; a mirror that can't read its source; `partial` or `register_option` refusing (below) |
 | `KeyError` | an unknown type name, at declaration |
 | `NameError` | `use_alias!` when the constant already exists and is something else |
 | `FrozenError` | a setter on an instance made with `frozen!` |
 | `NotImplementedError` | a custom type without `coerce` or `ruby_type` |
 | `EncodingError` | `from_json` given malformed JSON. This is the class Oj raises, and FieldStruct defines none of its own |
 
-Declaration problems raise while the class body runs, never at first use, so a typo fails at load time (FS-I19). The declaration messages are listed on [Fields and options](/reference/field-struct/fields-and-options/#declaration-errors).
+Declaration problems raise while the class body runs, never at first use, so a typo in a type name or an option value fails at load time. That includes a misspelled option key: `requird: true` raises `unknown option requird: ... (did you mean required:?)`. The declaration messages are listed on [Fields and options](/reference/field-struct/fields-and-options/#declaration-errors).
+
+A few of those `ArgumentError` messages, from the call or declaration that raises them:
+
+| Situation | Message |
+|---|---|
+| a `mirror!` class reads an object that lacks a public reader for one of its fields | `LampView mirrors Bulb, but Bulb has no public reader for :watts` |
+| an array of mirrors reads a lazy collection (one that answers `first`) and has no `max_items:` | `set max_items: on Hall#lamps, or load the relation yourself` |
+| `Klass.partial` when `Klass::Partial` is already defined | `Kiosk::Partial is already defined; Kiosk.partial would replace it` |
+| `FieldStruct.register_option` for a name registered with another `type:` or `owner:` | `catalog: is already registered by atlas_app (type Hash); register it again only with the same type: and owner:` |
+| `FieldStruct.register_option` for a built-in option | `default: is a universal field option, so it can't be registered`, or `length: is a native option of String, ...` |
+| an unknown option key | `unknown option defualt: on field :slot (did you mean default:?)` |
+| an adapter's key before its `require` | `unknown option avro: on Booth#slot; avro: is registered by field_struct-avro, so require 'field_struct/avro' before declaring the field` |
 
 The messages from `new` and `with` name the class and the class of the input, never its value:
 
@@ -116,7 +126,7 @@ end
 begin
   Class.new(FieldStruct::Base) { required :species, :stirng }
 rescue KeyError => e
-  e.message   # => "no FieldStruct type registered for :stirng"
+  e.message   # => "no FieldStruct type registered for :stirng (did you mean :string?)"
 end
 
 begin

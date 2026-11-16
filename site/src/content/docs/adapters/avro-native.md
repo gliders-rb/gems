@@ -2,9 +2,6 @@
 title: "Avro native encoder"
 description: "An optional Rust encoder for field_struct-avro: the same Avro bytes, written about 2.6 times faster, with the pure Ruby path as the fallback."
 sidebar:
-  badge:
-    text: Unreleased
-    variant: caution
   label: "Avro native"
   order: 3.5
 ---

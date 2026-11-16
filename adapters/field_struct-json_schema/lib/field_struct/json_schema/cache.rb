@@ -2,7 +2,7 @@
 
 module FieldStruct
   module JSONSchema
-    # The schema cache (JS-B40..B43): one entry per (class, serialization), each valid while the stamps of every class
+    # The schema cache (JS-B40..B43): one entry per (class, serialization, decimals form), each valid while the stamps of every class
     # it covers still match. A schema that asked a type hook is never stored (JS-I7).
     class Cache
       # A stored schema (deep-frozen) and the stamps it was built under.
@@ -22,21 +22,29 @@ module FieldStruct
 
       # @param klass [::Class]
       # @param serialization [::Symbol]
-      # @return [::Hash{::String=>::Object}] a fresh deep copy
-      def fetch(klass, serialization)
-        key = [klass, serialization]
+      # @param decimals [::Symbol] +:to_json+ or +:string+
+      # @param freeze [Boolean] return the deep-frozen schema itself instead of a fresh copy (JS-B44)
+      # @return [::Hash{::String=>::Object}]
+      def fetch(klass, serialization, decimals = :to_json, freeze: false)
+        key = [klass, serialization, decimals]
         entry = @mutex.synchronize { @entries[key] }
-        return Copy.fresh(entry.schema) if entry&.fresh?(serialization)
+        return hand_out(entry.schema, freeze) if entry&.fresh?(serialization)
 
-        result = Builder.new(klass, serialization).build
+        result = Builder.new(klass, serialization, decimals).build
         frozen = Copy.deep(result.schema, freeze: true)
         @mutex.synchronize { result.hooked ? @entries.delete(key) : @entries[key] = Entry.new(frozen, result.stamps) }
-        Copy.fresh(frozen)
+        hand_out(frozen, freeze)
       end
 
       # @return [void]
       def clear
         @mutex.synchronize { @entries.clear }
+      end
+
+      private
+
+      def hand_out(frozen, freeze)
+        freeze ? frozen : Copy.fresh(frozen)
       end
     end
   end

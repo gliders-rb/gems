@@ -21,6 +21,27 @@ module FieldStruct
   # _@return_ — FieldStruct
   def self.use_alias!: (?(Symbol | String) name) -> Module
 
+  # Makes +name+ a known field option, so declaring it on a field doesn't raise (FS-B10a). Adapters call this
+  # for the keys they read; an app can too. Registering the same name, type and owner again does nothing.
+  # 
+  # _@param_ `name` — the option key
+  # 
+  # _@param_ `type` — what a declared value must be an instance of (+nil+ is always allowed)
+  # 
+  # _@param_ `owner` — the gem or app that reads the option, named in error messages
+  # 
+  # _@return_ — +name+
+  # 
+  # ```ruby
+  # FieldStruct.register_option(:catalog, type: Hash, owner: 'my_app')
+  # ```
+  def self.register_option: (Symbol name, _type: (Class | ::Array[Class]), owner: String) -> Symbol
+
+  # Every registered field option, by name, in registration order.
+  # 
+  # _@return_ — frozen
+  def self.registered_options: () -> ::Hash[Symbol, FieldStruct::RegisteredOption]
+
   # The prefix library +inspect+ output uses.
   # 
   # _@return_ — +'FieldStruct'+ or the alias name
@@ -54,10 +75,13 @@ module FieldStruct
   #     optional :pages, :integer
   #   end
   class Base
+    include FieldStruct::Presence
+    include FieldStruct::FieldChecks
     extend FieldStruct::ClassMacros
     EXPLICIT_RESERVED_NAMES: ::Array[::Symbol]
     VALID_COERCION_POLICIES: ::Array[::Symbol]
     VALID_UNKNOWN_POLICIES: ::Array[::Symbol]
+    VALID_JSON_OMIT_POLICIES: ::Array[::Symbol]
     RESERVED_FIELD_NAMES: ::Array[::Symbol]
 
     # The class's declared fields and serialization mappings.
@@ -128,6 +152,7 @@ module FieldStruct
     def errors: () -> FieldStruct::Errors
 
     # Re-runs the cross-field validators (if the class has any), then reads the errors.
+    # Frozen errors are read as they are, without re-running the validators.
     # 
     # _@return_ — whether no field has an error
     def valid?: () -> bool
@@ -147,9 +172,11 @@ module FieldStruct
     def hash: () -> Integer
 
     # The attributes as JSON-ready values: Symbol keys named by the +:json+ mapping, every field present.
+    # Pass +describe_foreign: true+ to write each object that isn't plain data or a struct as a short
+    # description such as +"#<Lantern id=4>"+, calling nothing on it but +class+ and +id+. Other options are ignored.
     # 
-    # _@param_ `_options` — ignored
-    def as_json: (?Object? _options) -> ::Hash[Symbol, Object?]
+    # _@param_ `options` — +{describe_foreign: true}+, or anything else (ignored)
+    def as_json: (?Object? options) -> ::Hash[Symbol, Object?]
 
     # _@param_ `_options` — ignored
     # 
@@ -186,11 +213,23 @@ module FieldStruct
     # _@param_ `policy` — +:ignore+ or +:raise+; omit to read
     def self.unknown_attributes: (?Symbol? policy) -> Symbol
 
+    # Reads or sets which fields +as_json+ and +to_json+ leave out. Inherited like {.coercion_policy}.
+    # 
+    # _@param_ `policy` — +:none+ writes every field; +:unset+ leaves out a field that was not given and is +nil+ (defaults and a given +nil+ are written); omit to read
+    def self.json_omit: (?Symbol? policy) -> Symbol
+
     # Refuses every setter call after construction (+ImmutableError+). One-way; inherited.
     def self.immutable!: () -> bool
 
     # Freezes instances at the end of +new+. One-way; inherited.
     def self.frozen!: () -> bool
+
+    # Marks the class as a mirror: a field of its type reads any other object into it, one public reader per declared
+    # field. One-way; inherited.
+    def self.mirror!: () -> bool
+
+    # _@return_ — whether this class or an ancestor called {.mirror!}
+    def self.mirror?: () -> bool
 
     # _@return_ — whether this class or an ancestor called {.immutable!}
     def self.immutable?: () -> bool
@@ -217,8 +256,20 @@ module FieldStruct
     # _@param_ `json`
     def self.from_json: (String json) -> FieldStruct::Base
 
+    # A sibling class for update (PATCH) bodies, +<Klass>::Partial+, built on the first call and the same after:
+    # every field optional with no default, the same mappings and policies, and +json_omit :unset+. Cross-field
+    # validators and methods defined on this class (reader overrides too) don't carry over.
+    # 
+    # _@return_ — a direct subclass of +FieldStruct::Base+
+    def self.partial: () -> Class
+
     # _@return_ — the validators, inherited as a copy when the subclass was created
     def self.validators: () -> ::Array[Proc]
+
+    # The fields the caller gave, through the input, +with+ or a writer; defaults don't count (FS-B34a).
+    # 
+    # _@return_ — frozen, in declaration order
+    def given_fields: () -> ::Array[Symbol]
   end
 
   # One declared attribute. Immutable once built.
@@ -230,6 +281,8 @@ module FieldStruct
     # _@param_ `type_instance` — defaults to +type.new+
     # 
     # _@param_ `required`
+    # 
+    # _@param_ `nullable` — a required field whose key must be given but may hold nil (FS-B34)
     # 
     # _@param_ `default` — a literal or a callable
     # 
@@ -252,13 +305,23 @@ module FieldStruct
                       ?description: String?,
                       ?rbs_type: String?,
                       ?sensitive: bool,
+                      ?nullable: bool,
                       **Object options
                     ) -> void
+
+    # Internal: the setter's coerce call. Built-ins take the options as one Hash, with no keyword splat
+    # (Types::Base.positional_coerce?); any other type gets them as keywords, and none when there are none.
+    # 
+    # _@param_ `value`
+    def coerce_value: (::Object value) -> ::Object
 
     # Same as {#description}.
     def desc: () -> String?
 
     def required?: () -> bool
+
+    # _@return_ — whether the field is required but a given +nil+ satisfies it (FS-B34)
+    def nullable?: () -> bool
 
     # _@return_ — whether +inspect+ masks this field's value
     def sensitive?: () -> bool
@@ -302,7 +365,8 @@ module FieldStruct
 
   # Per-field validation messages. A plain value object; keys are Symbols.
   class Errors
-    def initialize: () -> void
+    # _@param_ `owner` — the struct these errors belong to; +paths+ walks it (FS-B40a)
+    def initialize: (?FieldStruct::Base? owner) -> void
 
     # _@param_ `field`
     # 
@@ -323,6 +387,9 @@ module FieldStruct
     # _@param_ `field`
     def clear: ((Symbol | String) field) -> void
 
+    # Freezes the messages too, so +add+ and +clear+ raise +FrozenError+; a +dup+ owns unfrozen copies.
+    def freeze: () -> self
+
     # _@return_ — true when no field has a message
     def empty?: () -> bool
 
@@ -336,6 +403,105 @@ module FieldStruct
     def full_messages: () -> ::Array[String]
 
     def inspect: () -> String
+
+    # Where each message comes from, nested structs included (FS-B40a). Walks the owner's current values and runs no
+    # validators; +to_h+ is unchanged.
+    # 
+    # _@return_ — a new Hash each call, e.g. +{"parts[1].code" => ["is required"]}+
+    def paths: () -> ::Hash[String, ::Array[String]]
+
+    # Copies every message of +other+ and remembers +other+'s owner as the origin of those keys, so +paths+ walks it.
+    # 
+    # _@param_ `other`
+    def absorb: (FieldStruct::Errors other) -> self
+
+    # A copy owned by +owner+ (what +dup+ of a struct gives its copy).
+    # 
+    # _@param_ `owner`
+    def copy_for: (FieldStruct::Base owner) -> FieldStruct::Errors
+
+    # _@param_ `owner`
+    # 
+    # _@return_ — with +owner+ as the struct +paths+ walks
+    def rehome: (FieldStruct::Base owner) -> self
+
+    # _@return_ — the fields that have messages
+    def present: () -> ::Hash[Symbol, ::Array[String]]
+
+    # _@param_ `field`
+    # 
+    # _@return_ — the struct whose value +field+ names
+    def origin_for: (Symbol field) -> FieldStruct::Base?
+
+    # Appends this object's paths under +prefix+ to +out+.
+    # 
+    # _@param_ `out`
+    # 
+    # _@param_ `prefix` — '' at the root
+    # 
+    # _@param_ `seen` — structs already walked (compared by identity)
+    def walk: (::Hash[String, ::Array[String]] _out, String prefix, ::Hash[FieldStruct::Base, bool] seen) -> void
+
+    # Walks the structs that account for an "is invalid" on +field+.
+    # 
+    # _@param_ `out`
+    # 
+    # _@param_ `field`
+    # 
+    # _@param_ `messages`
+    # 
+    # _@param_ `path`
+    # 
+    # _@param_ `seen`
+    # 
+    # _@return_ — the messages left for the field's own path
+    def expand: (
+                  ::Hash[String, ::Array[String]] _out,
+                  Symbol field,
+                  ::Array[String] messages,
+                  String path,
+                  ::Hash[FieldStruct::Base, bool] seen
+                ) -> ::Array[String]
+
+    # The nested structs under +owner+'s +field+ that have errors right now, with their paths; each is marked seen.
+    # 
+    # _@param_ `owner`
+    # 
+    # _@param_ `field`
+    # 
+    # _@param_ `path`
+    # 
+    # _@param_ `seen`
+    def children_of: (
+                       FieldStruct::Base? owner,
+                       Symbol field,
+                       String path,
+                       ::Hash[FieldStruct::Base, bool] seen
+                     ) -> ::Array[[FieldStruct::Base, String]]
+
+    # Each candidate child with its path: Array elements by index, a +:hash+ field's values by quoted key.
+    # 
+    # _@param_ `value`
+    # 
+    # _@param_ `field`
+    # 
+    # _@param_ `path`
+    def child_pairs: (Object value, FieldStruct::Field field, String path) -> ::Array[[Object, String]]
+
+    # _@param_ `item`
+    # 
+    # _@param_ `seen`
+    # 
+    # _@return_ — true when +item+ has errors and was not walked yet; marks it seen
+    def claim: (FieldStruct::Base item, ::Hash[FieldStruct::Base, bool] seen) -> bool
+  end
+
+  # INTERNAL. Builds the class +Klass.partial+ returns (FS-B104b): a sibling of +Klass+ with every field optional.
+  module PartialBuilder
+    # _@param_ `source` — the +FieldStruct::Base+ subclass to copy
+    # 
+    # _@return_ — the new class, already named +<source>::Partial+
+    def self.call: (Class source) -> Class
   end
 
   # Ordered collection of a class's Fields, plus its per-format serialization mappings.
@@ -400,6 +566,14 @@ module FieldStruct
     attr_reader serializations: ::Hash[Symbol, ::Hash[Symbol, String]]
   end
 
+  # Which fields the caller gave (FS-B34a), and what that means for a nullable field (FS-B34). Included into {Base}.
+  module Presence
+    # The fields the caller gave, through the input, +with+ or a writer; defaults don't count (FS-B34a).
+    # 
+    # _@return_ — frozen, in declaration order
+    def given_fields: () -> ::Array[Symbol]
+  end
+
   # Maps type names (Symbols) to type classes, with an optional parent to fall back to.
   class Registry
     # _@param_ `parent`
@@ -415,6 +589,14 @@ module FieldStruct
 
     # _@param_ `name`
     def lookup: ((Symbol | String) name) -> Class
+
+    # Every name resolvable here, own first, then the parent's, each once.
+    def names: () -> ::Array[Symbol]
+
+    # The first name (in chain order) whose type has the same short class name as +klass+, e.g. +:string+ for String.
+    # 
+    # _@param_ `klass` — a class given as a type that is not one
+    def name_for_lookalike: (Class klass) -> Symbol?
 
     # _@param_ `name`
     # 
@@ -584,7 +766,7 @@ module FieldStruct
       # _@param_ `options` — the options after {.resolve_options} and the +format:+ prefill
       # 
       # _@return_ — the instance and the options to store on the Field
-      def self.instantiate: (::Hash[::Symbol, ::Object] options) -> Symbol
+      def self.instantiate: (::Hash[::Symbol, ::Object] options) -> [FieldStruct::Types::Base, ::Hash[::Symbol, ::Object]]
 
       # _@param_ `key` — a schema option marked +required: true+ that a field left out
       # 
@@ -599,11 +781,24 @@ module FieldStruct
       # _@return_ — the last segment of the class name, or +AnonymousType+
       def self.short_name: () -> ::String
 
+      # Internal: whether callers may use {#coerce_positional} instead of {#coerce}. True only when
+      # +coerce_positional+ is defined at or below +coerce+, so a subclass that overrides +coerce+ alone, or any
+      # custom type, still gets every option as keywords.
+      def self.positional_coerce?: () -> bool
+
       # Coerces a value; +nil+ must give +nil+. A failure raises ArgumentError, TypeError or RangeError.
       # Implementations declare the options they consume as keywords and end with a +**+ catch-all.
       # 
       # _@param_ `_value`
       def coerce: (::Object _value) -> ::Object
+
+      # Internal: {#coerce} with the options as one Hash. Built-ins answer it without a keyword splat;
+      # here it delegates, so any type works (see {.positional_coerce?}).
+      # 
+      # _@param_ `value`
+      # 
+      # _@param_ `options`
+      def coerce_positional: (::Object value, ::Hash[::Symbol, ::Object] options) -> ::Object
 
       # _@param_ `value` — an already coerced value
       # 
@@ -630,6 +825,51 @@ module FieldStruct
 
       # _@return_ — +iso8601+ (RFC 3339), +us+ and +eu+
       def self.presets: () -> ::Hash[::Symbol, ::Object]
+
+      def ruby_type: () -> ::Class
+    end
+
+    # A map from String keys to values of one type (FS-B79a). A refused key or value fails the whole map; no message names a key.
+    class Hash < FieldStruct::Types::Base
+      def self.own_option_schema: () -> ::Hash[::Symbol, ::Hash[::Symbol, ::Object]]
+
+      # _@param_ `_key`
+      def self.required_option_message: (::Symbol _key) -> ::String
+
+      # Replaces +of:+ by +of_type:+ (a type class, or a Nested instance for a struct) and validates +element:+.
+      # 
+      # _@param_ `options`
+      # 
+      # _@param_ `registry`
+      # 
+      # _@param_ `field_name`
+      def self.resolve_options: (::Hash[::Symbol, ::Object] options, registry: FieldStruct::Registry, field_name: ::Symbol) -> ::Hash[::Symbol, ::Object]
+
+      # The field-level message for values that break +element:+ restrictions; it names no key.
+      # 
+      # _@param_ `count` — how many values failed
+      def self.invalid_entries_message: (::Integer count) -> ::String
+
+      # _@param_ `value`
+      # 
+      # _@param_ `of_type` — the value type (a class, or a Nested instance)
+      # 
+      # _@param_ `element` — options handed to each value's coerce
+      # 
+      # _@return_ — a new Hash with String keys
+      def coerce: (::Object value, ?of_type: (::Class | FieldStruct::Types::Base)?, ?element: ::Hash[::Symbol, ::Object]?) -> ::Hash[::String, ::Object]?
+
+      # Internal: {#coerce} with the options as one Hash, no keyword splat (see Types::Base.positional_coerce?).
+      # 
+      # _@param_ `value`
+      # 
+      # _@param_ `options`
+      def coerce_positional: (::Object value, ::Hash[::Symbol, ::Object] options) -> ::Hash[::String, ::Object]?
+
+      # _@param_ `value`
+      # 
+      # _@return_ — true for nil and the empty Hash
+      def missing?: (::Object value) -> bool
 
       def ruby_type: () -> ::Class
     end
@@ -710,8 +950,22 @@ module FieldStruct
       # 
       # _@param_ `element` — options handed to each element's coerce
       # 
+      # _@param_ `max_items` — how much of a lazy source an array of mirrors reads (FS-B169)
+      # 
       # _@return_ — a new Array
-      def coerce: (::Object value, ?of_type: (::Class | FieldStruct::Types::Base)?, ?element: ::Hash[::Symbol, ::Object]?) -> ::Array[::Object]?
+      def coerce: (
+                    ::Object value,
+                    ?of_type: (::Class | FieldStruct::Types::Base)?,
+                    ?element: ::Hash[::Symbol, ::Object]?,
+                    ?max_items: ::Integer?
+                  ) -> ::Array[::Object]?
+
+      # Internal: {#coerce} with the options as one Hash, no keyword splat (see Types::Base.positional_coerce?).
+      # 
+      # _@param_ `value`
+      # 
+      # _@param_ `options`
+      def coerce_positional: (::Object value, ::Hash[::Symbol, ::Object] options) -> ::Array[::Object]?
 
       # _@param_ `value`
       # 
@@ -724,6 +978,11 @@ module FieldStruct
       # 
       # _@param_ `indexes` — the offending 0-based indexes
       def self.invalid_elements_message: (::Array[::Integer] indexes) -> ::String
+
+      # Raised for a lazy source on an array of mirrors with no +max_items:+; the setter names the field (FS-B169).
+      # @api private
+      class Unbounded < FieldStruct::Error
+      end
     end
 
     # A String that must look like an email address.
@@ -768,6 +1027,13 @@ module FieldStruct
       # _@param_ `round` — decimal places, half up; may be zero or negative
       def coerce: (::Object value, ?round: ::Integer?) -> ::Float?
 
+      # Internal: {#coerce} with the options as one Hash, no keyword splat (see Types::Base.positional_coerce?).
+      # 
+      # _@param_ `value`
+      # 
+      # _@param_ `options`
+      def coerce_positional: (::Object value, ::Hash[::Symbol, ::Object] options) -> ::Float?
+
       def ruby_type: () -> ::Class
     end
 
@@ -775,6 +1041,7 @@ module FieldStruct
     class Union < FieldStruct::Types::Base
       RESCUABLE: ::Array[::Class]
       ARRAY_MEMBER: ::String
+      HASH_MEMBER: ::String
 
       def self.own_option_schema: () -> ::Hash[::Symbol, ::Hash[::Symbol, ::Object]]
 
@@ -788,10 +1055,13 @@ module FieldStruct
       # _@param_ `registry`
       def self.resolve_options: (::Hash[::Symbol, ::Object] options, registry: FieldStruct::Registry) -> ::Hash[::Symbol, ::Object]
 
+      # The members live on the instance, so they leave the stored options. A +discriminator:+ is checked here and
+      # stays in the options as declared (FS-B83b).
+      # 
       # _@param_ `options` — resolved options
       # 
-      # _@return_ — the instance and the options to store (members live on the instance)
-      def self.instantiate: (::Hash[::Symbol, ::Object] options) -> Symbol
+      # _@return_ — the instance and the options to store
+      def self.instantiate: (::Hash[::Symbol, ::Object] options) -> [FieldStruct::Types::Union, ::Hash[::Symbol, ::Object]]
 
       # _@param_ `member_types`
       def initialize: (?::Array[FieldStruct::Types::Base] member_types) -> void
@@ -800,6 +1070,13 @@ module FieldStruct
       # 
       # _@return_ — the first member's result
       def coerce: (::Object value) -> ::Object?
+
+      # Internal: {#coerce} with the options as one Hash, no keyword splat (see Types::Base.positional_coerce?).
+      # 
+      # _@param_ `value`
+      # 
+      # _@param_ `_options` — unused: this type takes no options
+      def coerce_positional: (::Object value, ::Hash[::Symbol, ::Object] _options) -> ::Object?
 
       # _@return_ — the members' classes, flattened and de-duplicated
       def ruby_type: () -> ::Array[::Class]
@@ -815,6 +1092,13 @@ module FieldStruct
       # _@return_ — the input, untouched
       def coerce: (::Object value) -> ::Object
 
+      # Internal: {#coerce} with the options as one Hash, no keyword splat (see Types::Base.positional_coerce?).
+      # 
+      # _@param_ `value`
+      # 
+      # _@param_ `_options` — unused: this type takes no options
+      def coerce_positional: (::Object value, ::Hash[::Symbol, ::Object] _options) -> ::Object
+
       def ruby_type: () -> ::Class
     end
 
@@ -825,6 +1109,13 @@ module FieldStruct
       # _@return_ — a binary copy; the input is never changed
       def coerce: (::Object value) -> ::String?
 
+      # Internal: {#coerce} with the options as one Hash, no keyword splat (see Types::Base.positional_coerce?).
+      # 
+      # _@param_ `value`
+      # 
+      # _@param_ `options`
+      def coerce_positional: (::Object value, ::Hash[::Symbol, ::Object] options) -> ::String?
+
       # _@param_ `value`
       # 
       # _@return_ — true for nil and the empty string
@@ -834,12 +1125,21 @@ module FieldStruct
     # A field whose value is itself a FieldStruct::Base. Built by the DSL; not registered under a name.
     class Nested < FieldStruct::Types::Base
       # _@param_ `struct_class` — a +FieldStruct::Base+ subclass
-      def initialize: (::Class struct_class) -> void
-
-      # _@param_ `value` — nil, an instance of the struct, or a Hash
       # 
-      # _@return_ — the same instance, or a new one built from the Hash
+      # _@param_ `reads` — whether a mirror class reads other objects (a union member doesn't, FS-B167)
+      def initialize: (::Class struct_class, ?reads: bool) -> void
+
+      # _@param_ `value` — nil, an instance of the struct, a Hash, or for a mirror any source object
+      # 
+      # _@return_ — the same instance, or a new one built from the Hash or read from the source
       def coerce: (::Object value) -> FieldStruct::Base?
+
+      # Internal: {#coerce} with the options as one Hash, no keyword splat (see Types::Base.positional_coerce?).
+      # 
+      # _@param_ `value`
+      # 
+      # _@param_ `_options` — unused: this type takes no options
+      def coerce_positional: (::Object value, ::Hash[::Symbol, ::Object] _options) -> FieldStruct::Base?
 
       # _@return_ — the struct class
       def ruby_type: () -> ::Class
@@ -867,6 +1167,13 @@ module FieldStruct
       # _@param_ `strict` — accept only a String, Symbol, Integer or #to_str responder
       def coerce: (::Object value, ?strict: bool?) -> ::String?
 
+      # Internal: {#coerce} with the options as one Hash, no keyword splat (see Types::Base.positional_coerce?).
+      # 
+      # _@param_ `value`
+      # 
+      # _@param_ `options`
+      def coerce_positional: (::Object value, ::Hash[::Symbol, ::Object] options) -> ::String?
+
       # _@param_ `value`
       # 
       # _@return_ — true for nil, empty and whitespace-only text
@@ -881,6 +1188,13 @@ module FieldStruct
 
       # _@param_ `value`
       def coerce: (::Object value) -> ::Symbol?
+
+      # Internal: {#coerce} with the options as one Hash, no keyword splat (see Types::Base.positional_coerce?).
+      # 
+      # _@param_ `value`
+      # 
+      # _@param_ `_options` — unused: this type takes no options
+      def coerce_positional: (::Object value, ::Hash[::Symbol, ::Object] _options) -> ::Symbol?
 
       def ruby_type: () -> ::Class
     end
@@ -912,6 +1226,13 @@ module FieldStruct
       # _@param_ `values` — +{truthy: [...], falsy: [...]}+ vocabulary for String input
       def coerce: (::Object value, ?values: ::Hash[::Symbol, ::Array[::String]]?) -> bool?
 
+      # Internal: {#coerce} with the options as one Hash, no keyword splat (see Types::Base.positional_coerce?).
+      # 
+      # _@param_ `value`
+      # 
+      # _@param_ `options`
+      def coerce_positional: (::Object value, ::Hash[::Symbol, ::Object] options) -> bool?
+
       def ruby_type: () -> ::Array[::Class]
     end
 
@@ -932,6 +1253,13 @@ module FieldStruct
       # 
       # _@param_ `strict` — accept only whole numbers
       def coerce: (::Object value, ?base: ::Integer?, ?strict: bool?) -> ::Integer?
+
+      # Internal: {#coerce} with the options as one Hash, no keyword splat (see Types::Base.positional_coerce?).
+      # 
+      # _@param_ `value`
+      # 
+      # _@param_ `options`
+      def coerce_positional: (::Object value, ::Hash[::Symbol, ::Object] options) -> ::Integer?
 
       def ruby_type: () -> ::Class
     end
@@ -990,6 +1318,13 @@ module FieldStruct
       # _@param_ `zone` — what a zone-less string means
       def coerce: (::Object value, ?format: (::String | ::Symbol)?, ?zone: ::String?) -> (::Date | ::Time | ::DateTime)?
 
+      # Internal: {#coerce} with the options as one Hash, no keyword splat (see Types::Base.positional_coerce?).
+      # 
+      # _@param_ `value`
+      # 
+      # _@param_ `options`
+      def coerce_positional: (::Object value, ::Hash[::Symbol, ::Object] options) -> (::Date | ::Time | ::DateTime)?
+
       # Renders a value the way +as_json+ writes it: by +format:+ (RFC 3339 preset, strftime String) or ISO 8601.
       # 
       # _@param_ `value`
@@ -1002,6 +1337,12 @@ module FieldStruct
     class BigDecimal < FieldStruct::Types::Base
       def self.own_option_schema: () -> ::Hash[::Symbol, ::Hash[::Symbol, ::Object]]
 
+      # How +to_json+ writes this type's values when a field declares no +json:+ (FS-B106a). A subclass that must
+      # survive JavaScript's float parsing answers +:string+.
+      # 
+      # _@return_ — +:number+ or +:string+
+      def self.json_default: () -> ::Symbol
+
       # Class-wide rounding places used when a field declares no +round:+.
       def self.default_round: () -> ::Integer?
 
@@ -1009,6 +1350,13 @@ module FieldStruct
       # 
       # _@param_ `round` — decimal places, half up whatever +BigDecimal.mode+ says
       def coerce: (::Object value, ?round: ::Integer?) -> ::BigDecimal?
+
+      # Internal: {#coerce} with the options as one Hash, no keyword splat (see Types::Base.positional_coerce?).
+      # 
+      # _@param_ `value`
+      # 
+      # _@param_ `options`
+      def coerce_positional: (::Object value, ::Hash[::Symbol, ::Object] options) -> ::BigDecimal?
 
       def ruby_type: () -> ::Class
     end
@@ -1034,6 +1382,13 @@ module FieldStruct
       # 
       # _@return_ — a frozen copy
       def coerce: (::Object value) -> ::String?
+
+      # Internal: {#coerce} with the options as one Hash, no keyword splat (see Types::Base.positional_coerce?).
+      # 
+      # _@param_ `value`
+      # 
+      # _@param_ `options`
+      def coerce_positional: (::Object value, ::Hash[::Symbol, ::Object] options) -> ::String?
     end
   end
 
@@ -1094,6 +1449,40 @@ module FieldStruct
 
     # _@return_ — {#element} plus +"s"+ (no inflection)
     attr_reader plural: String
+
+    # _@return_ — same as {#singular}: the key Rails' +form_with model:+ nests the fields under
+    attr_reader param_key: String
+  end
+
+  # Builds the "did you mean" part of a declaration message, shared by field_struct and actionable-rb.
+  # @api private
+  module Suggestion
+    # The likeliest candidates for a misspelled word, at most two, best first.
+    # 
+    # _@param_ `word` — what was written
+    # 
+    # _@param_ `candidates` — what could have been meant
+    # 
+    # _@return_ — the picks, empty when nothing is close
+    def self.picks: ((Symbol | String) word, ::Array[(Symbol | String)] candidates) -> ::Array[String]
+
+    # The picks for +word+ as a trailing clause, e.g. +" (did you mean :string?)"+.
+    # 
+    # _@param_ `word` — what was written
+    # 
+    # _@param_ `candidates` — what could have been meant
+    # 
+    # _@param_ `sigil` — written before each pick: +":"+ for Symbols, +""+ for option keys
+    # 
+    # _@param_ `suffix` — written after each pick, e.g. +":"+ for an option key
+    # 
+    # _@return_ — the clause with its leading space, or +""+ when nothing is close
+    def self.clause: (
+                       (Symbol | String) word,
+                       ::Array[(Symbol | String)] candidates,
+                       ?sigil: String,
+                       ?suffix: String
+                     ) -> String
   end
 
   # The class-level configuration macros of {Base}: policies, mutability flags and cross-field validators.
@@ -1108,11 +1497,23 @@ module FieldStruct
     # _@param_ `policy` — +:ignore+ or +:raise+; omit to read
     def unknown_attributes: (?Symbol? policy) -> Symbol
 
+    # Reads or sets which fields +as_json+ and +to_json+ leave out. Inherited like {.coercion_policy}.
+    # 
+    # _@param_ `policy` — +:none+ writes every field; +:unset+ leaves out a field that was not given and is +nil+ (defaults and a given +nil+ are written); omit to read
+    def json_omit: (?Symbol? policy) -> Symbol
+
     # Refuses every setter call after construction (+ImmutableError+). One-way; inherited.
     def immutable!: () -> bool
 
     # Freezes instances at the end of +new+. One-way; inherited.
     def frozen!: () -> bool
+
+    # Marks the class as a mirror: a field of its type reads any other object into it, one public reader per declared
+    # field. One-way; inherited.
+    def mirror!: () -> bool
+
+    # _@return_ — whether this class or an ancestor called {.mirror!}
+    def mirror?: () -> bool
 
     # _@return_ — whether this class or an ancestor called {.immutable!}
     def immutable?: () -> bool
@@ -1139,8 +1540,20 @@ module FieldStruct
     # _@param_ `json`
     def from_json: (String json) -> FieldStruct::Base
 
+    # A sibling class for update (PATCH) bodies, +<Klass>::Partial+, built on the first call and the same after:
+    # every field optional with no default, the same mappings and policies, and +json_omit :unset+. Cross-field
+    # validators and methods defined on this class (reader overrides too) don't carry over.
+    # 
+    # _@return_ — a direct subclass of +FieldStruct::Base+
+    def partial: () -> Class
+
     # _@return_ — the validators, inherited as a copy when the subclass was created
     def validators: () -> ::Array[Proc]
+  end
+
+  # The per-field checks the setter runs after coercing (section 5.3): missing values, restrictions, invalid nested
+  # structs and +element:+ restrictions on array elements and map values. Included into {Base}.
+  module FieldChecks
   end
 
   # A format-neutral, read-only walk of a struct's fields for code that exports a struct to another schema
@@ -1161,7 +1574,7 @@ module FieldStruct
     # _@param_ `type` — a type instance (any other object gives a ScalarNode)
     # 
     # _@param_ `options`
-    def self.node: (FieldStruct::Types::Base _type, ?::Hash[Symbol, Object?] options) -> (ScalarNode | ArrayNode | UnionNode | StructNode)
+    def self.node: (FieldStruct::Types::Base _type, ?::Hash[Symbol, Object?] options) -> (ScalarNode | ArrayNode | MapNode | UnionNode | StructNode)
 
     # Whether the class can serve as a definition key or title.
     # 
@@ -1177,14 +1590,14 @@ module FieldStruct
       # _@param_ `key`
       # 
       # _@param_ `node`
-      def initialize: (FieldStruct::Field field, String key, (ScalarNode | ArrayNode | UnionNode | StructNode) node) -> void
+      def initialize: (FieldStruct::Field field, String key, (ScalarNode | ArrayNode | MapNode | UnionNode | StructNode) node) -> void
 
       attr_reader field: FieldStruct::Field
 
       # _@return_ — the external name for the chosen serialization
       attr_reader key: String
 
-      attr_reader node: (ScalarNode | ArrayNode | UnionNode | StructNode)
+      attr_reader node: (ScalarNode | ArrayNode | MapNode | UnionNode | StructNode)
     end
 
     # A scalar (or any non-composite) type with the options it is checked with.
@@ -1210,11 +1623,30 @@ module FieldStruct
       def initialize: (FieldStruct::Types::Array _type, ::Hash[Symbol, Object?] options, Proc element_builder) -> void
 
       # _@return_ — nil when the element type is unknown or a union (FS-B146)
-      def element: () -> (ScalarNode | ArrayNode | StructNode)?
+      def element: () -> (ScalarNode | ArrayNode | MapNode | StructNode)?
 
       attr_reader type: FieldStruct::Types::Array
 
       # _@return_ — the options the array was declared with; +{}+ for an array inside an array or union
+      attr_reader options: ::Hash[Symbol, Object?]
+    end
+
+    # A +:hash+ map; its value node is built on first read. Keys are always Strings.
+    class MapNode
+      # _@param_ `type`
+      # 
+      # _@param_ `options`
+      # 
+      # _@param_ `element_builder` — returns the value node or nil; called at most once
+      def initialize: (FieldStruct::Types::Hash _type, ::Hash[Symbol, Object?] options, Proc element_builder) -> void
+
+      # _@return_ — the value node; nil when the value type is
+      # unknown or a union
+      def element: () -> (ScalarNode | ArrayNode | MapNode | StructNode)?
+
+      attr_reader type: FieldStruct::Types::Hash
+
+      # _@return_ — the options the map was declared with
       attr_reader options: ::Hash[Symbol, Object?]
     end
 
@@ -1243,5 +1675,51 @@ module FieldStruct
       # _@return_ — the struct class
       attr_reader klass: Class
     end
+  end
+
+  # A field option an adapter or app registered with {FieldStruct.register_option}.
+  class RegisteredOption
+    # _@param_ `name`
+    # 
+    # _@param_ `type`
+    # 
+    # _@param_ `owner`
+    def initialize: (Symbol name, ::Array[Class] _type, String owner) -> void
+
+    # _@return_ — the option key, e.g. +:avro+
+    attr_reader name: Symbol
+
+    # _@return_ — the classes a declared value may be an instance of
+    attr_reader type: ::Array[Class]
+
+    # _@return_ — the gem or app that reads the option
+    attr_reader owner: String
+  end
+
+  # Holds the registered field options and checks registrations (FS-B10a).
+  # @api private
+  module OptionRegistry
+    ADAPTER_KEYS: ::Hash[::Symbol, ::Array[::String]]
+
+    # _@param_ `name`
+    # 
+    # _@param_ `type`
+    # 
+    # _@param_ `owner`
+    # 
+    # _@return_ — +name+
+    def self.register: (Symbol name, (Class | ::Array[Class]) _type, String owner) -> Symbol
+
+    # The message for a key nobody declares or registered.
+    # 
+    # _@param_ `key`
+    # 
+    # _@param_ `label` — +Class#field+ or +field :name+
+    # 
+    # _@param_ `native` — the field type's own option keys
+    def self.unknown_message: (Symbol key, String label, ::Array[Symbol] native) -> String
+
+    # _@return_ — frozen, in registration order
+    def self.entries: () -> ::Hash[Symbol, FieldStruct::RegisteredOption]
   end
 end

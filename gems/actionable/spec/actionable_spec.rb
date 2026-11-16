@@ -11,7 +11,8 @@ RSpec.describe Actionable do
   it 'AC-I10: loading the core does not pull in Rails, RSpec adapters or coverage' do
     expect(defined?(Actionable::Coverage)).to be_nil
     expect(defined?(Actionable::Job)).to be_nil
-    expect(defined?(ActiveSupport)).to be_nil
+    # The ActiveSupport lane loads it before the gem on purpose (SH-B22), so only the plain suite can check this.
+    expect(defined?(ActiveSupport)).to be_nil unless ENV['ACTIVE_SUPPORT_LANE']
   end
 
   describe 'halt primitive' do

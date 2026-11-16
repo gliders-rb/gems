@@ -8,12 +8,13 @@ module FieldStruct
       # @param element [::Hash, nil] the declared +element:+ options
       # @param registry [FieldStruct::Registry]
       # @param field_name [::Symbol]
+      # @param kind [::String] the field's type name in messages: +array+ or +hash+
       # @return [::Hash, nil] the resolved options, frozen; +nil+ when empty or absent
       # @raise [ArgumentError] with an +in element: of array field :name,+ prefix
-      def self.call(element_class, element, registry:, field_name:)
+      def self.call(element_class, element, registry:, field_name:, kind: 'array')
         return nil if element.nil? || element.empty?
 
-        prefix = "in element: of array field #{field_name.inspect}, "
+        prefix = "in element: of #{kind} field #{field_name.inspect}, "
         refuse_composite(element_class, prefix)
         element.each_key { |key| check_key(element_class, key, prefix) }
         resolved = OptionChecker.element(element_class, element, registry: registry, field_name: field_name)
@@ -25,7 +26,7 @@ module FieldStruct
       end
 
       def self.refuse_composite(element_class, prefix)
-        return unless element_class <= Types::Array || element_class <= Types::Union
+        return unless element_class <= Types::Array || element_class <= Types::Hash || element_class <= Types::Union
 
         raise ::ArgumentError, "#{prefix}element options are not supported for #{element_class.short_name} elements"
       end

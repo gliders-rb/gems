@@ -55,20 +55,25 @@ module Actionable
       any_failure? && results.any?(&:ok?)
     end
 
+    # filter_map with is_a? narrows the element type for type checkers; select would keep Result.
+    # rubocop:disable Style/MapCompactWithConditionalBlock
+
     # @return [Array<Actionable::Success>]
     def successes
-      results.filter(&:success?)
+      results.filter_map { |result| result if result.is_a?(Success) }
     end
 
     # @return [Array<Actionable::Failure>]
     def failures
-      results.filter(&:failure?)
+      results.filter_map { |result| result if result.is_a?(Failure) }
     end
 
     # @return [Array<Actionable::Skipped>]
     def skips
-      results.filter(&:skipped?)
+      results.filter_map { |result| result if result.is_a?(Skipped) }
     end
+
+    # rubocop:enable Style/MapCompactWithConditionalBlock
 
     # @param id_field [Symbol]
     # @return [Array<Hash{Symbol=>Object}>] each result's +to_api_h+ with its index

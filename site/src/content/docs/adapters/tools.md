@@ -2,15 +2,12 @@
 title: "Actions as LLM and MCP tools"
 description: "Offer an action to a language model as a tool, with context fields the model never fills in and a single result shape for every outcome."
 sidebar:
-  badge:
-    text: Preview
-    variant: caution
   label: "LLM and MCP tools"
   order: 6
 ---
 
-:::caution[Preview]
-`actionable-tools` sits at `1.0.0.pre1`. Its spec settles the behaviour, though no release has gone out yet.
+:::note[API may change]
+`actionable-tools` is a prerelease, `1.0.0.pre1`, and its API may still change before 1.0.
 :::
 
 With `actionable-tools`, a language model can call an action as a tool. The action you already have, typed input, validations and declared failures and skips included, becomes the tool. Two things are left to you: a description, and a list of input fields your server supplies in place of the model, like the current user or tenant.
@@ -67,6 +64,7 @@ tool = Actionable::Tools.definition(
 )
 
 tool.name                                # => "log_sounding"
+tool.action                              # => LogSounding
 tool.input_schema['properties'].keys     # => ["gauge_code"]
 tool.input_schema['required']            # => ["gauge_code"]
 ```
@@ -200,7 +198,7 @@ What comes back is the envelope Hash, and a failure is returned rather than rais
 ## What is and isn't covered
 
 - An action with a discriminated input (`input_for`), or with no `input` block, raises `ArgumentError`.
-- A description stays mandatory until actions can describe themselves.
+- `description:` is required, even when the action has a `desc`: the tool's text is written for a model, the action's for people.
 - A `big_decimal` appears in the schema as a string like `"12.50"`. An `in:` range does not appear, but the action still enforces it.
 - Output is checked against the schema on success only.
 - Authentication, streaming and resources are not part of it. Those belong to your server.

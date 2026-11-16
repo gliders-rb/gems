@@ -114,11 +114,10 @@ RSpec.describe FieldStruct::JSONSchema, 'overrides and custom types' do
   end
 
   describe 'JS-B13: errors' do
-    it 'names the field for a bad override' do
-      stub_const('BadOverride', struct { required :t, :string, json_schema: [1] })
-      expect { described_class.generate(BadOverride) }.to raise_error(
-        ArgumentError,
-        'FieldStruct::JSONSchema.generate: the json_schema: option of BadOverride#t must be a Hash or a boolean, got [1]'
+    it 'refuses a bad override at declaration, since the adapter registers json_schema: (FS-B10a)' do
+      expect(FieldStruct.registered_options[:json_schema].type).to eq([Hash, TrueClass, FalseClass])
+      expect { struct { required :t, :string, json_schema: [1] } }.to raise_error(
+        ArgumentError, 'json_schema: on String expects Hash or TrueClass or FalseClass, got Array ([1])'
       )
     end
 

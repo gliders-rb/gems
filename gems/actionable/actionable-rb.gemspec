@@ -21,7 +21,8 @@ Gem::Specification.new do |spec|
   spec.metadata['default_lint_roller_plugin'] = 'Actionable::RubocopPlugin'
 
   # Explicit globs, not `git ls-files`: this gem lives in a monorepo.
-  spec.files = Dir['lib/**/*.rb', 'lib/**/*.yml', 'sig/**/*.rbs', 'docs/**/*.md', 'skills/**/*.md', '.claude-plugin/*.json'] +
+  spec.files = Dir['lib/**/*.rb', 'lib/**/*.yml', 'sig/**/*.rbs', 'sig/manifest.yaml', 'docs/**/*.md', 'skills/**/*.md',
+                   '.claude-plugin/*.json'] +
                %w[README.md USAGE.md AGENTS.md CHANGELOG.md LICENSE.txt]
   spec.require_paths = ['lib']
 

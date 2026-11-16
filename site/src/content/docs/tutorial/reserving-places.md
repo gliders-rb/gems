@@ -41,7 +41,7 @@ result.success?   # => true
 result.message    # => "places reserved"
 ```
 
-`.run` always hands back a result, never `nil`. `succeed` records a success with a message and ends the run there.
+`.run` always hands back a result, never `nil`. `succeed` records a success with a message. It's the last step here, so the run ends there. `succeed!` would stop the run from any step.
 
 ## Typed input
 
@@ -130,7 +130,7 @@ full.message       # => "not enough places free"
 FREE['KR12']       # => 3
 ```
 
-The message came from the declaration and the free count didn't change. Once an action declares a failure it can only fail with declared codes, so a typo like `:fully_bookd` raises on the first run instead of turning into a result nobody handles.
+The message came from the declaration and the free count didn't change. Once an action declares a failure it can only fail with declared codes, so a typo like `:fully_bookd` raises the first time that line runs instead of turning into a result nobody handles.
 
 ## A declared output
 

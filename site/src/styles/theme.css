@@ -71,6 +71,9 @@ samp,
   --sl-color-bg-nav: #181613;
   --sl-color-bg-sidebar: #1c1916;
   --sl-color-bg-inline-code: #26221d;
+
+  /* the fine diagonal hatch beside a code block's file tab */
+  --af-hatch: #2a2621;
 }
 
 /* ---- light scheme: warm paper and burnt amber ---- */
@@ -103,6 +106,8 @@ samp,
   --sl-color-bg-nav: #f2eee7;
   --sl-color-bg-sidebar: #f2eee7;
   --sl-color-bg-inline-code: #ebe5da;
+
+  --af-hatch: #e0d9cd;
 }
 
 /* ---- components ---- */
@@ -163,23 +168,23 @@ samp,
   color: var(--sl-color-accent-high);
 }
 
-/* Landing hero: the Gliders mark sits left of the copy on wide screens. */
-@media (min-width: 50rem) {
-  .hero {
-    grid-template-columns: 4fr 7fr;
-  }
-
-  .hero > img {
-    order: 0;
-    width: min(100%, 20rem);
-  }
-}
+/* Landing hero layout: see hero.css (the home page hero is src/components/Hero.astro). */
 
 /* Light scheme: buttons take the brighter amber with dark text; links keep the deeper one for contrast. */
 :root[data-theme='light'] .sl-link-button.primary {
   background: var(--af-spark);
   border-color: var(--af-spark);
   color: #1a1206;
+}
+
+/* A titled code block's header: the file tab keeps the code background, the space beside it is hatched
+   (the hero's panel bars in hero.css match). Terminal frames keep their own header. */
+.expressive-code .frame.has-title:not(.is-terminal) .header {
+  background-image: repeating-linear-gradient(135deg, var(--af-hatch) 0 1px, transparent 1px 7px);
+}
+
+.expressive-code .frame.has-title:not(.is-terminal) .title {
+  background: var(--code-background);
 }
 
 /* Warm air: a soft accent glow in one corner of the sidebar (top left, short) and

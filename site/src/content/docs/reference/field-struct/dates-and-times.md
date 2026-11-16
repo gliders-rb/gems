@@ -7,7 +7,7 @@ sidebar:
 
 Calendar values come in three types. `:date` gives back a `Date`, `:time` a `Time` and `:datetime` a `DateTime`. Each one accepts Strings and temporal objects and turns down anything else, so an Integer is never read as epoch seconds. The result doesn't depend on the process zone, and it doesn't care whether ActiveSupport is loaded.
 
-Rules: FS-B85 to FS-B100, FS-B165, FS-I12, FS-I18. Every input in the examples is pinned, so they print the same thing on any machine.
+Every input in the examples is pinned, so they print the same thing on any machine.
 
 | Option | Types | Values |
 |---|---|---|

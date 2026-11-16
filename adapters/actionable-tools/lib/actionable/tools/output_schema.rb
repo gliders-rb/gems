@@ -50,7 +50,8 @@ module Actionable
       # @param output [Class] the action's output struct class
       # @return [void]
       def add_output(schema, output)
-        body = FieldStruct::JSONSchema.generate(output).except('$schema')
+        # The envelope carries output.as_json, where a decimal is a string.
+        body = FieldStruct::JSONSchema.generate(output, decimals: :string).except('$schema')
         shared = body.delete('$defs')
         schema['$defs'] = shared if shared
         schema['if'] = { 'properties' => { 'status' => { 'const' => 'success' } } }

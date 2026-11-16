@@ -20,6 +20,7 @@ module FieldStruct
         .register(:datetime, DateTime)
         .register(:value, Value)
         .register(:array, Array)
+        .register(:hash, Hash)
         .register(:symbol, Symbol)
         .register(:uuid, UUID)
         .register(:url, URL)

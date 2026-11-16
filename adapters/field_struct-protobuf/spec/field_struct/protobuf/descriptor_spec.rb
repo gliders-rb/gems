@@ -1,5 +1,9 @@
 # frozen_string_literal: true
 
+# The fixes PB-B1 and PB-B9 end their refusals with.
+NUMBER_HINT = '; use an Integer in 1..536870911, outside 19000..19999'
+UNION_HINT = '; split it into one field per member type, or declare it :value (a google.protobuf.Value)'
+
 RSpec.describe 'FieldStruct::Protobuf.file_descriptor (scalars)' do
   def descriptor(klass, **)
     FieldStruct::Protobuf.file_descriptor(klass, **)
@@ -40,7 +44,8 @@ RSpec.describe 'FieldStruct::Protobuf.file_descriptor (scalars)' do
     it 'PB-B1: refuses numbers outside 1..536_870_911, in the reserved range, or not Integers' do
       [0, -1, 536_870_912, 19_000, 19_500, 19_999, '1', 1.0].each do |bad|
         klass = define_struct('Reserved') { required :a, :string, proto: { number: bad } }
-        expect { descriptor(klass) }.to raise_error(ArgumentError, "Reserved#a: #{bad.inspect} isn't a usable protobuf field number")
+        expect { descriptor(klass) }
+          .to raise_error(ArgumentError, "Reserved#a: #{bad.inspect} isn't a usable protobuf field number#{NUMBER_HINT}")
       end
     end
 
@@ -59,7 +64,7 @@ RSpec.describe 'FieldStruct::Protobuf.file_descriptor (scalars)' do
         required :a, :string, proto: { number: 0 }
         required :b, :string
       end
-      expect { descriptor(klass) }.to raise_error(ArgumentError, "Ordered#a: 0 isn't a usable protobuf field number")
+      expect { descriptor(klass) }.to raise_error(ArgumentError, "Ordered#a: 0 isn't a usable protobuf field number#{NUMBER_HINT}")
       both = define_struct('Both') do
         required :a, :string, proto: { number: 1 }
         required :b, :string, proto: { number: 1 }
@@ -68,9 +73,11 @@ RSpec.describe 'FieldStruct::Protobuf.file_descriptor (scalars)' do
       expect { descriptor(both) }.to raise_error(ArgumentError, /missing on c\z/)
     end
 
-    it 'PB-B2: refuses a proto: option that is not a Hash' do
-      klass = define_struct('Plain') { required :a, :string, proto: 5 }
-      expect { descriptor(klass) }.to raise_error(ArgumentError, 'Plain#a: proto: takes a Hash like {number: 1}, got 5')
+    it 'PB-B2: registers proto: as a Hash, so core refuses any other value at declaration' do
+      expect(FieldStruct.registered_options[:proto].type).to eq([Hash])
+      expect { define_struct('Plain') { required :a, :string, proto: 5 } }.to raise_error(
+        ArgumentError, 'proto: on String expects Hash, got Integer (5)'
+      )
     end
   end
 
@@ -207,7 +214,8 @@ RSpec.describe 'FieldStruct::Protobuf.file_descriptor (scalars)' do
       klass = define_struct('Refused') do
         required :pick, :union, of: %i[string integer], proto: { number: 1 }
       end
-      expect { descriptor(klass) }.to raise_error(ArgumentError, "Refused#pick is a union, which field_struct-protobuf can't map yet")
+      expect { descriptor(klass) }
+        .to raise_error(ArgumentError, "Refused#pick is a union, which field_struct-protobuf can't map yet#{UNION_HINT}")
     end
 
     it 'PB-B9: refuses an array of unions' do
@@ -216,7 +224,7 @@ RSpec.describe 'FieldStruct::Protobuf.file_descriptor (scalars)' do
         required :picks, :array, of: union, proto: { number: 1 }
       end
       expect { descriptor(klass) }.to raise_error(
-        ArgumentError, "Refused#picks is an array of unions, which field_struct-protobuf can't map yet"
+        ArgumentError, "Refused#picks is an array of unions, which field_struct-protobuf can't map yet#{UNION_HINT}"
       )
     end
 

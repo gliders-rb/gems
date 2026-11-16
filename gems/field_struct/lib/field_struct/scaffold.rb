@@ -36,7 +36,7 @@ module FieldStruct
       # @return [String] Ruby source ending with a newline
       # @raise [ArgumentError] for input that is not an object or an array of objects, or an empty array
       def from_json(input, class_name: 'Generated')
-        parsed = input.is_a?(::String) ? Oj.load(input, mode: :strict) : input
+        parsed = input.is_a?(::String) ? parse(input) : input
         samples = samples_from(parsed)
         generator = Generator.new(class_name)
         generator.build(class_name, samples)
@@ -44,6 +44,14 @@ module FieldStruct
       end
 
       private
+
+      # Parses with Oj, and reports a parse error by position only: Oj's own message quotes the input (FS-I5).
+      def parse(text)
+        Oj.load(text, mode: :strict)
+      rescue Oj::ParseError, EncodingError => e
+        position = e.message[/line \d+, column \d+/]
+        raise FieldStruct::Error, "Scaffold.from_json: input is not valid JSON#{" (#{position})" if position}"
+      end
 
       def samples_from(parsed)
         samples = case parsed

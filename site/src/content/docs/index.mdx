@@ -8,7 +8,7 @@ hero:
     dark: ../../assets/brand/gliders-mark-dark.svg
     light: ../../assets/brand/gliders-mark-light.svg
     alt: Gliders
-  tagline: A family of Ruby gems that is just getting started. FieldStruct makes typed plain-Ruby objects, Actionable builds typed service objects on top of them, and adapters, in preview, carry both into JSON Schema, Avro, Protobuf, OpenTelemetry and LLM tools.
+  tagline: Typed plain-Ruby objects (FieldStruct) and typed service objects built on them (Actionable), with adapters for JSON Schema, Avro, Protobuf, OpenTelemetry and LLM tools.
   actions:
     - text: Start the tutorial
       link: /tutorial/trek-planner/
@@ -22,8 +22,6 @@ hero:
       variant: minimal
       icon: external
 ---
-
-A glider has no engine. It stays up by using the air that is already there, and these gems try to work the same way: with your data and your system, not against them. That is [the Gliders idea](/explanation/gliders/).
 
 ## FieldStruct: typed POROs
 
@@ -43,42 +41,61 @@ unnamed = Hut.new(name: '  ')
 unnamed.errors.full_messages        # => ["Name is required"]
 ```
 
-The places count came in as a string and is an integer now. A blank name didn't raise - it was recorded, and the message is waiting when you ask for it.
+The places count came in as a string and is an integer now. A blank name didn't raise. It was recorded, and the message is waiting when you ask for it.
 
 ## Actionable: service objects
 
 An action is a handful of plain methods, one per step, and every run ends in exactly one result: success, failure or skip. The input is a FieldStruct, so a step never sees bad input.
 
-```ruby run title="reserve_places.rb"
-FREE_PLACES = { 'KR12' => 6 }
+Above, the hero shows a success and two failures. The third outcome is a skip: the action had nothing to do, which is neither an error nor a success. A pottery studio's kiln makes one.
 
-class ReservePlaces < Actionable::Action
+```ruby run title="start_firing.rb"
+class StartFiring < Actionable::Action
   input do
-    required :hut_code, :string
-    required :places, :integer
+    required :kiln, :string
+    required :pieces, :integer
   end
 
-  fails :fully_booked, 'not enough free places'
+  skips :nothing_to_fire, 'the kiln is empty'
+  fails :overloaded, 'a kiln holds 30 pieces'
 
-  step :check_room
-  step :confirm
+  step :check_load
+  step :fire
 
   private
 
-  def check_room
-    fail!(:fully_booked) if input.places > FREE_PLACES.fetch(input.hut_code, 0)
+  def check_load
+    skip!(:nothing_to_fire) if input.pieces.zero?
+    fail!(:overloaded) if input.pieces > 30
   end
 
-  def confirm
-    succeed("Reserved #{input.places} at #{input.hut_code}")
+  def fire
+    succeed("Firing #{input.pieces} pieces in #{input.kiln}")
   end
 end
 
-ReservePlaces.run(hut_code: 'KR12', places: '4').message   # => "Reserved 4 at KR12"
-ReservePlaces.run(hut_code: 'KR12', places: 40).code       # => :fully_booked
+StartFiring.run(kiln: 'K2', pieces: 0).status   # => :skipped
 ```
 
-`fail!` records the failure and stops, so `confirm` doesn't run for the party of forty. The failure code is plain data, which makes it easy to branch on.
+Each result is a `Success`, a `Failure` or a `Skipped`, and each is a FieldStruct, so `case ... in` can branch on its class and its code in one line.
+
+```ruby run title="studio.rb"
+def notice(result)
+  case result
+  in Actionable::Success(message:) then message
+  in Actionable::Skipped(code: :nothing_to_fire) then 'Nothing in the kiln today'
+  in Actionable::Failure(code: :overloaded) then 'Split the load across two firings'
+  in Actionable::Failure(code: :invalid_input) then "Check the form: #{result.errors.full_messages.join(', ')}"
+  end
+end
+
+notice(StartFiring.run(kiln: 'K2', pieces: '12'))   # => "Firing 12 pieces in K2"
+notice(StartFiring.run(kiln: 'K2', pieces: 0))      # => "Nothing in the kiln today"
+notice(StartFiring.run(kiln: 'K2', pieces: 45))     # => "Split the load across two firings"
+notice(StartFiring.run(pieces: 3))                  # => "Check the form: Kiln is required"
+```
+
+A skip stops the run like `fail!` does, so `fire` never runs for an empty kiln. Every declared code is plain data, so the branches read like the declarations.
 
 ## Install
 
@@ -93,4 +110,4 @@ The second gem is `actionable-rb` because another project owns the short name, b
 
 ## Adapters
 
-A set of optional gems reads the same field metadata and writes other formats: JSON Schema, Avro, OpenTelemetry, Protobuf, plus actions exposed as LLM and MCP tools. None is released yet. Start at the [adapters overview](/adapters/), or jump to [building your own adapter](/adapters/build-your-own/).
+A set of optional gems reads the same field metadata and writes other formats: JSON Schema, Avro, OpenTelemetry, Protobuf, plus actions exposed as LLM and MCP tools, and process pages for actions (Markdown with a Mermaid flowchart). Each is a prerelease, like the two gems. Start at the [adapters overview](/adapters/), or jump to [building your own adapter](/adapters/build-your-own/).

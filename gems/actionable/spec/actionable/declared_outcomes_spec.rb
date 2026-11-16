@@ -318,10 +318,10 @@ RSpec.describe 'Declared failures and skips' do
 
     it 'AC-B#describe: failures and skips with message, metadata and output' do
       info = action.describe
-      expect(info[:failures][:refused]).to eq(message: 'not allowed', metadata: { retry: false })
+      expect(info[:failures][:refused]).to eq(message: 'not allowed', metadata: { retry: false }, description: nil)
       expect(info[:failures][:typed][:output]).to eq(action.failure_output_schema(:typed).metadata.to_h)
-      expect(info[:failures][:bare]).to eq(message: nil, metadata: {})
-      expect(info[:skips]).to eq(later: { message: 'not yet', metadata: {} })
+      expect(info[:failures][:bare]).to eq(message: nil, metadata: {}, description: nil)
+      expect(info[:skips]).to eq(later: { message: 'not yet', metadata: {}, description: nil })
     end
 
     it 'AC-B#describetext: Failures and Skips sections' do

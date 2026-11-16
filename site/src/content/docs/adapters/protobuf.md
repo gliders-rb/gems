@@ -2,15 +2,12 @@
 title: "Protobuf"
 description: "Print a struct as .proto source, build its message class, and move instances to and from bytes, using field numbers you pick."
 sidebar:
-  badge:
-    text: Preview
-    variant: caution
   label: "Protobuf"
   order: 5
 ---
 
-:::caution[Preview]
-`field_struct-protobuf` sits at `1.0.0.pre1`. Its spec settles the behaviour, though no release has gone out yet.
+:::note[API may change]
+`field_struct-protobuf` is a prerelease, `1.0.0.pre1`, and its API may still change before 1.0.
 :::
 
 `field_struct-protobuf` gives a struct a Protocol Buffers form without a `protoc` run. It prints `.proto` source for other teams, registers a message class with `google-protobuf`, and converts instances to messages, to binary and back.
@@ -23,7 +20,7 @@ gem 'field_struct-protobuf'
 require 'field_struct/protobuf'
 ```
 
-You choose the field numbers. Each field carries `proto: {number: n}` and the gem never guesses one. If it numbered by declaration order, moving two lines around in a class would quietly change the wire format.
+You choose the field numbers. Each field carries `proto: {number: n}` and the gem never guesses one. `require 'field_struct/protobuf'` registers `proto:` as a field option (with `FieldStruct.register_option`), so require it before those classes; until then the option raises and says which file to require. An unknown key inside `proto:` raises when the schema or message is built, with a did-you-mean: `proto: has no key numbr: (did you mean number:?)`. If it numbered by declaration order, moving two lines around in a class would quietly change the wire format.
 
 ## The schema of a struct
 
@@ -49,7 +46,7 @@ end
 
 text = FieldStruct::Protobuf.proto(Fleet::Trip)
 text.lines.grep(/\A(message|  )/).map(&:strip)
-# => ["message Trip {", "optional string route = 1;", "optional int64 meters = 2;", ".fleet.Depot origin = 3;", "repeated string waypoints = 4;", "optional string battery = 5;", ".google.protobuf.Timestamp departed = 6;", "}"]
+# => ["message Trip {", "optional string route = 1;", "optional int64 meters = 2;", ".fleet.Depot origin = 3;", "repeated string waypoints = 4;", "optional string battery = 5;", ".google.protobuf.Timestamp departed = 6;"]
 FieldStruct::Protobuf.file_name(Fleet::Trip)   # => "field_struct/fleet/trip.proto"
 FieldStruct::Protobuf.full_name(Fleet::Trip)   # => ".fleet.Trip"
 ```
@@ -94,8 +91,22 @@ The module `Fleet` turns into the package. Each class gets its own file with one
 | `:value` | `.google.protobuf.Value`; numbers come back as Floats |
 | a struct class | its message |
 | `:array, of: X` | `repeated` X |
+| `:hash, of: X` | `map<string, X>` |
 
-Singular scalars are all `optional`, so presence is explicit: a field nobody set reads back as `nil`, not `0` or an empty string. Arrays differ. Empty and unset look the same on the wire, so an unset array reads back as `[]`.
+Singular scalars are all `optional`, so presence is explicit: a field nobody set reads back as `nil`, not `0` or an empty string. Arrays and maps differ. Empty and unset look the same on the wire, so an unset array reads back as `[]` and an unset map as `{}`.
+
+A map's keys are Strings, as field_struct keeps them. proto3 has no repeated or map values, so a `:hash` of arrays or maps is refused, and since a map entry can't hold null either, encoding a `nil` value raises `"<key>: protobuf map values can't be nil"`.
+
+```ruby run
+class Locker < FieldStruct::Base
+  required :dock, :string, proto: { number: 1 }
+  optional :bikes_by_bay, :hash, of: :integer, proto: { number: 2 }
+end
+
+FieldStruct::Protobuf.proto(Locker).lines.map(&:strip).grep(/map/)   # => ["map<string, int64> bikes_by_bay = 2;"]
+bytes = FieldStruct::Protobuf.encode(Locker.new(dock: 'Quay', bikes_by_bay: {east: 4}))
+FieldStruct::Protobuf.decode(Locker, bytes).bikes_by_bay              # => {"east" => 4}
+```
 
 ## Use case: encode and decode
 
@@ -145,7 +156,7 @@ FieldStruct::Protobuf.decode(Fleet::Trip, FieldStruct::Protobuf.encode(sparse)).
 
 ## It raises rather than guess
 
-When there is no exact mapping, the call raises `ArgumentError` and names the class and field. Cases are a field with no number, a number used twice, a union, an array of arrays and a custom type.
+When there is no exact mapping, the call raises `ArgumentError` and names the class and field. Cases are a field with no number, a number used twice, a union, an array of arrays, a map of arrays or maps and a custom type.
 
 ```ruby run
 class Unnumbered < FieldStruct::Base
@@ -161,12 +172,13 @@ class Either < FieldStruct::Base
   required :dock, :union, of: %i[integer string], proto: { number: 1 }
 end
 
-[Unnumbered, Twice, Either].map do |klass|
+refusals = [Unnumbered, Twice, Either].map do |klass|
   FieldStruct::Protobuf.proto(klass)
 rescue ArgumentError => e
   e.message
 end
-# => ["Unnumbered: give every field a protobuf field number, e.g. `proto: {number: 1}`; missing on dock", "Twice: field numbers 2 are used twice", "Either#dock is a union, which field_struct-protobuf can't map yet"]
+refusals
+# => ["Unnumbered: give every field a protobuf field number, e.g. `proto: {number: 1}`; missing on dock", "Twice: field numbers 2 are used twice", "Either#dock is a union, which field_struct-protobuf can't map yet; split it into one field per member type, or declare it :value (a google.protobuf.Value)"]
 ```
 
 ## Module functions
@@ -182,7 +194,7 @@ end
 
 ## Limits
 
-- Output is proto3 only. There is no `oneof`, enum, map, service or option.
+- Output is proto3 only. There is no `oneof`, enum, service or option.
 - Registration lasts for the process and cannot be undone. If a class gains a field after its message was built, nothing notices, and the stale message rejects the new field. Reloading code means restarting.
 - Each class registers under one `serialization:`. Asking for a second one raises.
 - For malformed bytes, `decode` lets `Google::Protobuf::ParseError` pass through.

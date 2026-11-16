@@ -7,7 +7,7 @@ sidebar:
 
 Every struct class can tell you what it declares. `Klass.metadata` lists the fields, `describe` prints them for a reader, `metadata.to_h` gives a program plain data, and two helpers write code on your behalf: `FieldStruct::RBS` generates signatures and `FieldStruct::Scaffold` drafts a class from a JSON sample. The page also explains how `sensitive: true` keeps secrets out of logs.
 
-Rules: FS-B115, FS-B119 to FS-B122, FS-B127 to FS-B139, FS-B153, FS-B154, FS-B155 to FS-B160, FS-I15, FS-I17. The neutral walk used by exporters is on [Introspection reference](/adapters/introspection/).
+The neutral walk used by exporters is on [Introspection reference](/adapters/introspection/).
 
 ## Metadata
 
@@ -21,6 +21,7 @@ Rules: FS-B115, FS-B119 to FS-B122, FS-B127 to FS-B139, FS-B153, FS-B154, FS-B15
 | `#to_h` | the schema view below when called without a block, plain `Enumerable#to_h` with one |
 | `#serialization(format)` | the frozen mapping, or an empty frozen Hash when the format was never declared |
 | `#serializations` | `{format => mapping}` |
+| `#reverse_serialization(format)` | external key to field name, `{"grand_total" => :total}`; empty when the format was never declared |
 | `#describe` | a multi-line String |
 | `#inspect` | `#<FieldStruct::Metadata fields=[:a, :b]>`, plus ` serializations=[:json]` when any |
 
@@ -93,15 +94,15 @@ Every segment after the first parenthesis is optional and starts with an em dash
 1. The description, as a quoted String. It is the only free text `describe` prints.
 2. The declared options that aren't nil.
 3. `accepts`: the options the type takes, a `*` marking required ones, with their shapes and any presets.
-4. `element accepts`, for arrays only: the option names of the element type.
+4. `element accepts`, for arrays and maps only: the option names of the element (or value) type.
 
 `Label` is the short name of the type class (`String`, `BigDecimal`, `Array`). The exception is a single nested struct, which shows the struct's own short name so you know which class to describe next. An array of structs keeps the label `Array` and shows `of_type: Nested(Bed)`.
 
 ```ruby run
 lines = Conservatory::Plant.describe.lines.map(&:chomp)
 lines.first                  # => "Conservatory::Plant"
-lines[1]                     # => '  species (String, required) — "Latin binomial" — accepts format (Regexp | Symbol), enum (Array), strict (TrueClass | FalseClass)'
-lines[3]                     # => "  tags (Array, optional) — of_type: String — accepts of* (Symbol | String | Class), element (Hash) — element accepts format, enum, strict"
+lines[1]                     # => '  species (String, required) — "Latin binomial" — accepts format (Regexp | Symbol), enum (Array), strict (TrueClass | FalseClass), length (Range)'
+lines[3]                     # => "  tags (Array, optional) — of_type: String — accepts of* (Symbol | String | Class), element (Hash), max_items (Integer) — element accepts format, enum, strict, length"
 lines[4]                     # => "  bed (Bed, optional)"
 ```
 
@@ -111,7 +112,7 @@ lines[4]                     # => "  bed (Bed, optional)"
 
 - `inspect` and `pp` print `[FILTERED]` where a non-nil value would be, even for a raw value kept after a `:keep_raw` failure, and inside nested structs and arrays of them. `nil` still prints as `nil`, so an unset secret looks different from a set one.
 - `Field#sensitive?` is false by default and `sensitive: false` is accepted. The flag isn't part of `options`. It appears in `Field#inspect`, in `metadata.to_h` (only when set) and in `describe`, and a subclass inherits it along with the field.
-- Data paths are not masked (FS-I15). `attributes`, `to_h`, `as_json`, `to_json`, readers and pattern matching carry the real value on purpose. Before you log or send a hash, filter it yourself with `metadata[...].sensitive?`.
+- Data paths are not masked. `attributes`, `to_h`, `as_json`, `to_json`, readers and pattern matching carry the real value on purpose. Before you log or send a hash, filter it yourself with `metadata[...].sensitive?`.
 - Error messages hold no values, so the `errors:` suffix of `inspect` can't leak one.
 
 ```ruby run
@@ -154,6 +155,7 @@ Readers of required fields get no `?`, and writers always accept `nil`. Anything
 | `:value` | `untyped` |
 | a nested struct | its full name, such as `::Conservatory::Bed` |
 | `:array` | `::Array[E]`, with `?` on scalar elements (`::Array[::String?]`) and none on struct elements |
+| `:hash` | `::Hash[::String, V]`, with `?` on scalar values (`::Hash[::String, ::Integer?]`) and none on struct values |
 | `:union` | `(::Integer | ::Float)`, or `untyped` if any member is `untyped` |
 | custom `ruby_type` of `Array`, `Hash`, `Range` | `::Array[untyped]`, `::Hash[untyped, untyped]`, `::Range[untyped]` |
 | custom `ruby_type` of `Object` | `untyped` |

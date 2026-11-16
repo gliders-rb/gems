@@ -1,5 +1,14 @@
 # frozen_string_literal: true
 
+# The ActiveSupport lane (rake spec:active_support, SH-B22): ActiveSupport loads before the gem and its
+# deprecations raise, so leaning on a core default it changes fails here instead of inside an app.
+if ENV['ACTIVE_SUPPORT_LANE']
+  require 'active_support'
+  require 'active_support/all'
+  ActiveSupport.deprecator.behavior = :raise
+  ActiveSupport.deprecator.silenced = false
+end
+
 require 'logger'
 require 'stringio'
 ENV['OTEL_TRACES_EXPORTER'] = 'none'

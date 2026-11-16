@@ -23,7 +23,7 @@ defined?(ActiveModel)            # => nil
 
 ## Mirror the shape, not the code
 
-We took the method names and the behaviour callers depend on, and left the rest. The persistence half (`save`, `new_record?`) isn't there because there is nothing to persist, and no line of ActiveModel's code was reused (FS-I9). The reasons are simple.
+We took the method names and the behaviour callers depend on, and left the rest. The persistence half (`save`, `new_record?`) isn't there because there is nothing to persist, and no line of ActiveModel's code was reused. The reasons are simple.
 
 - Code that reads `hut.errors[:name]` today keeps working. Form builders, serializers and your own helpers can't tell the difference.
 - The gem runs in a script, in a worker, or inside one of your gems that has no Rails to load.
@@ -33,11 +33,11 @@ The cost is that we maintain our own `Errors`, our own `full_messages` and our o
 
 ## Same behaviour with and without ActiveSupport
 
-Loading ActiveSupport doesn't change what a struct does (FS-I6). A date string is never read through `String#to_time`, and a `DateTime` converts the same way either way. The test is easy to state: a result that depends on whether some library happens to be loaded is a bug, since code that works in your console would act differently in the worker.
+Loading ActiveSupport doesn't change what a struct does. A date string is never read through `String#to_time`, and a `DateTime` converts the same way either way. The test is easy to state: a result that depends on whether some library happens to be loaded is a bug, since code that works in your console would act differently in the worker.
 
 ## Actionable follows the same rule
 
-Actionable's core is plain Ruby. Rails, RSpec, job queues, coverage and the RuboCop cop each sit behind their own `require`, and nothing loads by itself (AC-I10).
+Actionable's core is plain Ruby. Rails, RSpec, job queues, coverage and the RuboCop cop each sit behind their own `require`, and nothing loads by itself.
 
 ```ruby run
 defined?(ActiveRecord)                                  # => nil

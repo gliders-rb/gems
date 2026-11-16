@@ -26,9 +26,17 @@ module FieldStruct
       def property_value(property, field, message)
         node = property.node
         return field.get(message).map { |item| item_value(node.element, item) } if node.is_a?(Introspection::ArrayNode)
+        return map_value(node.element, field.get(message)) if node.is_a?(Introspection::MapNode)
         return nil unless field.has?(message)
 
         item_value(node, field.get(message))
+      end
+
+      # Google::Protobuf::Map#to_h turns message values into Hashes, so the entries are walked one by one.
+      def map_value(node, map)
+        result = {}
+        map.each { |name, item| result[name] = item_value(node, item) }
+        result
       end
 
       def item_value(node, item)

@@ -7,7 +7,7 @@ sidebar:
 
 An instance of a `FieldStruct::Base` subclass is an ordinary Ruby object with a reader and a writer for each field. This page covers every call you can make on it, in the order they come up: build, read, change, copy, compare, print.
 
-Rules: FS-B18 to FS-B31, FS-B111 to FS-B118. Validity and errors have their own page, [Validation and errors](/reference/field-struct/validation-and-errors/).
+Validity and errors have their own page, [Validation and errors](/reference/field-struct/validation-and-errors/).
 
 | Member | Returns |
 |---|---|
@@ -76,6 +76,26 @@ end
 Every field gets a reader with its name and a writer `name=`. The writer is permissive: `seedling.count = '30'` stores `30`, and a value it cannot read follows the [coercion policy](/reference/field-struct/validation-and-errors/).
 
 `attributes` and `to_h` are one and the same: a fresh Hash with Symbol keys in declaration order. The keys are always the Ruby field names, even when `serialize` maps them elsewhere. `attribute_names` gives a new Array of names, on the class and on an instance, and unknown input keys never add to it.
+
+## given_fields
+
+`given_fields` lists the fields the caller gave, as a frozen Array in declaration order: keys in the input to `new`, `assign_attributes`, `with` or `from_json`, and fields set through a writer. Defaults never count, and neither do unknown keys. It tells "sent as null" apart from "not sent", which a PATCH body needs.
+
+```ruby run
+class Cutting < FieldStruct::Base
+  required :variety, :string
+  optional :tray, :string, default: 'A1'
+  optional :note, :string
+end
+
+sprout = Cutting.new(variety: 'basil', note: nil)
+sprout.given_fields                                      # => [:variety, :note]
+sprout.given_fields.include?(:note) && sprout.note.nil?  # => true
+sprout.given_fields.include?(:tray)                      # => false
+sprout.with(tray: 'B2').given_fields                     # => [:variety, :tray, :note]
+```
+
+It takes no part in `==`, `attributes` or `as_json`.
 
 ## assign_attributes
 
@@ -153,7 +173,7 @@ Class.new(FieldStruct::Base).new.inspect   # => '#<AnonymousFieldStruct >'
 
 ## Pattern matching
 
-`deconstruct_keys(keys)` gives every attribute for `nil` and `attributes.slice(*keys)` otherwise, so undeclared keys are simply absent. `deconstruct` gives the values in declaration order. Nested structs recurse since they speak the same protocol, and find patterns over arrays of structs work. Names mapped by `serialize`, descriptions and errors take no part.
+`deconstruct_keys(keys)` gives every attribute for `nil` and `attributes.slice(*keys)` otherwise, so undeclared keys are absent. `deconstruct` gives the values in declaration order. Nested structs recurse since they speak the same protocol, and find patterns over arrays of structs work. Names mapped by `serialize`, descriptions and errors take no part.
 
 ```ruby run
 sprout = Seedling.new(species: 'Fern', count: 2)
@@ -175,15 +195,25 @@ result   # => ["Fern", 2]
 |---|---|
 | `name` | `"Seedling"`, the full class name |
 | `element`, `singular` | `"seedling"`, the snake_case of the last `::` segment |
+| `param_key` | `"seedling"`, the same as `singular` |
 | `plural` | `"seedlings"`, only `element` plus `s` |
 | `to_s`, `to_str` | the same as `name` |
 
 The plural is naive by design: `Cactus` becomes `"cactuss"` and `Tomato` becomes `"tomatos"`. FieldStruct does not inflect.
 
+`param_key` is what Rails' `form_with model:` nests the fields under, so a form for a seedling sends `seedling[species]`. ActiveModel would use the whole path (`nursery_seedling` for `Nursery::Seedling`); a struct keeps the last segment, and `form_with scope:` picks another key when two classes end the same way. A struct has no routes or `persisted?`, so always pass `url:`:
+
+```erb
+<%= form_with model: @seedling, url: '/seedlings' do |f| %>
+  <%= f.text_field :species %>
+<% end %>
+```
+
 ```ruby run
 Seedling.model_name.name       # => "Seedling"
 Seedling.model_name.singular   # => "seedling"
 Seedling.model_name.plural     # => "seedlings"
+Seedling.model_name.param_key  # => "seedling"
 Seedling.new(species: 'Fern').model_name.element   # => "seedling"
 Seedling.new(species: 'Fern').to_model.class       # => Seedling
 ```

@@ -21,8 +21,7 @@ require 'field_struct/avro'
 
 ## Quick start
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'field_struct/avro'
 
 module Harbor
@@ -69,14 +68,14 @@ FieldStruct::Avro.decode(Harbor::Beacon, bytes).lit.utc_offset # => -21600
 | `:time`, `:datetime` | `long` with `timestamp-micros`, `-nanos` or `-millis` |
 | `:symbol` with `enum:` | a named Avro `enum`; otherwise `string` |
 | arrays | `array`, items always nullable (field_struct accepts nil elements) |
+| `:hash, of:` | `map` (String keys), values nullable like array items |
 | nested structs | a named `record`, referenced by full name after its first use |
 
 An optional field is `["null", T]` with a `null` default; a field with a usable default is not nullable and carries
 that default. Defaults Avro can't write (a date, a decimal, a lambda) are left out of the schema and applied by
-field_struct when the value is read.
+field_struct when the value is read. A required field declared `nullable: true` is `["null", T]` too, with no default.
 
-<!-- doctest -->
-```ruby
+```ruby run
 class Reading < FieldStruct::Base
   required :value, :big_decimal
   required :count, :integer, default: 0
@@ -92,11 +91,14 @@ fields[2]  # => {"name"=>"note", "doc"=>"free text", "type"=>["null", "string"],
 ## Field options: `avro:`
 
 A field's `avro:` option is a Hash. `type:` replaces the whole mapping with an Avro type you write; `timestamp:`,
-`precision:`, `scale:`, `enum: false` and `enum_default:` tune the generated one. On array and union fields, everything
-but `type:` also applies to the items.
+`precision:`, `scale:`, `enum: false` and `enum_default:` tune the generated one. On array, map and union fields, everything
+but `type:` also applies to the items (a map's values).
 
-<!-- doctest -->
-```ruby
+Requiring the adapter registers `avro:` with `FieldStruct.register_option`, so require it before the classes that use
+the option. A value that isn't a Hash is refused when the field is declared. An unknown key inside `avro:` raises when
+the schema is built, with a did-you-mean: `avro: has no key timestmp: (did you mean timestamp:?)`.
+
+```ruby run
 class Dispatch < FieldStruct::Base
   required :fee,   :big_decimal, avro: { scale: 2, precision: 12 }
   required :seen,  :time, avro: { timestamp: :millis }
@@ -116,8 +118,7 @@ types['ref']   # => {"type"=>"string", "x-origin"=>"crm"}
 `to_datum` and `from_datum` stop at the Hash the `avro` gem reads and writes; `encode` and `decode` go to and from
 binary (one datum, no header).
 
-<!-- doctest -->
-```ruby
+```ruby run
 class Pair < FieldStruct::Base
   required :first_name, :string
   required :updated, :time
@@ -149,8 +150,7 @@ Pass the schema the bytes were written with as `writer_schema:`: a Hash, a JSON 
 Avro matches record names, so the older schema carries the name of the class that reads it. Fields the writer lacked
 take the field_struct default, even one Avro can't express.
 
-<!-- doctest -->
-```ruby
+```ruby run
 module V1
   class Account < FieldStruct::Base
     required :id, :integer
@@ -175,8 +175,7 @@ The `avro` gem pairs fields by their base type only, so a decimal read at anothe
 precision, would decode to a wrong value without a word. Before reading, the pair of schemas is checked and the decode
 is refused with every problem listed:
 
-<!-- doctest -->
-```ruby
+```ruby run
 module Before
   class Lamp < FieldStruct::Base
     required :reach, :big_decimal, round: 2
@@ -221,3 +220,7 @@ field. The cache keeps classes alive, so call `FieldStruct::Avro.clear_cache` wh
 | `FieldStruct::Avro::Methods` | opt-in `to_avro_schema`, `#to_avro`, `from_avro` |
 
 Needs Ruby 3.3 or newer. MIT licensed.
+
+## Docs
+
+The guide on the docs site, with every example run in CI: https://gliders-rb.github.io/adapters/avro/

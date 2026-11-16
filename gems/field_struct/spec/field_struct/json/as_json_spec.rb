@@ -53,11 +53,11 @@ RSpec.describe 'as_json / to_json', :denver do
       expect(k.new(a: 5).as_json[:a]).to eq(5)
     end
 
-    it 'writes BigDecimal as a plain decimal string' do
+    it 'writes BigDecimal as a plain decimal string in as_json and a number in to_json (FS-B106a)' do
       k = define { optional :n, :decimal }
       expect(k.new(n: BigDecimal('1234567890123.4567')).as_json[:n]).to eq('1234567890123.4567')
       expect(k.new(n: '1e3').as_json[:n]).to eq('1000.0')
-      expect(k.new(n: '1e3').to_json).to eq('{"n":"1000.0"}')
+      expect(k.new(n: '1e3').to_json).to eq('{"n":1000.0}')
     end
 
     it 'renders temporals by the field format' do

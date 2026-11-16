@@ -11,12 +11,12 @@ module FieldStruct
       attr_reader :field
       # @return [String] the external name for the chosen serialization
       attr_reader :key
-      # @return [ScalarNode, ArrayNode, UnionNode, StructNode]
+      # @return [ScalarNode, ArrayNode, MapNode, UnionNode, StructNode]
       attr_reader :node
 
       # @param field [FieldStruct::Field]
       # @param key [String]
-      # @param node [ScalarNode, ArrayNode, UnionNode, StructNode]
+      # @param node [ScalarNode, ArrayNode, MapNode, UnionNode, StructNode]
       def initialize(field, key, node)
         @node = node
         @key = key
@@ -58,7 +58,7 @@ module FieldStruct
         freeze
       end
 
-      # @return [ScalarNode, ArrayNode, StructNode, nil] nil when the element type is unknown or a union (FS-B146)
+      # @return [ScalarNode, ArrayNode, MapNode, StructNode, nil] nil when the element type is unknown or a union (FS-B146)
       def element
         @lazy.value
       end
@@ -72,7 +72,7 @@ module FieldStruct
           @builder = builder
         end
 
-        # @return [ScalarNode, ArrayNode, StructNode, nil]
+        # @return [ScalarNode, ArrayNode, MapNode, StructNode, nil]
         def value
           unless @done
             @value = @builder.call
@@ -82,6 +82,30 @@ module FieldStruct
         end
       end
       private_constant :Lazy
+    end
+
+    # A +:hash+ map; its value node is built on first read. Keys are always Strings.
+    class MapNode
+      # @return [FieldStruct::Types::Hash]
+      attr_reader :type
+      # @return [Hash{Symbol=>Object, nil}] the options the map was declared with
+      attr_reader :options
+
+      # @param type [FieldStruct::Types::Hash]
+      # @param options [Hash{Symbol=>Object, nil}]
+      # @param element_builder [Proc] returns the value node or nil; called at most once
+      def initialize(type, options, element_builder)
+        @lazy = ArrayNode.const_get(:Lazy).new(element_builder)
+        @options = options
+        @type = type
+        freeze
+      end
+
+      # @return [ScalarNode, ArrayNode, MapNode, StructNode, nil] the value node; nil when the value type is
+      #   unknown or a union
+      def element
+        @lazy.value
+      end
     end
 
     # A union; one node per member.
@@ -135,10 +159,11 @@ module FieldStruct
       #
       # @param type [FieldStruct::Types::Base] a type instance (any other object gives a ScalarNode)
       # @param options [Hash{Symbol=>Object, nil}]
-      # @return [ScalarNode, ArrayNode, UnionNode, StructNode]
+      # @return [ScalarNode, ArrayNode, MapNode, UnionNode, StructNode]
       def node(type, options = {})
         case type
         when Types::Array then ArrayNode.new(type, options, -> { element_node(options) })
+        when Types::Hash then MapNode.new(type, options, -> { element_node(options) })
         when Types::Union then UnionNode.new(type, type.member_types.map { |member| node(member) })
         when Types::Nested then StructNode.new(type, type.struct_class)
         else ScalarNode.new(type, options)

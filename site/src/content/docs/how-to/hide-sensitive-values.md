@@ -46,7 +46,7 @@ io.string.include?('[FILTERED]')        # => true
 
 ## 3. Mind the data paths
 
-The mask is for display only (FS-I15). Readers, `attributes`, `to_h`, `as_json` and `to_json` return the real value, since code that serializes an object has to have it.
+The mask is for display only. Readers, `attributes`, `to_h`, `as_json` and `to_json` return the real value, since code that serializes an object has to have it.
 
 ```ruby run
 gardener.password          # => "compost9"

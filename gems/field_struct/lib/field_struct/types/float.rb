@@ -30,11 +30,17 @@ module FieldStruct
       # @return [::Float, nil]
       # @raise [ArgumentError, TypeError] when the value cannot be read
       def coerce(value, round: nil, **)
-        return nil if value.nil?
+        coerce_with(value, round)
+      end
 
-        number = to_float(value)
-        places = round || self.class.default_round
-        places ? number.round(places, half: :up).to_f : number
+      # Internal: {#coerce} with the options as one Hash, no keyword splat (see Types::Base.positional_coerce?).
+      #
+      # @param value [::Object]
+      # @param options [::Hash{::Symbol=>::Object}]
+      # @return [::Float, nil]
+      # @api private
+      def coerce_positional(value, options)
+        coerce_with(value, options[:round])
       end
 
       # @return [::Class]
@@ -43,6 +49,14 @@ module FieldStruct
       end
 
       private
+
+      def coerce_with(value, round)
+        return nil if value.nil?
+
+        number = to_float(value)
+        places = round || self.class.default_round
+        places ? number.round(places, half: :up).to_f : number
+      end
 
       def to_float(value)
         number = value.is_a?(::String) ? from_string(value) : from_other(value)

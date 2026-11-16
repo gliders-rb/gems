@@ -5,7 +5,7 @@ sidebar:
   order: 12
 ---
 
-`Actionable::RBS.generate(klass)` gives back RBS source for a single named action, derived from its input and output schemas by way of FieldStruct's metadata. A rake task is a good place for it, with the file committed beside your code. Struct types are covered in [Introspection and tooling](/reference/field-struct/introspection-and-tooling/). The gem's own signatures live in its `sig/` directory, and `generate` is the only public contract (AC §5.20).
+`Actionable::RBS.generate(klass)` gives back RBS source for a single named action, derived from its input and output schemas by way of FieldStruct's metadata. A rake task is a good place for it, with the file committed beside your code. Struct types are covered in [Introspection and tooling](/reference/field-struct/introspection-and-tooling/). The gem's own signatures live in its `sig/` directory, and `generate` is the only public contract. They name only `field_struct` and `prism`, so they load in an app without Rails or RuboCop; the framework parents and the methods only a framework calls are left out (see [`ProxyValidator`](/reference/actionable/rails/#proxyvalidator) for the one line to add if you need them).
 
 ```ruby
 Actionable::RBS.generate(klass) # => String

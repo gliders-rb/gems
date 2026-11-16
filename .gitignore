@@ -17,3 +17,5 @@ dist/
 .astro/
 /scrap
 .claude/worktrees/
+# bin/hero pdf and gif output (site/)
+dist-hero/

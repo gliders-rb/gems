@@ -50,15 +50,17 @@ module FieldStruct
       # @return [Boolean, nil]
       # @raise [ArgumentError] when the value is not in the vocabulary
       def coerce(value, values: nil, **)
-        return nil if value.nil?
-        return value if value.equal?(true) || value.equal?(false)
-        return value == 1 if numeric_flag?(value)
+        coerce_with(value, values)
+      end
 
-        truthy, falsy = vocabulary(values)
-        word = value.is_a?(::String) ? value.downcase : nil
-        return truthy.include?(word) if (truthy + falsy).include?(word)
-
-        refuse(value, truthy + falsy)
+      # Internal: {#coerce} with the options as one Hash, no keyword splat (see Types::Base.positional_coerce?).
+      #
+      # @param value [::Object]
+      # @param options [::Hash{::Symbol=>::Object}]
+      # @return [Boolean, nil]
+      # @api private
+      def coerce_positional(value, options)
+        coerce_with(value, options[:values])
       end
 
       # @return [::Array<::Class>]
@@ -67,6 +69,19 @@ module FieldStruct
       end
 
       private
+
+      def coerce_with(value, values)
+        return nil if value.nil?
+        return true if value.equal?(true)
+        return false if value.equal?(false)
+        return value == 1 if numeric_flag?(value)
+
+        truthy, falsy = vocabulary(values)
+        word = value.is_a?(::String) ? value.downcase : nil
+        return truthy.include?(word) if (truthy + falsy).include?(word)
+
+        refuse(value, truthy + falsy)
+      end
 
       def numeric_flag?(value)
         value.is_a?(::Numeric) && [0, 1].include?(value)

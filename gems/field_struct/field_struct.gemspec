@@ -21,7 +21,7 @@ Gem::Specification.new do |spec|
 
   # Explicit globs, not `git ls-files`: this gem lives in a monorepo. Specs, benchmarks, rake tasks, lint and type
   # config, CI and the design record stay out of the package.
-  spec.files = Dir['lib/**/*.rb', 'sig/**/*.rbs', 'docs/**/*.md', 'skills/**/*.md', '.claude-plugin/*.json'] +
+  spec.files = Dir['lib/**/*.rb', 'sig/**/*.rbs', 'sig/manifest.yaml', 'docs/**/*.md', 'skills/**/*.md', '.claude-plugin/*.json'] +
                %w[README.md USAGE.md AGENTS.md CHANGELOG.md LICENSE.txt]
   spec.require_paths = ['lib']
 

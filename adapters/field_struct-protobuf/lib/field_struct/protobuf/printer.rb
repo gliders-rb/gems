@@ -44,17 +44,29 @@ module FieldStruct
       end
 
       def message(message)
-        body = message.field.map { |field| "  #{field_line(field)}" }
+        entries = message.nested_type.to_h { |entry| [entry.name, entry] }
+        body = message.field.map { |field| "  #{field_line(field, entries)}" }
         ["message #{message.name} {", *body, '}']
       end
 
-      def field_line(field)
+      def field_line(field, entries)
+        entry = map_entry(field, entries)
+        return "map<string, #{type_text(entry.field[1])}> #{field.name} = #{field.number};" if entry
+
         modifier = if field.label == :LABEL_REPEATED
                      'repeated'
                    elsif field.proto3_optional
                      'optional'
                    end
         [modifier, type_text(field), field.name, '=', "#{field.number};"].compact.join(' ')
+      end
+
+      # The entry message a +map<string, T>+ field points at, or nil for any other field.
+      def map_entry(field, entries)
+        return nil unless field.label == :LABEL_REPEATED && field.type == :TYPE_MESSAGE
+
+        entry = entries[field.type_name.split('.').last]
+        entry if entry&.options&.map_entry
       end
 
       def type_text(field)

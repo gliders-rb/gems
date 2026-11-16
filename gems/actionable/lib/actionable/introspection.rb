@@ -7,16 +7,41 @@ module Actionable
     #
     # @return [Hash{Symbol=>Object}]
     def describe
-      summary = { name: name, input: describe_input }
+      summary = { name: name, description: desc, input: describe_input }
       summary[:output] = output_schema&.metadata&.to_h
-      summary[:steps] = steps.map { |entry| { type: entry.kind, name: entry.name, options: entry.options } }
+      summary[:steps] = steps.map { |entry| step_entry(entry) }
       summary[:failures] = describe_declarations(failure_declarations)
       summary[:skips] = describe_declarations(skip_declarations)
       summary[:hooks] = describe_hooks
       summary[:measure] = measure
       summary[:transactional] = describe_transactional
+      summary[:calls] = HiddenCalls.of(self)
       summary
     end
+
+    # Describes the action in prose for people (the docs adapter, {#describe}); a run never reads it. Given once per
+    # class and not inherited. With no argument it reads.
+    #
+    # @param text [String, nil]
+    # @return [String, nil] the description, or nil when none was given
+    # @raise [ArgumentError] when +text+ is not a String
+    # @raise [Actionable::DefinitionError] when the class already has a description
+    def desc(text = nil)
+      return (instance_variable_defined?(:@description) ? @description : nil) if text.nil?
+      raise ArgumentError, "#{Actionable.label_for(self)}: desc takes a String, got #{text.class}" unless text.is_a?(String)
+
+      if instance_variable_defined?(:@description)
+        raise DefinitionError, "#{Actionable.label_for(self)} already has a description; give it once, with desc or description"
+      end
+
+      @description = text.frozen? ? text : text.dup.freeze
+    end
+
+    # The same macro as {#desc}.
+    #
+    # @param text [String, nil]
+    # @return [String, nil]
+    def description(text = nil) = desc(text)
 
     # A multi-line, human-readable summary (no trailing newline).
     #
@@ -28,6 +53,7 @@ module Actionable
       lines.concat(step_lines(info[:steps]))
       lines.concat(declaration_lines('Failures', info[:failures]), declaration_lines('Skips', info[:skips]))
       lines.concat(hook_lines(info[:hooks]))
+      lines << "  Calls: #{info[:calls].map { |child| step_label(child) }.join(', ')} (found in source)" if info[:calls].any?
       lines.join("\n")
     end
 
@@ -39,9 +65,37 @@ module Actionable
       input_schema&.metadata&.to_h
     end
 
+    # One step's entry: its kind, name, options (without +desc:+) and description; +guard:+ when guarded; a case
+    # step's +branches:+ and +default:+ (AC-B#describe).
+    def step_entry(step)
+      entry = { type: step.kind, name: step.name, options: step.options.except(:desc), description: step.options[:desc] }
+      guard = guard_labels(step.options)
+      entry[:guard] = guard if guard
+      return entry unless step.is_a?(Steps::Case)
+
+      entry[:branches] = step.branches.map { |value, target| { on: value, step: step_entry(target) } }
+      default_step = step.default_step
+      entry[:default] = default_step ? step_entry(default_step) : nil
+      entry
+    end
+
+    def guard_labels(options)
+      labels = %i[if unless].filter_map { |key| [key, guard_label(options[key])] if options.key?(key) }
+      labels.empty? ? nil : labels.to_h
+    end
+
+    # A method name as is; a callable's own +desc+ when it has one; else a neutral phrase.
+    def guard_label(guard)
+      return guard.to_s if guard.is_a?(Symbol) || guard.is_a?(String)
+
+      label = guard.desc if guard.respond_to?(:desc)
+      label.is_a?(String) ? label : 'a custom condition'
+    end
+
     def describe_declarations(declarations)
       declarations.transform_values do |declaration|
         entry = declaration.slice(:message, :metadata)
+        entry[:description] = declaration[:description]
         schema = declaration[:output_schema]
         schema ? entry.merge(output: schema.metadata.to_h) : entry
       end
@@ -50,7 +104,7 @@ module Actionable
     def describe_hooks
       hooks = { on_success: success_hooks, on_failure: failure_hooks, on_skip: skip_hooks, always: always_hooks }
       hooks[:after_commit] = after_commit_hooks if respond_to?(:after_commit_hooks)
-      hooks.transform_values { |list| list.map(&:name) }
+      hooks.transform_values { |list| list.map { |hook| step_entry(hook) } }
     end
 
     def describe_transactional
@@ -93,10 +147,10 @@ module Actionable
     end
 
     def hook_lines(hooks)
-      present = hooks.reject { |_section, names| names.empty? }
+      present = hooks.reject { |_section, entries| entries.empty? }
       return [] if present.empty?
 
-      ['  Hooks:', *present.map { |section, names| "    #{section}: #{names.map { |n| step_label(n) }.join(', ')}" }]
+      ['  Hooks:', *present.map { |section, entries| "    #{section}: #{entries.map { |e| step_label(e[:name]) }.join(', ')}" }]
     end
   end
 end

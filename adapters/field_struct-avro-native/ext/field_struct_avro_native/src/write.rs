@@ -279,7 +279,8 @@ impl<'a> Writer<'a> {
     }
 
     fn decimal(&self, v: Value, precision: u32, scale: u32, out: &mut Vec<u8>) -> Step {
-        let text: RString = v.funcall("to_s", ()).map_err(|_| Fail::Unsure)?;
+        // The format is explicit: ActiveSupport changes the default to plain notation (spec decision N7).
+        let text: RString = v.funcall("to_s", ("E",)).map_err(|_| Fail::Unsure)?;
         // SAFETY: parsed before any Ruby code runs.
         let unscaled = decimal::Unscaled::parse(unsafe { text.as_slice() }, scale, precision).ok_or(Fail::Unsure)?;
         write_bytes(&unscaled.twos_complement(), out);

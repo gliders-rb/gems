@@ -1,12 +1,16 @@
 # frozen_string_literal: true
 
+require 'bundler/gem_tasks'
 require 'rspec/core/rake_task'
 require 'rubocop/rake_task'
+
+# Release tags carry the gem name: actionable-rb/v<version>.
+Bundler::GemHelper.tag_prefix = 'actionable-rb/'
 
 # Each adapter's specs load that adapter (and Rails) into the process, so they run apart from the core suite.
 ADAPTER_SPEC_DIRS = %w[rails job coverage adapter_sigs].freeze
 
-# The doctests start a Ruby process per example block; they run in release:check (docs:test).
+# The doctests start a Ruby process per documented file; they run in release:check (docs:test).
 RSpec::Core::RakeTask.new(:spec) do |task|
   task.rspec_opts = '--tag ~doctest'
   task.exclude_pattern = "spec/{#{ADAPTER_SPEC_DIRS.join(',')}}/**/*_spec.rb"
@@ -23,5 +27,20 @@ namespace :spec do
 end
 
 RuboCop::RakeTask.new(:rubocop)
+
+# The adapter folders load Rails themselves, so the lane leaves them out.
+namespace :spec do
+  desc 'Run the suite with ActiveSupport loaded first, under a non-UTC TZ, deprecations raising (SH-B22)'
+  task :active_support do
+    env = {
+      'ACTIVE_SUPPORT_LANE' => '1',
+      'TZ' => 'America/Denver',
+      'BUNDLE_GEMFILE' => File.expand_path('gemfiles/active_support.gemfile', __dir__)
+    }
+    sh env, 'bundle', 'install', '--local', '--quiet'
+    sh env, 'bundle', 'exec', 'rspec', '--tag', '~doctest',
+       '--exclude-pattern', "spec/{#{ADAPTER_SPEC_DIRS.join(',')}}/**/*_spec.rb"
+  end
+end
 
 task default: ['spec', *ADAPTER_SPEC_DIRS.map { |dir| "spec:#{dir}" }, 'rubocop']

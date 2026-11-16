@@ -24,7 +24,7 @@ RbSys::ExtensionTask.new('field_struct_avro_native', GEMSPEC) do |ext|
   ext.cross_platform = %w[x86_64-linux aarch64-linux arm64-darwin]
 end
 
-# The doctests start a Ruby process per example block; they run in release:check (docs:test).
+# The doctests start a Ruby process per documented file; they run in release:check (docs:test).
 if defined?(RSpec::Core::RakeTask)
   RSpec::Core::RakeTask.new(:spec) { |task| task.rspec_opts = '--tag ~doctest' }
   RuboCop::RakeTask.new(:rubocop)

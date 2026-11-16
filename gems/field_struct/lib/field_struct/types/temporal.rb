@@ -53,7 +53,7 @@ module FieldStruct
         def fraction_digits(value)
           subsec = value.is_a?(::DateTime) ? value.sec_fraction : value.subsec
           nanos = (subsec * 1_000_000_000).floor
-          nanos.zero? ? '' : format('%09d', nanos).sub(/0+\z/, '')
+          nanos.zero? ? '' : nanos.to_s.rjust(9, '0').sub(/0+\z/, '')
         end
 
         # @return [::String] how preset errors name the type
@@ -68,17 +68,17 @@ module FieldStruct
       # @return [::Date, ::Time, ::DateTime, nil]
       # @raise [ArgumentError] for anything refused
       def coerce(value, format: nil, zone: nil, **)
-        return nil if value.nil?
+        coerce_with(value, format, zone)
+      end
 
-        spec = format_spec(format)
-        zone_object = zone && Zone.fetch(zone)
-        case value
-        when ::String then from_string(value, spec, zone_object)
-        when ::DateTime then from_datetime(value)
-        when ::Date then from_date(value, zone_object)
-        when ::Time then from_time(value)
-        else raise ::ArgumentError, "expected a String, Date, DateTime or Time, got #{value.class}"
-        end
+      # Internal: {#coerce} with the options as one Hash, no keyword splat (see Types::Base.positional_coerce?).
+      #
+      # @param value [::Object]
+      # @param options [::Hash{::Symbol=>::Object}]
+      # @return [::Date, ::Time, ::DateTime, nil]
+      # @api private
+      def coerce_positional(value, options)
+        coerce_with(value, options[:format], options[:zone])
       end
 
       # Renders a value the way +as_json+ writes it: by +format:+ (RFC 3339 preset, strftime String) or ISO 8601.
@@ -96,6 +96,20 @@ module FieldStruct
       end
 
       private
+
+      def coerce_with(value, format, zone)
+        return nil if value.nil?
+
+        spec = format_spec(format)
+        zone_object = zone && Zone.fetch(zone)
+        case value
+        when ::String then from_string(value, spec, zone_object)
+        when ::DateTime then from_datetime(value)
+        when ::Date then from_date(value, zone_object)
+        when ::Time then from_time(value)
+        else raise ::ArgumentError, "expected a String, Date, DateTime or Time, got #{value.class}"
+        end
+      end
 
       def iso8601(value)
         return value.iso8601 if value.is_a?(::Date) && !value.is_a?(::DateTime)

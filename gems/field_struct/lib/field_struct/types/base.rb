@@ -47,13 +47,15 @@ module FieldStruct
         # Builds the instance a Field uses, from the resolved options.
         #
         # @param options [::Hash{::Symbol=>::Object}] the options after {.resolve_options} and the +format:+ prefill
-        # @return [::Array(FieldStruct::Types::Base, ::Hash)] the instance and the options to store on the Field
+        # @return [Array(FieldStruct::Types::Base, ::Hash{::Symbol=>::Object})] the instance and the options to store on the Field
+        # @api private
         def instantiate(options)
           [new, options]
         end
 
         # @param key [::Symbol] a schema option marked +required: true+ that a field left out
         # @return [::String] the declaration error message
+        # @api private
         def required_option_message(key)
           "#{key}: is required for #{short_name} fields"
         end
@@ -70,8 +72,19 @@ module FieldStruct
         end
 
         # @return [::String] the last segment of the class name, or +AnonymousType+
+        # @api private
         def short_name
           name ? name.split('::').last : 'AnonymousType'
+        end
+
+        # Internal: whether callers may use {#coerce_positional} instead of {#coerce}. True only when
+        # +coerce_positional+ is defined at or below +coerce+, so a subclass that overrides +coerce+ alone, or any
+        # custom type, still gets every option as keywords.
+        #
+        # @return [Boolean]
+        # @api private
+        def positional_coerce?
+          instance_method(:coerce_positional).owner <= instance_method(:coerce).owner
         end
       end
 
@@ -83,6 +96,17 @@ module FieldStruct
       # @raise [NotImplementedError] unless overridden
       def coerce(_value, **)
         raise NotImplementedError, "#{self.class} must implement #coerce"
+      end
+
+      # Internal: {#coerce} with the options as one Hash. Built-ins answer it without a keyword splat;
+      # here it delegates, so any type works (see {.positional_coerce?}).
+      #
+      # @param value [::Object]
+      # @param options [::Hash{::Symbol=>::Object}]
+      # @return [::Object]
+      # @api private
+      def coerce_positional(value, options)
+        options.empty? ? coerce(value) : coerce(value, **options)
       end
 
       # @param value [::Object] an already coerced value

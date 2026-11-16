@@ -30,11 +30,34 @@ RSpec.describe 'shipped signatures' do
     loader = RBS::EnvironmentLoader.new
     %w[date time bigdecimal pathname pp field_struct].each { |name| loader.add(library: name) }
     loader.add(path: Pathname(File.join(root, 'sig')))
-    loader.add(path: Pathname(File.join(root, 'support/external')))
+    loader.add(library: 'prism')
     env = RBS::Environment.from_loader(loader).resolve_type_names
     definition = RBS::DefinitionBuilder.new(env: env).build_singleton(RBS::TypeName.parse('::Actionable::Action'))
     expect(definition.methods[:output].method_types.size).to eq(2)
     expect(definition.methods).to include(:after_commit, :transactional, :honor_retry_metadata, :step, :run)
+  end
+
+  it 'AC-B#rbsshipped: loads on its own: sig/manifest.yaml brings FieldStruct and Prism, and nothing else is named' do
+    output, status = Open3.capture2e('bundle', 'exec', 'rbs', '--no-collection', '-r', 'actionable-rb', 'validate', chdir: root)
+    expect(status).to be_success, output
+  end
+
+  it 'AC-B#rbsshipped: names no framework (Rails, ActiveModel, RuboCop, LintRoller) in a type or a parent' do
+    text = Dir[File.join(root, 'sig', '*.rbs')].map { |path| File.read(path) }.join
+    code = text.lines.reject { |line| line.lstrip.start_with?('#') }.join
+    expect(code).not_to match(/(?<![\w:])::Rails::|ActiveModel|LintRoller|RuboCop::Cop::Base|class VerbNotLast </)
+  end
+
+  it 'AC-B#verbsprivate: declares the verbs on Action as private methods, so step bodies type-check' do
+    loader = RBS::EnvironmentLoader.new
+    %w[date time bigdecimal pathname pp field_struct].each { |name| loader.add(library: name) }
+    loader.add(path: Pathname(File.join(root, 'sig')))
+    loader.add(library: 'prism')
+    env = RBS::Environment.from_loader(loader).resolve_type_names
+    methods = RBS::DefinitionBuilder.new(env: env).build_instance(RBS::TypeName.parse('::Actionable::Action')).methods
+    verbs = %i[succeed succeed! fail fail! fail_with fail_with! skip skip! halt!]
+    expect(verbs.map { |name| [name, methods.fetch(name).accessibility] }).to eq(verbs.map { |name| [name, :private] })
+    expect(methods.fetch(:fail).defined_in.to_s).to eq('::Actionable::Verbs')
   end
 
   it 'AC-B#rbsshipped: generated RBS for user actions is valid next to the gem signature' do
@@ -57,8 +80,8 @@ RSpec.describe 'shipped signatures' do
 
     Dir.mktmpdir do |dir|
       File.write(File.join(dir, 'actions.rbs'), [Terminal::Embark, Terminal::Plain].map { |k| Actionable::RBS.generate(k) }.join("\n"))
-      output, status = Open3.capture2e('bundle', 'exec', 'rbs', '--no-collection', *libraries, '-I', File.join(root, 'sig'),
-                                       '-I', File.join(root, 'support/external'), '-I', dir, 'validate', chdir: root)
+      output, status = Open3.capture2e('bundle', 'exec', 'rbs', '--no-collection', *libraries, '-r', 'prism',
+                                       '-I', File.join(root, 'sig'), '-I', dir, 'validate', chdir: root)
       expect(status).to be_success, output
     end
   end

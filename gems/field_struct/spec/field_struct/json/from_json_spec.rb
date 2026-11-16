@@ -80,7 +80,8 @@ RSpec.describe 'from_json', :denver do
       expect(u.v['x']).to be_a(BigDecimal)
       expect(u.v['y'].first).to eq(7)
       expect(u.v['y'].first).to be_a(Integer)
-      expect(u.to_json).to include('"v":{"x":"2.25","y":[7,"1.5"]}')
+      expect(u.to_json).to include('"v":{"x":2.25,"y":[7,1.5]}')
+      expect(u.as_json[:v]).to eq('x' => '2.25', 'y' => [7, '1.5'])
     end
 
     it 'treats 1e400 as finite for decimal and integer, and refuses it for float' do

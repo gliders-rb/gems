@@ -7,7 +7,6 @@ sidebar:
 
 A struct goes out to JSON through `as_json` and `to_json` and comes back in through `from_json`. Reading runs through `new`, so JSON input gets the same coercion and validation as a Hash would. All JSON work uses Oj, never the standard library.
 
-Rules: FS-B101 to FS-B111, FS-I8, FS-I13.
 
 | Member | Returns |
 |---|---|
@@ -18,7 +17,7 @@ Rules: FS-B101 to FS-B111, FS-I8, FS-I13.
 
 ## as_json
 
-`as_json` builds a Hash with Symbol keys in declaration order, one entry per field, and unset optionals show up as `nil`. The `:json` mapping supplies the key names. It ignores its argument, and there is no `only:` or `except:`. Each value comes from the field's reader, so overriding a reader changes the output, but overriding `attributes` does not.
+`as_json` builds a Hash with Symbol keys in declaration order, one entry per field, and unset optionals show up as `nil`. The `:json` mapping supplies the key names. It reads one option, `describe_foreign:` (below), and ignores any other, so there is no `only:` or `except:`. Each value comes from the field's reader, so overriding a reader changes the output, but overriding `attributes` does not.
 
 Values convert as follows:
 
@@ -26,18 +25,70 @@ Values convert as follows:
 |---|---|
 | `nil`, `true`, `false`, String, Integer, Float | itself |
 | Symbol | its String |
-| BigDecimal | a plain decimal String, so digits are never lost. `BigDecimal('1234567890123.4567')` becomes `"1234567890123.4567"` |
+| BigDecimal | a plain decimal String, so digits are never lost. `BigDecimal('1234567890123.4567')` becomes `"1234567890123.4567"`. `to_json` writes a number instead (below) |
 | Date, DateTime, Time | by the field's `format:`: an RFC 3339 preset as its rule says, a `strftime` String as given, and with no format the object's `iso8601`. For an array field the element's `format:` is used |
 | Array | each element, by the same rules |
 | Hash | its values, by the same rules |
 | a struct | its own `as_json`, so its own mapping applies |
 | anything else | `as_json` of the object if it responds to it, else the object itself |
 
-Only `:value` fields reach the last row. The formats are covered in [Dates, times and zones](/reference/field-struct/dates-and-times/) for the formats.
+Only `:value` fields reach the last row. [Dates, times and zones](/reference/field-struct/dates-and-times/) covers the formats.
+
+`as_json(describe_foreign: true)` changes that last row: each such object is written as a short description, `"#<Lantern id=4>"`, or `"#<Lantern>"` when it has no `id`. Nothing is called on the object except `class` and `id`, so a record's own `as_json` (which might query, or write fields you didn't mean to share) never runs. Numbers and nested structs are written as usual, and the mode ends with the call.
+
+```ruby run
+class Lantern
+  attr_reader :id
+  def initialize(id) = @id = id
+  def as_json(*) = { 'id' => id, 'wick_code' => 'w-9' }
+end
+
+class Watch < FieldStruct::Base
+  optional :lantern, :value
+end
+
+watch = Watch.new(lantern: Lantern.new(4))
+watch.as_json                          # => {lantern: {"id" => 4, "wick_code" => "w-9"}}
+watch.as_json(describe_foreign: true)  # => {lantern: "#<Lantern id=4>"}
+```
+
+### Leaving out what wasn't sent
+
+A class with `json_omit :unset` leaves a field out of `as_json` and `to_json` when the caller didn't give it and it's `nil`. A default is still written, since the model chose to say it, and a `nil` the caller gave is written as `nil`, since that's a null they sent. A nested struct follows its own class's setting. [Class macros](/reference/field-struct/class-macros/#json_omit) has the macro itself.
+
+```ruby run
+class BalloonLaunch < FieldStruct::Base
+  json_omit :unset
+  optional :station, :string
+  optional :tethered, :boolean, default: true
+  optional :burst_m, :integer
+  optional :notes, :string
+end
+
+BalloonLaunch.new(station: 'Ridge').as_json              # => {station: "Ridge", tethered: true}
+BalloonLaunch.new(station: 'Ridge', notes: nil).as_json  # => {station: "Ridge", tethered: true, notes: nil}
+BalloonLaunch.new(burst_m: 31_000).to_json               # => "{\"tethered\":true,\"burst_m\":31000}"
+```
 
 ## to_json
 
-`to_json` is `Oj.dump(as_json, mode: :compat)`. Its argument is ignored too, so `to_json(only: [:species])` still writes every field. Symbol keys become JSON strings.
+`to_json` writes the same tree as `as_json` with Oj in `:compat` mode, with one difference: a BigDecimal goes out as a JSON number with its exact digits, at any depth, so `3.25` stays `3.25` and `from_json` reads it back exactly. Its argument is ignored too, so `to_json(only: [:species])` still writes every field. Symbol keys become JSON strings.
+
+A decimal that a JavaScript client must not parse into a float can keep the string: declare it `json: :string`, or `element: { json: :string }` on an array or map of decimals. A type of your own can make that its default by answering `json_default` with `:string`. `as_json` always gives Strings, so a struct inside a Hash that some other encoder writes, such as a Rails `render json:` of a Hash, still gets strings.
+
+```ruby run
+require 'bigdecimal'
+
+class Invoice < FieldStruct::Base
+  required :total, :decimal
+  optional :display_total, :decimal, json: :string
+end
+
+invoice = Invoice.new(total: '1234.50', display_total: '1234.50')
+invoice.to_json                           # => '{"total":1234.5,"display_total":"1234.5"}'
+invoice.as_json[:total]                   # => "1234.5"
+Invoice.from_json(invoice.to_json).total  # => BigDecimal('1234.5')
+```
 
 ## from_json
 
@@ -52,7 +103,7 @@ What the BigDecimal parse means for each type:
 - a `:decimal` field receives exactly the digits that were sent
 - a `:float` field still ends up a Float
 - an `:integer` field cuts `3.7` down to `3`
-- a `:value` field, along with numbers inside its Hashes and Arrays, holds a BigDecimal, and `to_json` then writes it as a String
+- a `:value` field, along with numbers inside its Hashes and Arrays, holds a BigDecimal, which `to_json` writes as a number and `as_json` as a String
 - JSON `1e400` is a finite BigDecimal. Decimal and integer fields read it and a float field refuses it
 
 Errors:
@@ -87,7 +138,7 @@ plant.as_json[:yield_kg]         # => "3.25"
 plant.as_json[:sown]             # => "03/14/2026"
 plant.as_json[:last_watered]     # => "2026-05-02T06:00:00Z"
 plant.as_json[:notes]            # => nil
-plant.to_json.include?('"yield_kg":"3.25"')   # => true
+plant.to_json.include?('"yield_kg":3.25')   # => true
 Plant.new(species: 'x').to_json(only: [:species]) == Plant.new(species: 'x').to_json   # => true
 Plant.from_json('{"species":"x","notes":{"depth":0.75}}').notes   # => {"depth" => BigDecimal('0.75')}
 

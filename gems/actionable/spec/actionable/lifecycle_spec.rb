@@ -289,7 +289,7 @@ RSpec.describe 'Action lifecycle hooks' do
         always :c
         def a = nil
       end
-      expect { action.run }.to raise_error(Actionable::DefinitionError, /declares step\(s\) calling :b, :c but does not implement them/)
+      expect { action.run }.to raise_error(Actionable::DefinitionError, /declares hook\(s\) calling :b, :c but does not implement them/)
     end
 
     it 'AC-B#missingmethod: Kernel methods do not count and the check ignores guards' do

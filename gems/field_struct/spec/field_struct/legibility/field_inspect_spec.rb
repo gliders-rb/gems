@@ -187,7 +187,8 @@ RSpec.describe 'Field and Metadata legibility' do
     it 'FS-B122 renders a description segment before options' do
       klass = Class.new(FieldStruct::Base) { required :name, :string, description: 'Full legal name' }
       expect(klass.metadata.describe).to eq(
-        '  name (String, required) — "Full legal name" — accepts format (Regexp | Symbol), enum (Array), strict (TrueClass | FalseClass)'
+        '  name (String, required) — "Full legal name" — accepts format (Regexp | Symbol), enum (Array), ' \
+        'strict (TrueClass | FalseClass), length (Range)'
       )
     end
 
@@ -199,8 +200,8 @@ RSpec.describe 'Field and Metadata legibility' do
     it 'FS-B122 renders arrays with required options and the element line' do
       klass = Class.new(FieldStruct::Base) { optional :tags, :array, of: :string }
       expect(klass.metadata.describe).to eq(
-        '  tags (Array, optional) — of_type: String — accepts of* (Symbol | String | Class), element (Hash) — ' \
-        'element accepts format, enum, strict'
+        '  tags (Array, optional) — of_type: String — accepts of* (Symbol | String | Class), element (Hash), max_items (Integer) — ' \
+        'element accepts format, enum, strict, length'
       )
     end
 

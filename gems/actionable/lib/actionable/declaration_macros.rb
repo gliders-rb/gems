@@ -7,18 +7,20 @@ module Actionable
     #
     # @param code [Symbol, String]
     # @param message [String, nil] used when a failure with this code is recorded without a message
+    # @param desc [String, nil] prose for people (+describe+, the docs adapter); never part of the metadata
     # @param metadata [Object] opaque; attached to results and shown in +describe+
     # @yield an optional output DSL
     # @return [Hash{Symbol=>Hash{Symbol=>Object}}] {#declared_failures}
-    # @raise [ArgumentError] for a block on a gem failure code
-    def fails(code, message = nil, **metadata, &block)
-      code = code.to_sym
+    # @raise [ArgumentError] for a block on a gem failure code, or a +desc:+ that is not a String
+    def fails(code, message = nil, desc: nil, **metadata, &block)
+      code = declared_code!(code, 'fails', ':out_of_stock')
+      described!(desc, 'fails', code)
       if block && Action::GEM_FAILURE_CODES.include?(code)
         raise ArgumentError, "#{Actionable.label_for(self)}: #{code.inspect} is a gem failure code and cannot declare " \
                              'an output schema; remove the block (the gem builds this failure itself)'
       end
 
-      declare(failure_declarations, code, message, metadata, block)
+      declare(failure_declarations, code, entry(message, metadata, desc), block)
       declared_failures
     end
 
@@ -26,11 +28,15 @@ module Actionable
     #
     # @param code [Symbol, String]
     # @param message [String, nil]
+    # @param desc [String, nil] prose for people; never part of the metadata
     # @param metadata [Object]
     # @yield an optional output DSL
     # @return [Hash{Symbol=>Hash{Symbol=>Object}}] {#declared_skips}
-    def skips(code, message = nil, **metadata, &block)
-      declare(skip_declarations, code.to_sym, message, metadata, block)
+    # @raise [ArgumentError] for a +desc:+ that is not a String
+    def skips(code, message = nil, desc: nil, **metadata, &block)
+      code = declared_code!(code, 'skips', ':nothing_to_do')
+      described!(desc, 'skips', code)
+      declare(skip_declarations, code, entry(message, metadata, desc), block)
       declared_skips
     end
 
@@ -40,7 +46,8 @@ module Actionable
     # @return [Hash{Symbol=>Hash{Symbol=>Object}}] +{code => metadata}+ of declared skips
     def declared_skips = skip_declarations.transform_values { |declaration| declaration[:metadata] }
 
-    # @return [Hash{Symbol=>Hash{Symbol=>Object}}] +{code => {message:, metadata:}}+, plus +:output_schema+ for a declaration with a block
+    # @return [Hash{Symbol=>Hash{Symbol=>Object}}] +{code => {message:, metadata:}}+, plus +:description+ when +desc:+ was
+    #   given and +:output_schema+ for a declaration with a block
     def failure_declarations = (@failure_declarations ||= {})
 
     # @return [Hash{Symbol=>Hash{Symbol=>Object}}] the same for skips
@@ -69,8 +76,27 @@ module Actionable
 
     private
 
-    def declare(declarations, code, message, metadata, block)
+    # The code as a Symbol, or an ArgumentError naming the action when no verb could ever record it (AC-B#declare).
+    def declared_code!(code, macro, example)
+      return code.to_sym if (code.is_a?(Symbol) || code.is_a?(String)) && Action::CODE_FORMAT.match?(code.to_s)
+
+      raise ArgumentError, "#{Actionable.label_for(self)}: #{macro} code #{code.inspect} is not an identifier; " \
+                           "use a Symbol like #{example}"
+    end
+
+    def described!(desc, macro, code)
+      return if desc.nil? || desc.is_a?(String)
+
+      raise ArgumentError, "#{Actionable.label_for(self)}: #{macro} code #{code.inspect} desc: takes a String, got #{desc.class}"
+    end
+
+    def entry(message, metadata, desc)
       declaration = { message: message, metadata: metadata.freeze }
+      declaration[:description] = desc.frozen? ? desc : desc.dup.freeze if desc
+      declaration
+    end
+
+    def declare(declarations, code, declaration, block)
       declaration[:output_schema] = SchemaBuilder.output(self, &block) if block
       declarations[code] = declaration
     end

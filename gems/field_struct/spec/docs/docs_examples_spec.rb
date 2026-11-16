@@ -1,20 +1,18 @@
 # frozen_string_literal: true
 
-require_relative '../../support/doctest'
-
-# Ruby blocks preceded by <!-- doctest --> run in their own process; each `# =>` is asserted by value.
+# The ```ruby run blocks of each file run in order in one fresh process; each `# =>` is asserted by value.
 # Tagged :doctest: skipped by the default rake task, run by `rake docs:test` (part of release:check).
 RSpec.describe 'docs examples', :doctest do
   root = File.expand_path('../..', __dir__)
 
   %w[README.md USAGE.md docs/getting_started.md].each do |relative|
-    path = File.join(root, relative)
+    it "runs as documented (#{relative})" do
+      require 'doctest' # only in the dev bundle; the other lanes load this file but skip the tag
+      path = File.join(root, relative)
+      expect(Doctest.blocks(path)).not_to be_empty, "#{relative} has no ```ruby run blocks"
 
-    Doctest.blocks(path).each do |block|
-      it "run as documented (#{relative}:#{block.line})" do
-        passed, stderr = Doctest.run(block, requires: ['field_struct'], includes: [File.join(root, 'lib')])
-        expect(passed).to be(true), stderr
-      end
+      run = Doctest.run_file(path, requires: ['field_struct'], includes: [File.join(root, 'lib')])
+      expect(run.ok).to be(true), run.stderr
     end
   end
 end

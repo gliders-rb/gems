@@ -12,6 +12,7 @@ require_relative 'actionable/history'
 require_relative 'actionable/measurement'
 require_relative 'actionable/result'
 require_relative 'actionable/batch_result'
+require_relative 'actionable/step_options'
 require_relative 'actionable/steps'
 require_relative 'actionable/runner'
 require_relative 'actionable/schema_builder'
@@ -23,6 +24,7 @@ require_relative 'actionable/declaration_macros'
 require_relative 'actionable/declarations'
 require_relative 'actionable/typed_outcomes'
 require_relative 'actionable/verb_position'
+require_relative 'actionable/hidden_calls'
 require_relative 'actionable/verbs'
 require_relative 'actionable/layout'
 require_relative 'actionable/action'
@@ -35,6 +37,7 @@ module Actionable
   HALT = :actionable_halt
 
   @verb_position_check = true
+  @step_options = {}
 
   class << self
     # Runs the block under the halt tag.
@@ -67,6 +70,33 @@ module Actionable
     # @return [Boolean] whether the first-run verb-position check is on (default true)
     def verb_position_check?
       @verb_position_check
+    end
+
+    # Accepts a step option key an adapter or app reads from +step.options+; any other unknown key fails at
+    # declaration. Register before the actions that use it are declared.
+    #
+    # @param name [Symbol, String]
+    # @param owner [String] the gem or app that reads the key, named in messages
+    # @return [Symbol] the name
+    # @raise [ArgumentError] for a core key, a key another owner registered, or a missing owner
+    def register_step_option(name, owner:)
+      unless owner.is_a?(String) && !owner.empty?
+        raise ArgumentError, 'register_step_option needs owner: a non-empty String naming the gem or app that reads the key'
+      end
+
+      key = name.to_sym
+      raise ArgumentError, "step option #{key}: is built into actionable-rb and can't be registered" if StepOptions::CORE.include?(key)
+
+      existing = @step_options[key]
+      raise ArgumentError, "step option #{key}: is already registered by #{existing}" if existing && existing != owner
+
+      @step_options[key] = owner.dup.freeze
+      key
+    end
+
+    # @return [Hash{Symbol=>String}] the registered step option keys and their owners (core keys not included), frozen
+    def registered_step_options
+      @step_options.dup.freeze
     end
   end
 end

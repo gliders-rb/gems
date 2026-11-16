@@ -32,9 +32,11 @@ module FieldStruct
 
       # @param root [::Class] a +FieldStruct::Base+ subclass
       # @param serialization [::Symbol]
-      def initialize(root, serialization)
+      # @param decimals [::Symbol] +:to_json+, or +:string+ for every decimal as its +as_json+ String (JS-B24)
+      def initialize(root, serialization, decimals = :to_json)
         @root = root
         @serialization = serialization
+        @decimals = decimals
         @stamps = {}
         @hooked = false
         @defs = {}
@@ -74,7 +76,7 @@ module FieldStruct
 
       def property_schema(field, node, spot)
         core = field_override(field, spot) || node_schema(node, spot)
-        core = Nullable.field(core, field.type_instance) unless field.required?
+        core = Nullable.field(core, field.type_instance) if !field.required? || field.nullable?
         annotations(field).merge(core)
       end
 
@@ -124,10 +126,19 @@ module FieldStruct
       def plain_node_schema(node, spot)
         case node
         when Introspection::ArrayNode then array_schema(node, spot)
+        when Introspection::MapNode then map_schema(node, spot)
         when Introspection::UnionNode then union_schema(node, spot)
         when Introspection::StructNode then struct_schema(node.klass, spot)
-        else Scalar.call(node.type, node.options)
+        else Scalar.call(node.type, scalar_options(node))
         end
+      end
+
+      # Under +decimals: :string+ a decimal is described as the String +as_json+ writes, whatever its +json:+.
+      def scalar_options(node)
+        options = node.options
+        return options unless @decimals == :string && node.type.is_a?(Types::BigDecimal)
+
+        options.merge(json: :string)
       end
 
       def array_schema(node, spot)
@@ -135,6 +146,14 @@ module FieldStruct
         return { 'type' => 'array' } if element.nil?
 
         { 'type' => 'array', 'items' => Nullable.call(node_schema(element, spot)) }
+      end
+
+      # A String-keyed map: the value schema, nullable, under additionalProperties (JS-B11a).
+      def map_schema(node, spot)
+        element = node.element
+        return { 'type' => 'object' } if element.nil?
+
+        { 'type' => 'object', 'additionalProperties' => Nullable.call(node_schema(element, spot)) }
       end
 
       def union_schema(node, spot)

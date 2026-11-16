@@ -7,13 +7,13 @@ sidebar:
 
 A type takes whatever the caller passes in and hands back the Ruby value the field keeps. All built-in types let `nil` through as `nil`. Whether a value counts as "missing" is a different question, answered by what `required` rejects, and the answer depends on the type.
 
-Rules: FS-B52 to FS-B84, FS-I12, FS-I16. Dates and times have their own page, [Dates, times and zones](/reference/field-struct/dates-and-times/).
+Dates and times have their own page, [Dates, times and zones](/reference/field-struct/dates-and-times/).
 
-Two rules hold for every type. A value the type cannot read is a coercion failure, and the [coercion policy](/reference/field-struct/validation-and-errors/) decides what happens next. Also, a doubtful input is refused, never guessed (FS-I12): `'12abc'` is not 12, `'NaN'` is not a number, and a Hash is not a Symbol.
+Two rules hold for every type. A value the type cannot read is a coercion failure, and the [coercion policy](/reference/field-struct/validation-and-errors/) decides what happens next. Also, a doubtful input is refused, never guessed: `'12abc'` is not 12, `'NaN'` is not a number, and a Hash is not a Symbol.
 
 | Name | Ruby type | Missing when | Options |
 |---|---|---|---|
-| `:string` | `String` | nil, empty, or only whitespace | `format:`, `enum:`, `strict:` |
+| `:string` | `String` | nil, empty, or only whitespace | `format:`, `enum:`, `strict:`, `length:` |
 | `:immutable_string` | `String`, frozen | as `:string` | as `:string` |
 | `:uuid` | `String` | as `:string` | as `:string`, with presets |
 | `:url` | `String` | as `:string` | as `:string`, with presets |
@@ -22,14 +22,15 @@ Two rules hold for every type. A value the type cannot read is a coercion failur
 | `:symbol` | `Symbol` | nil | `enum:` |
 | `:integer` | `Integer` | nil | `in:`, `base:`, `strict:` |
 | `:float` | `Float` | nil | `round:`, `in:` |
-| `:decimal`, `:big_decimal` | `BigDecimal` | nil | `round:`, `in:` |
+| `:decimal`, `:big_decimal` | `BigDecimal` | nil | `round:`, `in:`, `json:` |
 | `:boolean` | `true` or `false` | nil | `values:` |
 | `:date` | `Date` | nil | `format:`, `in:` |
 | `:time` | `Time` | nil | `format:`, `in:`, `zone:` |
 | `:datetime` | `DateTime` | nil | `format:`, `in:`, `zone:` |
 | `:value` | any object | nil | none |
-| `:array` | `Array` | nil or `[]` | `of:` (required), `element:` |
-| `:union` | the members' classes | nil | `of:` (required) |
+| `:array` | `Array` | nil or `[]` | `of:` (required), `element:`, `max_items:` |
+| `:hash` | `Hash`, String keys | nil or `{}` | `of:` (required), `element:` |
+| `:union` | the members' classes | nil | `of:` (required), `discriminator:` |
 | a struct class | that class | nil | none |
 
 These are never missing: zero, `0.0`, `false`, symbols, and a `:value` field holding `''` or `[]`. A nested struct or union is missing only when it is nil.
@@ -38,18 +39,24 @@ These are never missing: zero, `0.0`, `false`, symbols, and a `:value` field hol
 
 Using an option on a type that does not declare it raises at declaration, and the error lists the types that do. `strict:` fits the string family and `:integer`, for instance, while `round:` fits `:float` and `:decimal` only. The matrix below is the table above turned around, one row per option:
 
+<!-- generated: option-types -->
 | Option | Types |
 |---|---|
-| `format:` | `:string`, `:immutable_string`, `:uuid`, `:url`, `:email`, `:binary`, `:date`, `:time`, `:datetime` |
-| `enum:` | `:string` family, `:symbol` |
-| `strict:` | `:string` family, `:integer` |
-| `in:` | `:integer`, `:float`, `:decimal`, `:date`, `:time`, `:datetime` |
+| `format:` | `:string`, `:immutable_string`, `:date`, `:time`, `:datetime`, `:uuid`, `:url`, `:email`, `:binary` |
+| `enum:` | `:string`, `:immutable_string`, `:symbol`, `:uuid`, `:url`, `:email`, `:binary` |
+| `strict:` | `:string`, `:immutable_string`, `:integer`, `:uuid`, `:url`, `:email`, `:binary` |
+| `length:` | `:string`, `:immutable_string`, `:uuid`, `:url`, `:email`, `:binary` |
+| `in:` | `:integer`, `:float`, `:big_decimal`, `:decimal`, `:date`, `:time`, `:datetime` |
 | `base:` | `:integer` |
-| `round:` | `:float`, `:decimal` |
+| `round:` | `:float`, `:big_decimal`, `:decimal` |
+| `json:` | `:big_decimal`, `:decimal` |
 | `values:` | `:boolean` |
 | `zone:` | `:time`, `:datetime` |
-| `of:` | `:array`, `:union` |
-| `element:` | `:array` |
+| `of:` | `:array`, `:hash`, `:union` |
+| `element:` | `:array`, `:hash` |
+| `max_items:` | `:array` |
+| `discriminator:` | `:union` |
+<!-- end generated -->
 
 ## Strings
 
@@ -255,6 +262,46 @@ Rota.new(rows: [4], helpers: [nil]).helpers   # => [nil]
 
 Arrays of arrays are not supported. `of: :array` passes the declaration, but then every non-nil element fails to coerce. Element options do not work when the element type is `:array` or `:union`. Dates and times used as elements follow the `format:` in `element:` when written to JSON.
 
+## Maps
+
+`:hash` is a map from String keys to values of one type. `of:` names the value type, just as it names an array's element type, and `element:` carries the value type's options. The result is a fresh Hash in input order. A Symbol key becomes its String, and when `'pier'` and `:pier` both appear, the later one wins. Any other key class fails the whole map with `hash keys must be Strings or Symbols, got Integer`. There's no option for a key type.
+
+A key is input, so no message names one. A bad value fails the whole map with `value of 1 entry: <reason>` or `values of 3 entries (first shown): <reason>`, and values that fail an `element:` check give `"1 entry is invalid"` or `"2 entries are invalid"`. `{}` counts as missing. A map of structs builds each value, an invalid one marks the field `"is invalid"`, and `errors.paths` names the entry by its key, quoted: `gauges{"pier"}.metres`.
+
+```ruby run
+class Reading < FieldStruct::Base
+  required :metres, :float
+end
+
+class TideBoard < FieldStruct::Base
+  required :levels, :hash, of: :float, element: {in: -5.0..15.0}
+  optional :gauges, :hash, of: Reading
+end
+
+TideBoard.new(levels: {pier: '2.5', 'slip' => 3}).levels   # => {"pier" => 2.5, "slip" => 3.0}
+TideBoard.new(levels: {}).errors[:levels]                # => ["is required"]
+TideBoard.new(levels: {pier: 40}).errors[:levels]        # => ["1 entry is invalid"]
+TideBoard.new(levels: {pier: 'x', slip: 'y'}).errors[:levels].first.start_with?('could not be coerced: values of 2 entries (first shown):')   # => true
+board = TideBoard.new(levels: {pier: 1}, gauges: {'pier' => {}})
+board.errors.paths                                       # => {"gauges{\"pier\"}.metres" => ["is required"]}
+board.as_json[:levels]                                   # => {"pier" => 1.0}
+```
+
+A `:hash` can't be a union member, for the same reason an `:array` can't: a member has no options to name its value type.
+
+## Mirrors
+
+A field whose type is a `mirror!` class reads any other object into it: one public reader per declared field, by field name, all checked before any is called. A missing reader raises `ArgumentError` (`SiteView mirrors Gauge, but Gauge has no public readers for :code, :gauges`) no matter the `coercion_policy` or `default:`. Values read go through `new`, so they are coerced and validated like any input.
+
+`max_items:` on an `:array` is a limit: more elements give the field error `has too many items (maximum is N)`. On an array of mirrors it also decides how a collection that isn't an Array is read:
+
+- `loaded?` returns `true`: read whole with `to_a`
+- answers `first`: read with `first(max_items + 1)`, so a source over the limit fails validation instead of being cut
+- answers `first` and the field has no `max_items:`: raises `set max_items: on Report#gauges, or load the relation yourself`
+- anything else: `expected Array, got ...`, as on any array
+
+A mirror member of a union reads nothing. The union still picks by Hash or instance.
+
 ## Nested structs
 
 To nest a struct, pass a `FieldStruct::Base` subclass as the type. The field accepts an instance, stored as the very same object with no copy, or a Hash, which goes to the struct's `new`. A Hash lacking required keys still builds, only invalid, and the parent field reads `"is invalid"` as soon as it is assigned. Any other input is a coercion failure reading `expected Bed or Hash, got Integer`, routed through the parent's coercion policy. Nested fields take no options of their own.
@@ -289,7 +336,7 @@ An error raised inside the inner `new` (`UnknownAttributeError`, `CoercionError`
 
 `:union` takes `of:` with an Array of two or more members, each a registered name or a struct class. The members are tried in declared order against the raw value and the first to accept it wins, so order matters. When none does, the failure reads `no union member (Integer | Boolean) could coerce String input`. A non-finite Float or BigDecimal is refused before any member is tried, so a `:string` member cannot end up holding `'NaN'`.
 
-A union cannot include `:array`, since an array member would have no element type, and members take no options. If a union has to tell struct members apart, give them `unknown_attributes :raise`. Otherwise a Hash builds the first struct that accepts it.
+A union cannot include `:array`, since an array member would have no element type, and members take no options.
 
 ```ruby run
 class Marker < FieldStruct::Base
@@ -302,6 +349,49 @@ Marker.new(slot: '31').slot            # => 31
 Marker.new(label: '31').label          # => "31"
 Marker.new(flowers: 'maybe').valid?    # => false
 Marker.new(flowers: true).flowers      # => true
+```
+
+### Struct members
+
+A Hash given to a union with two or more struct members goes to the first member that builds valid and has no unknown keys. If none fits exactly, it goes to the valid one with the fewest unknown keys, and if none is valid, to the one with the fewest errors, so those errors explain what's missing. Ties go to the first declared. A simpler member listed first never swallows keys meant for a richer one.
+
+```ruby run
+class Berth < FieldStruct::Base
+  required :dock, :string
+end
+
+class PontoonBerth < FieldStruct::Base
+  required :dock, :string
+  required :pontoon, :string
+end
+
+class Mooring < FieldStruct::Base
+  required :spot, :union, of: [Berth, PontoonBerth]
+end
+
+Mooring.new(spot: { dock: 'C' }).spot.class                   # => Berth
+Mooring.new(spot: { dock: 'C', pontoon: 'north' }).spot.class # => PontoonBerth
+```
+
+When the members share a shape, a tag field decides. `discriminator: :kind` reads the tags from each member's `kind` field's `enum:`, so the tag is an ordinary field and `as_json` writes it back. A missing or unknown tag is a coercion failure that lists the declared tags. The Hash form gives the tags itself and a member for anything else: `discriminator: { field: :kind, map: { 'in' => Deposit }, default: Deposit }`.
+
+```ruby run
+class Deposit < FieldStruct::Base
+  required :kind, :string, enum: %w[deposit]
+  required :cents, :integer
+end
+
+class Withdrawal < FieldStruct::Base
+  required :kind, :string, enum: %w[withdrawal]
+  required :cents, :integer
+end
+
+class Ledger < FieldStruct::Base
+  required :entry, :union, of: [Deposit, Withdrawal], discriminator: :kind
+end
+
+Ledger.new(entry: { kind: 'withdrawal', cents: 900 }).entry.class   # => Withdrawal
+Ledger.new(entry: { kind: 'refund', cents: 900 }).valid?            # => false
 ```
 
 ## Custom types

@@ -19,8 +19,7 @@ require 'field_struct/json_schema'
 
 ## Quick start
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'field_struct/json_schema'
 
 class Exhibit < FieldStruct::Base
@@ -55,8 +54,7 @@ Curator.to_json_schema == schema            # => true
 The schema accepts exactly what a struct writes, for canonical JSON. A field is `required` in the schema when it is
 required *and* has no default, because a default fills a missing key. An optional field also accepts `null`.
 
-<!-- doctest -->
-```ruby
+```ruby run
 class Dossier < FieldStruct::Base
   required :label, :string
   optional :alias_name, :string
@@ -75,8 +73,7 @@ FieldStruct::JSONSchema.generate(Dossier)['required'] # => ["label"]
 A sensitive field's default is left out of the published schema. A blank string counts as missing for the string types, so
 an optional string with `enum:` or a `format:` also accepts a blank one:
 
-<!-- doctest -->
-```ruby
+```ruby run
 class Vase < FieldStruct::Base
   optional :color, :string, enum: %w[red green]
 end
@@ -90,23 +87,25 @@ color['anyOf'][1] # => FieldStruct::JSONSchema::BLANK_STRING
 |---|---|
 | `:boolean` | `{"type":"boolean"}` |
 | `:integer`, `:float` | `integer` / `number`, with `minimum`, `maximum` or `exclusiveMaximum` from `in:` (an Array becomes `enum`) |
-| `:big_decimal` | a string matching `DECIMAL_PATTERN`, as `to_json` writes it |
+| `:big_decimal` | `number`, as `to_json` writes it; a string matching `DECIMAL_PATTERN` for a field declared `json: :string`, or for every decimal under `generate(klass, decimals: :string)` |
 | `:date`, `:time`, `:datetime` | a string with `format` `date` / `date-time` (only for the default or `:iso8601` format) |
 | `:symbol` | a string, with `enum` when declared |
 | `:string`, `:uuid`, `:url`, `:email`, `:binary` | a string; uuid is `format: uuid`, a Regexp `format:` becomes `pattern` |
 | `:value` | `{}` |
 | `:array`, unions, nested structs | `items`, `anyOf`, `$ref` into `$defs` |
+| `:hash, of:` | `{"type":"object"}` with the value schema under `additionalProperties` |
+| `length:` on a string type | `minLength` and `maxLength`; `:binary` counts bytes, so it gets `maxLength` only |
+| `nullable: true` on a required field | stays in `required`, and its `type` also takes `"null"` |
 
-Things the schema leaves out because JSON Schema cannot say them: `in:` on dates, times and decimals, `strict:`, `base:`
-and `round:`. Rules are never approximated.
+The schema leaves out `in:` on dates, times and decimals, `max_items:`, `strict:`, `base:` and `round:`; the struct still
+enforces them. Rules are never approximated.
 
 ## Nested structs and recursion
 
 A named nested struct is defined once under `$defs` and referenced; the root class is referenced as `#`. An anonymous
 struct is inlined.
 
-<!-- doctest -->
-```ruby
+```ruby run
 class Node < FieldStruct::Base
   required :value, :integer
   optional :next_node, Node
@@ -121,10 +120,10 @@ tree.key?('$defs')              # => false
 
 A field's `json_schema:` option (a Hash, `true` or `false`) replaces the derived schema; a custom type can define a
 `json_schema` method for the same purpose. Without either, a custom type is unconstrained and carries
-`x-ruby-type`.
+`x-ruby-type`. Requiring the adapter registers `json_schema:` with `FieldStruct.register_option`, so require it before
+the classes that use the option; any other value is refused when the field is declared.
 
-<!-- doctest -->
-```ruby
+```ruby run
 class Hosted < FieldStruct::Base
   required :id, :string, json_schema: { 'type' => 'string', 'minLength' => 3 }
   optional :extra, :value, json_schema: false
@@ -143,8 +142,7 @@ A wrong override raises `ArgumentError` naming the class and field.
 validators use), or `nil`. It is exact or nil: when in doubt it returns nil, and the generator then writes the Ruby
 source as an `x-ruby-pattern` annotation that no validator checks.
 
-<!-- doctest -->
-```ruby
+```ruby run
 FieldStruct::JSONSchema.pattern_for(/\A\d+\.\d+\z/)   # => "^\\d+\\.\\d+$"
 FieldStruct::JSONSchema.pattern_for(/\A[a-z]{2}\z/i)  # => "^[a-zA-ZſK]{2}$"
 FieldStruct::JSONSchema.pattern_for(/\Aa.c\z/)        # => "^a[^\\n]c$"
@@ -159,8 +157,7 @@ possessive forms, `\b`, inline options, `x` and `m` flags, POSIX classes and the
 A pattern a backtracking JavaScript engine could take exponential or high-polynomial time on is refused too, though Ruby
 itself is safe:
 
-<!-- doctest -->
-```ruby
+```ruby run
 FieldStruct::JSONSchema.pattern_for(/\A(a+)+\z/)             # => nil
 FieldStruct::JSONSchema.pattern_for(/\A\d*\d*\d*x\z/)        # => nil
 FieldStruct::JSONSchema.pattern_for(/\A\d*\d*x\z/)           # => "^\\d*\\d*x$"
@@ -170,8 +167,7 @@ FieldStruct::JSONSchema.pattern_for(/\A[^@\s]+@[^@\s]+\z/)   # => "^[^@\\t\\n\\v
 The check is conservative (a refusal may be unnecessary, an acceptance is never unsafe). In a struct, a `format:` Regexp
 becomes `pattern` when translatable and `x-ruby-pattern` otherwise:
 
-<!-- doctest -->
-```ruby
+```ruby run
 class Tablet < FieldStruct::Base
   required :code, :string, format: /\A[A-Z]{3}-\d{4}\z/
   required :name, :string, format: /\A\p{L}+\z/
@@ -190,6 +186,18 @@ The promise is checked against Node's RegExp on every supported Ruby (see Develo
 `unknown_attributes` change (not when an `enum:` Array or an override Hash is mutated in place: redeclare the field).
 A schema that asked a custom type's `json_schema` hook is never cached. `FieldStruct::JSONSchema.clear_cache` empties
 the cache, which holds classes alive: call it on code reload.
+
+When you only read the schema (to validate with it, or to list it), `freeze: true` skips the copy and hands back the
+cached schema itself. It's deep-frozen, so changing it raises `FrozenError`:
+
+```ruby run
+shared = FieldStruct::JSONSchema.generate(Curator, freeze: true)
+shared.frozen?                                              # => true
+shared.equal?(FieldStruct::JSONSchema.generate(Curator, freeze: true))   # => true
+Curator.to_json_schema(freeze: true).equal?(shared)         # => true
+```
+
+A schema that asked a hook is still built for every call: `freeze: true` freezes it, but it's a new object each time.
 
 ## Development
 
@@ -211,3 +219,7 @@ because `support/sord_gen.rb` feeds field_struct's own `sig/` to Sord's resolver
 ## License
 
 MIT.
+
+## Docs
+
+The guide on the docs site, with every example run in CI: https://gliders-rb.github.io/adapters/json-schema/

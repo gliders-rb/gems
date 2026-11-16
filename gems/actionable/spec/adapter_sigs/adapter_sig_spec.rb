@@ -14,7 +14,7 @@ RSpec.describe 'adapter signatures' do
     loader = RBS::EnvironmentLoader.new
     %w[date time bigdecimal pathname pp field_struct].each { |name| loader.add(library: name) }
     loader.add(path: Pathname(File.join(root, 'sig')))
-    loader.add(path: Pathname(File.join(root, 'support/external')))
+    loader.add(library: 'prism')
     RBS::Environment.from_loader(loader).resolve_type_names
   end
   let(:builder) { RBS::DefinitionBuilder.new(env: env) }
@@ -41,8 +41,12 @@ RSpec.describe 'adapter signatures' do
   # RBS adds these itself (constructors from initialize, the pp mixin); reflection adds the framework's own.
   noise = %i[new initialize pretty_print pretty_print_cycle pretty_print_inspect pretty_print_instance_variables yaml_tag].freeze
 
+  # Methods only a framework calls, left out of the shipped sig on purpose (AC-B#rbsshipped): ActiveModel reads
+  # model_name for its messages. Nothing else may be missing.
+  framework_only = %i[model_name].freeze
+
   define_method(:report) do |actual, declared|
-    { undeclared: actual - declared - noise, nonexistent: declared - actual - noise }
+    { undeclared: actual - declared - noise - framework_only, nonexistent: declared - actual - noise }
   end
 
   # Only methods this gem's lib defines count: ActiveModel adds callback readers to ProxyValidator, for one.
@@ -61,8 +65,9 @@ RSpec.describe 'adapter signatures' do
   end
 
   it 'AC-B#adaptersigspec: the public instance methods of Action are declared' do
+    # The verbs are declared too, as private (AC-B#verbsprivate); only the public ones are compared here.
     declared = builder.build_instance(RBS::TypeName.parse('::Actionable::Action')).methods
-                      .reject { |_n, m| m.defined_in.to_s.match?(/\A::(Object|Kernel|BasicObject)\z/) }.keys
+                      .reject { |_n, m| m.defined_in.to_s.match?(/\A::(Object|Kernel|BasicObject)\z/) || m.accessibility != :public }.keys
     actual = (Actionable::Action.public_instance_methods - Object.public_instance_methods).sort
     expect(report(actual, declared.sort)).to eq(undeclared: [], nonexistent: [])
   end

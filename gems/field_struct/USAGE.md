@@ -3,7 +3,7 @@
 A dense, example-first reference. Read it once; every example runs.
 
 - [Declaring](#declaring) · [Reading and writing](#reading-and-writing) · [Errors](#errors) · [Types](#types)
-- [Arrays, nested structs, unions](#arrays-nested-structs-unions) · [Dates, times, zones](#dates-times-zones)
+- [Arrays, maps, nested structs, unions](#arrays-maps-nested-structs-unions) · [Dates, times, zones](#dates-times-zones)
 - [Class settings](#class-settings) · [Validation](#validation) · [JSON](#json) · [Introspection](#introspection)
 - [Type signatures](#type-signatures) · [Custom types](#custom-types) · [Exceptions](#exceptions)
 
@@ -19,8 +19,7 @@ field    :name, :type, **options     # optional unless required: true
 Declaring a name twice replaces the first. Reserved names (`errors`, `attributes`, `to_h`, `hash`, `class`, ...) raise
 `ArgumentError` at declaration. Every declaration problem raises while the class body runs, never at first use.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'field_struct'
 
 class Specimen < FieldStruct::Base
@@ -50,14 +49,45 @@ Specimen.attribute_names   # => [:name, :height, :role, :email, :seen, :token]
 | `rbs_type:` | non-blank String | replaces the derived RBS type |
 | `sensitive:` | `true` / `false` only | masks the value in `inspect` as `[FILTERED]` |
 
-A key that no type declares is a pass-through option: it's stored in `field.options` and does nothing at runtime, so
-exporters can read it (`optional :id, :integer, avro_doc: 'the id'`). A key that some *other* type declares raises at
-declaration (`round:` on a string field: `round: option does not apply to String fields. It applies to: Float, BigDecimal.`).
+A key that some *other* type declares raises at declaration (`round:` on a string field: `round: option does not apply
+to String fields. It applies to: Float, BigDecimal.`). A key nobody declares raises too, with a suggestion when one is
+close, so a typo like `requird: true` fails at load instead of doing nothing:
+
+```ruby run
+class Ledger < FieldStruct::Base
+  required :folio, :integer
+end
+
+begin
+  Ledger.optional :spine, :string, requird: true
+rescue ArgumentError => e
+  e.message   # => "unknown option requird: on Ledger#spine (did you mean required:?)"
+end
+```
+
+An exporter or app that reads its own key registers it first with `FieldStruct.register_option(name, type:, owner:)`.
+After that the key is accepted on any field, its value is checked against `type:` (`nil` is always fine), and it's
+stored in `field.options` untouched. It does nothing at runtime. The adapters register theirs when you require them
+(`avro:`, `proto:`, `json_schema:`), and using one before its adapter loads says which file to require.
+
+```ruby run
+FieldStruct.register_option(:catalog, type: Hash, owner: 'ledger_app')   # => :catalog
+
+class Ledger
+  optional :clasp, :string, catalog: {shelf: 'B4'}
+end
+
+Ledger.metadata[:clasp].options                       # => {catalog: {shelf: "B4"}}
+FieldStruct.registered_options[:catalog].owner        # => "ledger_app"
+```
+
+Registering the same name, type and owner again does nothing; anything else that already has the name, a universal
+option or a built-in type's option raises. `FieldStruct.registered_options` lists every registration in order, each a
+`FieldStruct::RegisteredOption` with `name`, `type` (an Array of classes) and `owner`.
 
 ## Reading and writing
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'field_struct'
 
 class Quadrat < FieldStruct::Base
@@ -76,6 +106,7 @@ quadrat.assign_attributes(row: 1, col: 2)      # bulk, same pipeline
 quadrat.with(col: 9).col                       # => 9
 quadrat.col                                  # => 2
 quadrat == Quadrat.new(row: 1, col: 2)           # => true
+quadrat.invalid?                             # => false
 quadrat.deconstruct_keys([:row])             # => {row: 1}
 quadrat.deconstruct                        # => [1, 2]
 Quadrat.new(nil).attributes                # => {row: nil, col: nil}
@@ -84,6 +115,21 @@ Quadrat.new(nil).attributes                # => {row: nil, col: nil}
 `new` takes a Hash, or anything that responds to `to_hash`. Anything else raises
 `ArgumentError: Quadrat.new expects a Hash (or an object responding to #to_hash), got Array`.
 Pattern matching works: `case quadrat in {row:, col:} ...`.
+
+`given_fields` lists the fields the caller gave, in declaration order, so "sent as null" and "not sent" stay apart
+(what a PATCH body needs). Defaults and unknown keys never count:
+
+```ruby run
+class Transect < FieldStruct::Base
+  required :site, :string
+  optional :bearing, :integer, default: 0
+  optional :remark, :string
+end
+
+walk = Transect.new(site: 'ridge', remark: nil)
+walk.given_fields                         # => [:site, :remark]
+walk.with(bearing: 90).given_fields       # => [:site, :bearing, :remark]
+```
 
 ## Errors
 
@@ -96,8 +142,7 @@ Pattern matching works: `case quadrat in {row:, col:} ...`.
 | `"could not be coerced: <reason>"` | the type could not read the value |
 | anything you add | from `validate` |
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'field_struct'
 
 class Seedling < FieldStruct::Base
@@ -117,7 +162,31 @@ tray.errors.clear(:batch)
 tray.errors[:batch]                 # => []
 tray.batch = 'ABC-1'                # assigning re-checks the field
 tray.errors[:batch]                 # => []
+tray.errors.messages.keys         # => [:trays, :base]
 ```
+
+`errors.messages` is a Hash of field to messages. `errors.paths` keys the same messages by where they happened, so a
+nested struct's message lands on its own field instead of the parent's `"is invalid"`:
+
+```ruby run
+require 'field_struct'
+
+class Bed < FieldStruct::Base
+  required :rows, :integer
+end
+
+class Plot < FieldStruct::Base
+  required :label, :string
+  optional :bed, Bed
+end
+
+plot = Plot.new(label: 'north', bed: { rows: nil })
+plot.errors[:bed]     # => ["is invalid"]
+plot.errors.paths     # => {"bed.rows" => ["is required"]}
+```
+
+`errors.freeze` freezes the messages too, so `add` and `clear` raise `FrozenError`, and `valid?` then reads them as
+they are instead of running the validators. A `dup` gets errors it can change again.
 
 Messages never contain the offending value, only its class. Errors are per assignment: assigning again clears the
 field's old messages and runs the checks again. `batch: nil` on a required field gives `"is required"`; the value is nil.
@@ -130,8 +199,7 @@ field's old messages and runs the checks again. `batch: nil` on a required field
 | `:replace` | the field becomes `nil`, the message is recorded |
 | `:raise` | `FieldStruct::CoercionError` (with `field_name` and `original`) |
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'field_struct'
 
 class Forgiving < FieldStruct::Base
@@ -154,6 +222,27 @@ end
 
 Every type accepts `nil` and returns `nil`. "Missing" is what `required` rejects.
 
+An option on a type that doesn't take it raises at declaration and lists the types that do:
+
+<!-- generated: option-types -->
+| Option | Types |
+|---|---|
+| `format:` | `:string`, `:immutable_string`, `:date`, `:time`, `:datetime`, `:uuid`, `:url`, `:email`, `:binary` |
+| `enum:` | `:string`, `:immutable_string`, `:symbol`, `:uuid`, `:url`, `:email`, `:binary` |
+| `strict:` | `:string`, `:immutable_string`, `:integer`, `:uuid`, `:url`, `:email`, `:binary` |
+| `length:` | `:string`, `:immutable_string`, `:uuid`, `:url`, `:email`, `:binary` |
+| `in:` | `:integer`, `:float`, `:big_decimal`, `:decimal`, `:date`, `:time`, `:datetime` |
+| `base:` | `:integer` |
+| `round:` | `:float`, `:big_decimal`, `:decimal` |
+| `json:` | `:big_decimal`, `:decimal` |
+| `values:` | `:boolean` |
+| `zone:` | `:time`, `:datetime` |
+| `of:` | `:array`, `:hash`, `:union` |
+| `element:` | `:array`, `:hash` |
+| `max_items:` | `:array` |
+| `discriminator:` | `:union` |
+<!-- end generated -->
+
 ### Strings
 
 | Type | Coerces | Missing | Lot |
@@ -172,8 +261,7 @@ only String, Symbol, Integer or `to_str` objects).
 | `:url` | `http` `https_only` `any_scheme` | `http` |
 | `:email` | `permissive` `default` `strict` | `default` |
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'field_struct'
 
 class Marker < FieldStruct::Base
@@ -207,13 +295,12 @@ coercion, so `'wild'` matches `enum: %i[wild bred]`.
 |---|---|---|
 | `:integer` | Integer; String in `base:` (default 10; `"010"` is 10, `"1_000"` is 1000); Float and Rational truncate toward zero | `in:` (Range or Array), `base:` (2..36), `strict:` |
 | `:float` | Float; numeric Strings (`"1e3"`, `".5"`); anything `Float()` takes | `round:` (digits, half up), `in:` |
-| `:decimal` / `:big_decimal` | BigDecimal; Float via 15 digits; numeric Strings | `round:`, `in:` |
+| `:decimal` / `:big_decimal` | BigDecimal; Float via 15 digits; numeric Strings | `round:`, `in:`, `json:` |
 
 NaN and the infinities are always refused. `strict: true` on `:integer` accepts only whole numbers (`12.0` yes,
 `12.7` no); Strings follow the normal rules.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'field_struct'
 require 'bigdecimal'
 
@@ -240,8 +327,7 @@ Gauge.new(count: '12.5').valid?   # => false
 your own String vocabulary: a Hash `{truthy: [...], falsy: [...]}` or a preset (`:english_yes_no` = `:english`
 = `true yes y on 1` / `false no n off 0, `:numeric` = `1` / `0`). The vocabulary only applies to Strings.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'field_struct'
 
 class Switches < FieldStruct::Base
@@ -260,7 +346,9 @@ Switches.new(plain: 'yes').valid?         # => false
 
 `:value` stores whatever it's given, untouched. Only nil is missing.
 
-## Arrays, nested structs, unions
+## Arrays, maps, nested structs, unions
+
+Fields that hold other values: lists, maps with String keys, other structs, and one of several types.
 
 ### Arrays
 
@@ -268,8 +356,7 @@ Switches.new(plain: 'yes').valid?         # => false
 `nil`. One bad element fails the whole array, and the message names the indexes (never the values). `[]` is missing.
 `element:` passes options to every element.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'field_struct'
 
 class Rack < FieldStruct::Base
@@ -284,15 +371,85 @@ Rack.new(ids: [1, 500]).errors[:ids]   # => ["element at index 1 is invalid"]
 Rack.new(ids: 'nope').valid?         # => false
 ```
 
-`of:` must be given (`of: is required for Array fields`). An array of arrays is not supported.
+`of:` must be given (`of: is required for Array fields`). An array of arrays is not supported. `max_items: N` caps the
+length: a longer array gets the field error `has too many items (maximum is N)`.
+
+### Maps
+
+`:hash` is a map with String keys: `of:` names the value type and `element:` passes options to every value, as for
+arrays. Symbol keys become Strings; any other key class fails the whole map. `{}` is missing. Messages say how many
+entries failed, never which key, since a key is input. A map of structs builds each value, and `errors.paths` names
+the entry with its key.
+
+```ruby run
+require 'field_struct'
+
+class Buoy < FieldStruct::Base
+  required :metres, :float
+end
+
+class Mooring < FieldStruct::Base
+  optional :depths, :hash, of: :integer, element: {in: 0..90}
+  optional :buoys, :hash, of: Buoy
+end
+
+Mooring.new(depths: {north: '12', 'south' => 7}).depths   # => {"north" => 12, "south" => 7}
+Mooring.new(depths: {north: 200}).errors[:depths]       # => ["1 entry is invalid"]
+Mooring.new(depths: {1 => 3}).errors[:depths].first     # => "could not be coerced: hash keys must be Strings or Symbols, got Integer"
+Mooring.new(buoys: {'outer' => {}}).errors.paths        # => {"buoys{\"outer\"}.metres" => ["is required"]}
+```
+
+### Mirrors
+
+`mirror!` makes a struct a view other objects can be read into. A field of a mirror type (or an array or map of one)
+takes any object besides a Hash or an instance: the mirror calls one public reader per declared field, by field name,
+and builds through `new`, so only declared fields are read and everything is coerced as usual. A source missing a
+reader always raises, whatever the policy or default. `mirror?` tells you whether a class (or an ancestor) is one.
+
+```ruby run
+require 'field_struct'
+
+class GaugeView < FieldStruct::Base
+  mirror!
+  required :celsius, :float
+end
+
+class SiteView < FieldStruct::Base
+  mirror!
+  required :code, :string
+  optional :gauges, :array, of: GaugeView, max_items: 2
+end
+
+class Report < FieldStruct::Base
+  required :site, SiteView
+end
+
+Gauge = Struct.new(:celsius, :serial)
+Site = Struct.new(:code, :gauges, :keeper_phone)
+
+report = Report.new(site: Site.new('PK-7', [Gauge.new('4.5', 'g1')], '555'))
+SiteView.mirror?                    # => true
+report.site.as_json                 # => {code: "PK-7", gauges: [{celsius: 4.5}]}
+Report.new(site: Site.new('PK-8', [Gauge.new(1, 'a')] * 3, nil)).site.errors[:gauges]   # => ["has too many items (maximum is 2)"]
+
+begin
+  Report.new(site: Gauge.new(2.0, 'g2'))
+rescue ArgumentError => e
+  e.message   # => "SiteView mirrors Gauge, but Gauge has no public readers for :code, :gauges"
+end
+```
+
+An array of mirrors also takes a collection that isn't an Array. One whose `loaded?` is `true` is read with `to_a`.
+Anything else that answers `first` (a lazy relation, say) needs `max_items:` and is read with `first(max_items + 1)`,
+so going over is an error, never a silent cut. Without `max_items:` it raises `set max_items: on Report#gauges, or
+load the relation yourself`. A union member never reads; a union still takes a Hash or an instance.
 
 ### Nested structs
 
 A field typed with a struct class takes an instance or a Hash. Passing a Hash builds the struct, even an invalid one;
 the parent field then reads `"is invalid"`.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'field_struct'
 
 class Bed < FieldStruct::Base
@@ -321,8 +478,7 @@ Validity is computed on assignment. Changing a nested object afterwards doesn't 
 `:union` takes `of: [...]` (two or more registered names or struct classes). Members are tried in order and the first
 that accepts wins, so order matters. A union can't hold an `:array` bred.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'field_struct'
 
 class Survey < FieldStruct::Base
@@ -359,8 +515,7 @@ A declared format must match the whole string, and it is also what `as_json` wri
 `zone:` says which zone a zone-less string means: `"UTC"`, an offset like `"-06:00"`, or an IANA name
 (`"America/Denver"`). It never overrides an offset the input carries.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'field_struct'
 
 class Visit < FieldStruct::Base
@@ -389,16 +544,17 @@ The result is a plain `Time` or `DateTime` with the right offset; it doesn't rem
 |---|---|---|
 | `coercion_policy` | `:keep_raw` `:replace` `:raise` | `:keep_raw` |
 | `unknown_attributes` | `:ignore` `:raise` | `:ignore` |
+| `json_omit` | `:none` `:unset` (see JSON) | `:none` |
 | `immutable!` | setters raise `ImmutableError` after `new` | off |
 | `frozen!` | instances are frozen at the end of `new` | off |
+| `mirror!` | fields of this type read other objects into it (see Mirrors); read with `mirror?` | off |
 | `serialize :format, field: 'name'` | maps field names for a format (see JSON) | none |
 | `validate :method, ...` / `validate { |record| ... }` | cross-field checks (see Validation) | none |
 
 Rules are inherited; a subclass can change its own without touching the parent. `immutable?` and
 `frozen_on_construct?` read the flags.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'field_struct'
 
 class Rules < FieldStruct::Base
@@ -429,8 +585,7 @@ per-field checks, once at the end of `new` and `with`, and again on every `valid
 cleared, so cross-field messages belong under `:base`. A validator that adds to a named field has to clean up after
 itself.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'field_struct'
 
 class Bracket < FieldStruct::Base
@@ -457,15 +612,15 @@ validators and adds its own.
 
 ## JSON
 
-`as_json` returns a Hash with Symbol keys, every field present. `to_json` is `Oj.dump(as_json, mode: :compat)`.
+`as_json` returns a Hash with Symbol keys, every field present (unless the class says `json_omit :unset`, below). `to_json` is `Oj.dump(as_json, mode: :compat)`, except
+that decimals go out as JSON numbers.
 `from_json(string)` parses with Oj (fractions and exponents arrive as BigDecimal) and builds through `new`, so every
 rule above applies.
 
 `serialize :json, internal_name: 'external_name'` renames keys in both directions, recursively through nested structs
 and arrays of structs. Canonical names are also accepted on input.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'field_struct'
 
 class Dispatch < FieldStruct::Base
@@ -479,6 +634,7 @@ dispatch = Dispatch.from_json('{"species":"Hi","cost":2.5,"sentAt":"2026-03-04T0
 dispatch.cost                  # => BigDecimal('2.5')
 dispatch.sent_at.year          # => 2026
 dispatch.as_json               # => {species: "Hi", cost: "2.5", sentAt: "2026-03-04T05:06:07Z"}
+dispatch.to_json               # => "{\"species\":\"Hi\",\"cost\":2.5,\"sentAt\":\"2026-03-04T05:06:07Z\"}"
 Dispatch.from_json(dispatch.to_json) == dispatch   # => true
 
 begin
@@ -494,13 +650,77 @@ rescue EncodingError => e
 end
 ```
 
-Decimals go out as strings so no digits are lost. Dates and times go out with the field's `format:`. A `:value` field
+`to_json` writes a decimal as a JSON number with every digit (`BigDecimal('12.50')` is `12.5`), in arrays, maps,
+nested structs and `:value` fields too. `as_json` keeps it a String, so another encoder that writes the Hash gets
+strings. A field declared `json: :string` (or `element: {json: :string}` on an array or map of decimals) keeps the
+string in `to_json` too, for values that must survive JavaScript's float parsing; `json:` takes `:number` or `:string`.
+A `Types::BigDecimal` subclass can change the default for all its fields by answering `json_default` with `:string`.
+`from_json` reads either form back to the same BigDecimal. Dates and times go out with the field's `format:`. A `:value` field
 round-trips only if its content is plain JSON.
+
+A `:value` field holding some other object writes that object's own `as_json`. Pass `describe_foreign: true` to write a
+short description instead (`"#<Kiln id=12>"`); only the object's `class` and `id` are read.
+
+```ruby run
+require 'field_struct'
+
+class Kiln
+  attr_reader :id
+  def initialize(id) = @id = id
+  def as_json(*) = { 'id' => id, 'firing_log' => ['cone 6'] }
+end
+
+class Shift < FieldStruct::Base
+  optional :kiln, :value
+end
+
+shift = Shift.new(kiln: Kiln.new(12))
+shift.as_json                          # => {kiln: {"id" => 12, "firing_log" => ["cone 6"]}}
+shift.as_json(describe_foreign: true)  # => {kiln: "#<Kiln id=12>"}
+```
+
+`json_omit :unset` leaves a field out of `as_json` and `to_json` when the caller didn't give it and it's `nil`.
+Defaults are still written, and so is a `nil` the caller gave. A nested struct follows its own class's setting.
+
+```ruby run
+require 'field_struct'
+
+class Sounding < FieldStruct::Base
+  json_omit :unset
+  optional :station, :string
+  optional :tethered, :boolean, default: true
+  optional :burst_m, :integer
+end
+
+Sounding.json_omit                                   # => :unset
+Sounding.new(station: 'Ridge').as_json               # => {station: "Ridge", tethered: true}
+Sounding.new(station: 'Ridge', burst_m: nil).as_json # => {station: "Ridge", tethered: true, burst_m: nil}
+```
+
+For an update (PATCH) body, `Klass.partial` gives a sibling class, `Klass::Partial`, built on the first call: the same
+fields and mappings, every field optional with no default, and `json_omit :unset`, so its JSON holds exactly what the
+caller sent. Type checks and field options still apply; cross-field `validate` rules and methods you defined on
+`Klass` (reader overrides too) don't carry over. It is not a subclass of `Klass`.
+
+```ruby run
+require 'field_struct'
+
+class Tower < FieldStruct::Base
+  required :callsign, :string
+  required :height_m, :integer, default: 30
+  serialize :json, height_m: 'heightM'
+end
+
+patch = Tower.partial.new(height_m: '45')
+patch.valid?                    # => true
+patch.as_json                   # => {heightM: 45}
+Tower.partial.equal?(Tower::Partial)   # => true
+patch.is_a?(Tower)              # => false
+```
 
 ## Introspection
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'field_struct'
 
 class Chore < FieldStruct::Base
@@ -517,19 +737,53 @@ Chore.metadata[:tags].options[:of_type]   # => FieldStruct::Types::String
 Chore.metadata.names                      # => [:species, :done, :tags]
 Chore.metadata.to_h[:done][:required]     # => false
 Chore.new(species: 'x').inspect             # => '#<Chore species: "x", done: nil, tags: nil>'
+Chore.metadata.each.map(&:name)           # => [:species, :done, :tags]
+Chore.metadata[:done].nullable?             # => false
+Chore.metadata[:done].sensitive?            # => false
+Chore.metadata[:done].type_instance.class   # => FieldStruct::Types::Boolean
+Chore.metadata.serializations             # => {}
+Chore.metadata.reverse_serialization(:json)   # => {}
+Chore.validators                          # => []
 ```
+
+`metadata.serializations` holds the key mappings declared with `serialize`, and `reverse_serialization(:json)` maps
+an external key back to its field. `validators` lists the blocks given to `validate`, inherited as a copy.
+
+For Rails helpers a struct answers `model_name` and `to_model` (itself); it isn't a form object and has no
+persistence methods:
+
+```ruby run
+require 'field_struct'
+
+class Seedling < FieldStruct::Base
+  optional :trays, :integer
+end
+
+Seedling.model_name.singular       # => "seedling"
+Seedling.model_name.plural         # => "seedlings"
+Seedling.new.model_name.singular   # => "seedling"
+Seedling.model_name.param_key      # => "seedling"
+seedling = Seedling.new
+seedling.to_model.equal?(seedling)   # => true
+```
+
+`param_key` is the key `form_with model: seedling, url: '/seedlings'` nests the fields under (`seedling[trays]`). It's
+the last segment only, so `Nursery::Seedling` is `"seedling"` too; pass `scope:` when two classes end the same way.
+Give `form_with` a `url:`, since a struct has no routes or `persisted?`.
 
 `FieldStruct::Introspection.properties(klass, serialization: :json)` walks a struct for code that exports it to
 another schema language (JSON Schema, Avro, Protobuf); it returns `Property` objects with `field`, `key` and a `node`
-(`ScalarNode`, `ArrayNode`, `UnionNode` or `StructNode`). `FieldStruct.use_alias!(:FS)` makes `FS` mean `FieldStruct`
-and switches every `inspect` to it.
+(`ScalarNode`, `ArrayNode`, `MapNode`, `UnionNode` or `StructNode`; a `UnionNode` lists its `members`, and an
+`ArrayNode` or `MapNode` its `element`).
+`FieldStruct::Introspection.named?(klass)` says whether a class can name a definition (false for anonymous classes).
+`FieldStruct.use_alias!(:FS)` makes `FS` mean `FieldStruct` and switches every `inspect` to it; `FieldStruct.inspect_namespace`
+returns the prefix in use (`"FieldStruct"` until then).
 
 ## Type signatures
 
 The gem ships `sig/field_struct.rbs`. For your own models:
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'field_struct'
 
 class Plant < FieldStruct::Base
@@ -559,8 +813,7 @@ Subclass `FieldStruct::Types::Base`, implement `coerce(value, **options)` and `r
 `coerce` to mean "can't read this". Register it by name in a registry. A module that defines `field_types` returning
 a registry makes the names available to every struct inside it, falling back to the built-in types.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'field_struct'
 
 class Moisture < FieldStruct::Types::Base
@@ -593,7 +846,21 @@ FieldStruct.types.key?(:moisture)                # => false
 ```
 
 `FieldStruct.new_registry(parent = FieldStruct.types, &block)` builds a registry; `register(:name, SomeClass)` adds a
-type and `register(:alias, :existing)` aliases one. Lookup of an unknown name raises `KeyError`.
+type and `register(:alias, :existing)` aliases one. `registry.lookup(:moisture)` returns the class, and raises
+`KeyError` for an unknown name; `registry.type_classes` lists every class it resolves, its own first.
+
+A type's options are its `option_schema` (built from `own_option_schema`, inherited keys first). Two class-level hooks
+run at declaration: `resolve_options(options, **)` returns the options to store (override it to
+turn a preset Symbol into a value, or to reject a bad one), and `resolve_format(format)` returns a `format:` unchanged,
+raising for a Symbol when the type has no presets:
+
+```ruby run
+require 'field_struct'
+
+FieldStruct.types.lookup(:integer)                    # => FieldStruct::Types::Integer
+FieldStruct::Types::Integer.option_schema.keys        # => [:in, :base, :strict]
+FieldStruct::Types::Base.resolve_format('%Y')         # => "%Y"
+```
 
 ## Exceptions
 

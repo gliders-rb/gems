@@ -1,6 +1,6 @@
 # field_struct-protobuf
 
-> Preview: `1.0.0.pre1`. The API is settled by the specs, but nothing here has had a release yet.
+> Preview: `1.0.0.pre1`. The API is settled, but nothing here has had a release yet.
 
 Protocol Buffers for [field_struct](../../gems/field_struct) classes, and no `protoc` run to set up. From one class you can
 print `.proto` source for other teams, get a message class registered with `google-protobuf`, and move instances between
@@ -9,7 +9,9 @@ structs, messages and wire bytes.
 Field numbers are yours: every field says `proto: {number: n}`. Numbering by declaration order would make reordering a silent
 wire-format break, so the gem never guesses. Anything without an exact mapping (a union, an array of arrays, a custom type)
 raises `ArgumentError` naming the class and field, never a lossy default. It does not validate (`format:`, `in:`), and it
-builds proto3 only: no `oneof`, enums, maps, services or options.
+builds proto3 only: no `oneof`, enums, services or options. Requiring the adapter registers `proto:` with
+`FieldStruct.register_option`, so require it before the classes that number their fields. An unknown key inside `proto:`
+raises when the message is built, with a did-you-mean: `proto: has no key numbr: (did you mean number:?)`.
 
 ## Install
 
@@ -23,8 +25,7 @@ require 'field_struct/protobuf'
 
 ## Quick start
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'field_struct/protobuf'
 
 module Velo
@@ -51,8 +52,7 @@ FieldStruct::Protobuf.decode(Velo::Bike, bytes).started.utc_offset # => -21600
 `proto` prints the file for one class. The text is printed from the descriptor that gets registered, so the two cannot
 disagree; compiling it with `protoc` gives an equivalent descriptor.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'field_struct/protobuf'
 
 module Velo
@@ -66,6 +66,8 @@ print FieldStruct::Protobuf.proto(Velo::Station)
 FieldStruct::Protobuf.proto(Velo::Station).lines.last(4).join # => "message Station {\n  optional string district = 1;\n  optional string dock = 2;\n}\n"
 FieldStruct::Protobuf.file_name(Velo::Station) # => "field_struct/velo/station.proto"
 FieldStruct::Protobuf.full_name(Velo::Station) # => ".velo.Station"
+FieldStruct::Protobuf.message_name(Velo::Station) # => "Station"
+FieldStruct::Protobuf.file_descriptor(Velo::Station).name # => "field_struct/velo/station.proto"
 ```
 
 It prints:
@@ -102,17 +104,17 @@ itself, but two structs may not refer to each other.
 | `:value` | `.google.protobuf.Value` (numbers come back as Floats) |
 | a struct class | its message |
 | `:array, of: X` | `repeated` X |
+| `:hash, of: X` | `map<string, X>`; X can't be an array or a map, and a `nil` value is refused on encode |
 
 Every singular scalar is `optional` (explicit presence), so an unset field reads back `nil`, not `0` or `""`. An unset
-`:array` reads back `[]`: empty and unset are the same on the wire.
+`:array` reads back `[]` and an unset `:hash` reads back `{}`: empty and unset are the same on the wire.
 
 ## Messages
 
 `message_class` builds the class's message once and registers it with `google-protobuf`'s generated pool; `to_message` and
 `from_message` convert one instance.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'field_struct/protobuf'
 
 module Velo
@@ -139,3 +141,7 @@ names.
 - A class registers with one `serialization:` only; asking for a second raises.
 - `decode` lets `Google::Protobuf::ParseError` through for malformed bytes.
 - Integers past 64 bits raise `RangeError`.
+
+## Docs
+
+The guide on the docs site, with every example run in CI: https://gliders-rb.github.io/adapters/protobuf/

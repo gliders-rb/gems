@@ -150,8 +150,9 @@ RSpec.describe 'conformance sweep' do
     it 'the workflow is scoped to actionable and field_struct and has the spec lanes' do
       workflow = File.read(File.expand_path('../../../../.github/workflows/actionable.yml', __dir__))
       expect(workflow).to include("'gems/actionable/**'", "'gems/field_struct/**'")
-      expect(workflow).to include("['3.3', '3.4', '4.0']", 'release:check', 'active_record_71', 'spec:job', 'types:report')
-      expect(workflow).to match(/types:.*continue-on-error: true/m)
+      expect(workflow).to include("['3.3', '3.4', '4.0']", 'release:check', 'active_record_71', 'spec:job', 'types:check',
+                                  'types:report', 'jobs, types]')
+      expect(workflow).not_to include('continue-on-error')
     end
   end
 end

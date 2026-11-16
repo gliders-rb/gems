@@ -1,0 +1,15 @@
+# frozen_string_literal: true
+
+source 'https://rubygems.org'
+
+gemspec
+
+gem 'actionable-rb', path: '../../gems/actionable'
+gem 'field_struct', path: '../../gems/field_struct'
+# The monorepo's doc-test and doc-coverage tools (dev only, never published).
+gem 'gems-doccheck', path: '../../tools/doccheck', require: false
+gem 'gems-doctest', path: '../../tools/doctest', require: false
+gem 'rake', '~> 13.0'
+gem 'rbs', '~> 3.0', require: false
+gem 'rspec', '~> 3.13'
+gem 'rubocop', '~> 1.60', require: false

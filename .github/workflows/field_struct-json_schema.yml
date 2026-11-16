@@ -8,11 +8,17 @@ on:
       - 'adapters/field_struct-json_schema/**'
       - 'gems/field_struct/**'
       - '.github/workflows/field_struct-json_schema.yml'
+      - 'tools/doctest/**'
+      - 'tools/doccheck/**'
+      - 'site/src/content/docs/**'
   pull_request:
     paths:
       - 'adapters/field_struct-json_schema/**'
       - 'gems/field_struct/**'
       - '.github/workflows/field_struct-json_schema.yml'
+      - 'tools/doctest/**'
+      - 'tools/doccheck/**'
+      - 'site/src/content/docs/**'
   workflow_dispatch:
 
 # Pull request code runs here, so the token stays read-only.
@@ -78,11 +84,36 @@ jobs:
           node-version: '24'
       - run: bundle exec rake differential
 
+  # The suite with ActiveSupport loaded first, under a non-UTC TZ, deprecations raising (SH-B22).
+  active-support:
+    name: ActiveSupport ${{ matrix.activesupport }}
+    runs-on: ubuntu-latest
+    env:
+      BUNDLE_GEMFILE: ${{ github.workspace }}/adapters/field_struct-json_schema/gemfiles/active_support.gemfile
+      ACTIVE_SUPPORT_LANE: '1'
+      ACTIVE_SUPPORT_VERSION: ${{ matrix.requirement }}
+      TZ: America/Denver
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - activesupport: '7.2'
+            requirement: '~> 7.2.0'
+          - activesupport: '8.1'
+            requirement: '~> 8.1.0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        with:
+          ruby-version: '3.4'
+      - run: bundle install
+      - run: bundle exec rspec --tag '~doctest' --format progress
+
   # The one check to require in branch protection: green only when every gating job passed.
   required:
     name: field_struct-json_schema (required)
     if: always()
-    needs: [test, release-check, differential]
+    needs: [test, release-check, active-support, differential]
     runs-on: ubuntu-latest
     defaults:
       run:

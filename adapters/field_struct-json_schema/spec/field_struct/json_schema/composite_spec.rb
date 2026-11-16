@@ -34,6 +34,34 @@ RSpec.describe FieldStruct::JSONSchema, 'composites' do
     end
   end
 
+  describe 'JS-B11a: maps' do
+    it 'puts the nullable value schema under additionalProperties' do
+      klass = struct do
+        required :loans, :hash, of: :integer, element: { in: 0..40 }
+        optional :labels, :hash, of: :string
+      end
+      expect(property(klass, :loans))
+        .to eq('type' => 'object', 'additionalProperties' => { 'type' => %w[integer null], 'minimum' => 0, 'maximum' => 40 })
+      expect(property(klass, :labels)).to eq('type' => %w[object null], 'additionalProperties' => { 'type' => %w[string null] })
+    end
+
+    it 'refers to a struct value by its definition, and the JSON validates' do
+      stub_const('Plinth', struct { required :height_cm, :integer })
+      stub_const('Gallery', struct { optional :plinths, :hash, of: Plinth })
+      schema = described_class.generate(Gallery)
+      expect(schema['properties']['plinths']['additionalProperties'])
+        .to eq('anyOf' => [{ '$ref' => '#/$defs/Plinth' }, { 'type' => 'null' }])
+      expect(valid_json?(schema, Gallery.new(plinths: { 'north alcove' => { height_cm: 90 } }))).to be(true)
+      expect(valid_value?(schema, 'plinths' => { 'north alcove' => { 'height_cm' => 'tall' } })).to be(false)
+    end
+
+    it 'says only object when the value type is unknown' do
+      union = Class.new(FieldStruct::Types::Union)
+      klass = struct { required :tags, :hash, of: union }
+      expect(property(klass, :tags)).to eq('type' => 'object')
+    end
+  end
+
   describe 'JS-B14: unions' do
     it 'lists distinct member schemas under anyOf' do
       klass = struct do

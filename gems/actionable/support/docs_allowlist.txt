@@ -18,6 +18,8 @@ check
 message
 offenses_in
 offenses_in_source
+checked_method_names
+def_node
 parse
 Actionable::Coverage::Recorder#run
 description

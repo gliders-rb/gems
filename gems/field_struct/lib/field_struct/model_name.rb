@@ -11,6 +11,8 @@ module FieldStruct
     attr_reader :singular
     # @return [String] {#element} plus +"s"+ (no inflection)
     attr_reader :plural
+    # @return [String] same as {#singular}: the key Rails' +form_with model:+ nests the fields under
+    attr_reader :param_key
 
     # @param name [String] the full class name
     def initialize(name)
@@ -18,6 +20,7 @@ module FieldStruct
       @element = snake_case(name.split('::').last)
       @singular = @element
       @plural = "#{@element}s"
+      @param_key = @singular
       freeze
     end
 

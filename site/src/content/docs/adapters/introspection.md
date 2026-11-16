@@ -2,16 +2,13 @@
 title: "Introspection reference"
 description: "The format-neutral walk of a struct's fields that every adapter is built on: properties, node kinds, options and stability promises."
 sidebar:
-  badge:
-    text: Unreleased
-    variant: caution
   label: "Introspection"
   order: 8
 ---
 
-`FieldStruct::Introspection` walks a struct's fields without changing anything, for code that exports a struct to another format. The JSON Schema, Avro and Protobuf adapters sit on top of it, and any adapter you write can too. It ships inside `field_struct` and loads with `require 'field_struct'` (FS §4.12, FS-B140 to FS-B152).
+`FieldStruct::Introspection` walks a struct's fields without changing anything, for code that exports a struct to another format. The JSON Schema, Avro and Protobuf adapters sit on top of it, and any adapter you write can too. It ships inside `field_struct` and loads with `require 'field_struct'`.
 
-The walk reports declarations and nothing else. The adapter decides what `null` means for an optional field, which defaults to write, how types map and what a pass-through option does (FS-B151).
+The walk reports declarations and nothing else. The adapter decides what `null` means for an optional field, which defaults to write, how types map and what a registered option does.
 
 ```ruby run
 class Waypoint < FieldStruct::Base
@@ -37,7 +34,7 @@ stops.node.element.klass == Waypoint   # => true
 Introspection.properties(klass, serialization: :json) # => Array<Property>
 ```
 
-You get one `Property` for each field of `klass`, in declaration order and with inherited fields included. A struct without fields gives `[]`. `serialization` is a Symbol or String that selects which `serialize` mapping names the keys, and a format nobody declared keeps every field name (FS-B141, FS-B142).
+You get one `Property` for each field of `klass`, in declaration order and with inherited fields included. A struct without fields gives `[]`. `serialization` is a Symbol or String that selects which `serialize` mapping names the keys, and a format nobody declared keeps every field name.
 
 Every call returns a fresh array of fresh objects, and nothing is cached on the class.
 
@@ -56,18 +53,19 @@ FieldStruct::Introspection.properties(Route).first.equal?(FieldStruct::Introspec
 | `key` | the external name for the chosen format, always a String |
 | `node` | the node for the field's type, built by `Introspection.node(field.type_instance, field.options)` |
 
-`Field` has public readers an adapter may rely on (FS-B155): `name` (a Symbol), `type` (the resolved type class), `type_instance` (one per field), `required?`, `sensitive?`, `description`, `default`, `options`, `coercion_policy` and `rbs_type`.
+`Field` has public readers an adapter may rely on: `name` (a Symbol), `type` (the resolved type class), `type_instance` (one per field), `required?`, `sensitive?`, `description`, `default`, `options`, `coercion_policy` and `rbs_type`.
 
-`Field#default` is the raw declared default: a value or a callable, never called by the reader. `nil` means no default. A default of `false`, `0`, `''` or `[]` is a real default (FS-B156).
+`Field#default` is the raw declared default: a value or a callable, never called by the reader. `nil` means no default. A default of `false`, `0`, `''` or `[]` is a real default.
 
 ## Node kinds
 
-`node(type, options = {})` picks a node class from the type instance. There are exactly four, with no shared base class, so dispatch with `case` (FS-B143).
+`node(type, options = {})` picks a node class from the type instance. There are exactly five, with no shared base class, so dispatch with `case`.
 
 | Node | Built for | Readers |
 |---|---|---|
 | `ScalarNode` | every other type: `:string`, `:integer`, `:value`, custom types and the rest | `type`, `options` |
 | `ArrayNode` | `Types::Array` | `type`, `options`, `element` |
+| `MapNode` | `Types::Hash` | `type`, `options`, `element` (the value node; keys are always Strings) |
 | `UnionNode` | `Types::Union` | `type`, `members` |
 | `StructNode` | `Types::Nested` | `type`, `klass` |
 
@@ -91,7 +89,7 @@ stop.klass                            # => Waypoint
 
 ### Scalar nodes
 
-`type` is the field's own type instance. `options` is the Hash the value is checked against, which for a field is `Field#options` itself (FS-B144).
+`type` is the field's own type instance. `options` is the Hash the value is checked against, which for a field is `Field#options` itself.
 
 ### Array nodes
 
@@ -118,19 +116,19 @@ slots.element                               # => nil
 
 ### Union nodes
 
-`members` is a frozen Array holding one node per member in declared order. A member carries no options, so each node is built with an empty Hash (FS-B147).
+`members` is a frozen Array holding one node per member in declared order. A member carries no options, so each node is built with an empty Hash.
 
 ### Struct nodes
 
-`klass` is a reference and is never expanded, so the walk doesn't recurse into a struct's own properties. Call `properties(node.klass)` yourself, and use `named?` plus a definitions table to cut off self-referential structs. The walk itself can't loop (FS-B148).
+`klass` is a reference and is never expanded, so the walk doesn't recurse into a struct's own properties. Call `properties(node.klass)` yourself, and use `named?` plus a definitions table to cut off self-referential structs. The walk itself can't loop.
 
 ## `node`
 
 ```ruby
-Introspection.node(type, options = {}) # => ScalarNode | ArrayNode | UnionNode | StructNode
+Introspection.node(type, options = {}) # => ScalarNode | ArrayNode | MapNode | UnionNode | StructNode
 ```
 
-`node` builds a node for a type instance and the options Hash it is checked with. Anything that isn't an array, union or nested type becomes a `ScalarNode`, a non-type passed by mistake included.
+`node` builds a node for a type instance and the options Hash it is checked with. Anything that isn't an array, map, union or nested type becomes a `ScalarNode`, a non-type passed by mistake included.
 
 ```ruby run
 count = FieldStruct::Introspection.node(FieldStruct::Types::Integer.new, in: 1..3)
@@ -144,7 +142,7 @@ count.options                       # => {in: 1..3}
 Introspection.named?(klass) # => Boolean
 ```
 
-True when the class has a name usable as a definition key or title. An anonymous class gives false, and so does a class under an anonymous module, whose name looks like `#<Module:0x...>::Addr`. A class in an ordinary namespace gives true (FS-B150).
+True when the class has a name usable as a definition key or title. An anonymous class gives false, and so does a class under an anonymous module, whose name looks like `#<Module:0x...>::Addr`. A class in an ordinary namespace gives true.
 
 ```ruby run
 module Alpine
@@ -157,7 +155,7 @@ FieldStruct::Introspection.named?(Class.new(FieldStruct::Base))     # => false
 
 ## What `options` holds
 
-Adapters read `Field#options` through the nodes, and these are the promises (FS-B157):
+Adapters read `Field#options` through the nodes, and these are the promises:
 
 - `enum:` and `in:` are as declared: an Array of Strings or Symbols, a Range or an Array.
 - `round:`, `base:` and `strict:` are as declared, and `round:` and `values:` are present only when declared.
@@ -165,10 +163,12 @@ Adapters read `Field#options` through the nodes, and these are the promises (FS-
 - `format:` on a date or time field is the declared value: `nil` when none was given (the key is present), a preset Symbol such as `:iso8601`, or a String. It is never a resolved object.
 - `zone:` is as written.
 - `values:` on `:boolean` is the resolved Hash `{truthy: [...], falsy: [...]}`.
-- Pass-through options such as `avro:`, `proto:` and `json_schema:`, and any unknown key, are present verbatim and never validated.
-- An element's options are validated like a scalar field's, so a pass-through option on an `element:` raises at declaration. Pass-through options are for whole fields only (FS-B162).
+- Registered options such as `avro:`, `proto:` and `json_schema:` are present verbatim. Core checks only the value's class.
+- An element's options are validated like a scalar field's, so a registered option on an `element:` raises at declaration. Registered options are for whole fields only.
 
 ```ruby run
+FieldStruct.register_option(:unit, type: String, owner: 'climb_log')
+
 class Climb < FieldStruct::Base
   required :gain, :float, round: 1, in: 0.0..99.9, unit: 'km'
   optional :logged, :date
@@ -181,19 +181,19 @@ logged.options    # => {format: nil}
 
 ## Stability promises
 
-- Every `Property` and every node is frozen. The `options` Hashes belong to the struct and are frozen shallowly at most, so treat what they hold (an `enum:` Array, a `values:` Hash) as read-only (FS-B149).
-- `Introspection` mutates nothing and caches nothing on the class, and calling it never changes how a struct behaves. A field redeclared after a call is a new `Field` that the next call picks up (FS-B152).
-- `Metadata#serialization(format)` returns the same frozen Hash until the class redeclares that format, and `Metadata#each` yields the same `Field` objects while a field stays unchanged. A cache keyed on those objects holds exactly until the class's declarations change (FS-B159).
-- Core ships no exporter: there is no `FieldStruct::JSONSchema`, no `to_json_schema`, and no format named other than `:json` (FS-B140).
+- Every `Property` and every node is frozen. The `options` Hashes belong to the struct and are frozen shallowly at most, so treat what they hold (an `enum:` Array, a `values:` Hash) as read-only.
+- `Introspection` mutates nothing and caches nothing on the class, and calling it never changes how a struct behaves. A field redeclared after a call is a new `Field` that the next call picks up.
+- `Metadata#serialization(format)` returns the same frozen Hash until the class redeclares that format, and `Metadata#each` yields the same `Field` objects while a field stays unchanged. A cache keyed on those objects holds exactly until the class's declarations change.
+- Core ships no exporter: there is no `FieldStruct::JSONSchema`, no `to_json_schema`, and no format named other than `:json`.
 
 ## Type readers
 
-An adapter that maps types reads them off `type_instance` (FS-B163, FS-B164).
+An adapter that maps types reads them off `type_instance`.
 
-- `ruby_type` is `Integer` for `:integer`, `Float`, `String` for the whole string family, `[TrueClass, FalseClass]` for `:boolean`, `Symbol`, `Date`, `Time`, `DateTime`, `BigDecimal`, `Object` for `:value`, `Array`, the struct class for a nested field, and the flat list of member classes for a union.
+- `ruby_type` is `Integer` for `:integer`, `Float`, `String` for the whole string family, `[TrueClass, FalseClass]` for `:boolean`, `Symbol`, `Date`, `Time`, `DateTime`, `BigDecimal`, `Object` for `:value`, `Array`, `Hash` for `:hash`, the struct class for a nested field, and the flat list of member classes for a union.
 - `default_format` exists on `:uuid`, `:url`, `:email` (a Regexp) and on the date and time types (`nil`). `default_round` exists on `:float` and `:big_decimal`. Ask with `respond_to?` first, since other types don't define them.
 - `Types::Union#member_types` gives the member type instances, and `Types::Nested#struct_class` gives the class.
-- An optional hook on a custom type, like `json_schema`, is the adapter's convention and not core's. Check `respond_to?` on the instance and never assume the hook exists (FS-B161).
+- An optional hook on a custom type, like `json_schema`, is the adapter's convention and not core's. Check `respond_to?` on the instance and never assume the hook exists.
 
 ## See also
 

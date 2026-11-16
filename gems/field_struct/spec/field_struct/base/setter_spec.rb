@@ -92,8 +92,8 @@ RSpec.describe FieldStruct::Base, 'the setter pipeline' do
   end
 
   describe 'FS-B15 field options reach coerce' do
-    it 'passes all options as keywords, including pass-through ones' do
-      rounded = Class.new(described_class) { field :f, :float, round: 1, avro_doc: 'x' }
+    it 'passes all options as keywords, including registered ones' do
+      rounded = Class.new(described_class) { field :f, :float, round: 1, shelf_mark: 'x' }
       expect(rounded.new(f: '1.25').f).to eq(1.3)
     end
   end

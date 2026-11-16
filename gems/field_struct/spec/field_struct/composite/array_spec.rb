@@ -17,20 +17,20 @@ RSpec.describe FieldStruct::Types::Array do
       expect { build(Object) }.to raise_error(ArgumentError, /not a FieldStruct type/)
     end
 
-    it 'FS-B9: of: on another type names Array and Union' do
+    it 'FS-B9: of: on another type names Array, Hash and Union' do
       expect { Class.new(FieldStruct::Base) { field :a, :string, of: :string } }.to raise_error(
-        ArgumentError, 'of: option does not apply to String fields. It applies to: Array, Union.'
+        ArgumentError, 'of: option does not apply to String fields. It applies to: Array, Hash, Union.'
       )
       expect { Class.new(FieldStruct::Base) { field :a, :string, element: {} } }.to raise_error(
-        ArgumentError, 'element: option does not apply to String fields. It applies to: Array.'
+        ArgumentError, 'element: option does not apply to String fields. It applies to: Array, Hash.'
       )
     end
   end
 
   describe 'FS-B15 stored options' do
     it 'replaces of: by of_type: (class for scalars) placed first, element: last' do
-      options = build(:integer, element: { base: 16 }, avro: 1).metadata[:xs].options
-      expect(options.keys).to eq(%i[of_type avro element])
+      options = build(:integer, element: { base: 16 }, shelf_mark: 'A1').metadata[:xs].options
+      expect(options.keys).to eq(%i[of_type shelf_mark element])
       expect(options[:of_type]).to equal(FieldStruct::Types::Integer)
       expect(options[:element]).to eq(base: 16)
       expect(options[:element]).to be_frozen
@@ -206,7 +206,7 @@ RSpec.describe FieldStruct::Types::Array do
         ArgumentError, 'in element: of array field :ids, round: is not an Integer option. Integer accepts: in, base, strict.'
       )
       expect { decl(:string, avro: { a: 1 }) }.to raise_error(
-        ArgumentError, 'in element: of array field :ids, avro: is not a String option. String accepts: format, enum, strict.'
+        ArgumentError, 'in element: of array field :ids, avro: is not a String option. String accepts: format, enum, strict, length.'
       )
     end
 

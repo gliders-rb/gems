@@ -162,7 +162,7 @@ full.code        # => :fully_booked
 full.message     # => "not enough places free"
 ```
 
-Because `PlanTrek` declares failures, it has to declare every code its children can fail with. Leave out `:no_shuttle` and the first run raises `Actionable::DefinitionError`, naming the code.
+Because `PlanTrek` declares failures, it has to declare every code its children can fail with. Leave out `:no_shuttle` and the first run where the shuttle child fails raises `Actionable::DefinitionError`, naming the code.
 
 ## Undo with on_failure
 

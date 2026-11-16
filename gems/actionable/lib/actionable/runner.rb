@@ -29,14 +29,25 @@ module Actionable
     end
 
     def execute
+      halted = true
       Actionable.catch_halt do
         @instance.class.steps.each { |step| run_step(:main, step) }
+        halted = false
       end
       check_result!
+      refuse_bare_halt! if halted
       adopt(Success.new) if @instance.result.nil?
       refresh_output
       run_hooks
       finish
+    end
+
+    # A main-step halt with nothing recorded usually means "nothing to do", which is a skip (AC-B#bangverbs).
+    def refuse_bare_halt!
+      return unless @instance.result.nil?
+
+      raise DefinitionError, "#{Actionable.label_for(@instance.class)}: halt! with nothing recorded; " \
+                             'record an outcome first, or use skip!'
     end
 
     def finish
@@ -115,6 +126,7 @@ module Actionable
 
     def check_result!
       value = @instance.result
+      return adopt(value.dup) if value.is_a?(Result) && value.frozen?
       return if value.nil? || value.is_a?(Result)
 
       raise DefinitionError, "#{Actionable.label_for(@instance.class)} set @result to a #{value.class}; " \

@@ -1,0 +1,6 @@
+# frozen_string_literal: true
+
+# The ActiveSupport lane (rake spec:active_support, SH-B22): this gem's own Gemfile, plus ActiveSupport.
+eval_gemfile File.expand_path('../Gemfile', __dir__)
+
+gem 'activesupport', ENV.fetch('ACTIVE_SUPPORT_VERSION', '>= 7.2')

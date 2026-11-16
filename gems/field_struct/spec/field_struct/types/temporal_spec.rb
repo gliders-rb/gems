@@ -258,7 +258,7 @@ RSpec.describe 'temporal types (:date, :time, :datetime)', :denver do
 end
 
 # FS-B94 / FS-I6: only meaningful (and only run) in the ActiveSupport lane.
-if ENV['FIELD_STRUCT_AS']
+if ENV['ACTIVE_SUPPORT_LANE']
   RSpec.describe 'temporal types with ActiveSupport loaded first', :denver do
     it 'is really loaded before the gem' do
       expect(defined?(ActiveSupport::TimeWithZone)).to be_truthy

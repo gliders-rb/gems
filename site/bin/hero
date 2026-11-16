@@ -1,0 +1,423 @@
+#!/usr/bin/env node
+// Generates the home page animation, and its PDF and GIF, from one source: src/hero/storyboard.md.
+//
+//   bin/hero build              # write src/generated/hero.html and hero.css (the site imports both)
+//   bin/hero check              # fail if the storyboard claims anything unasserted, or the generated files are stale
+//   bin/hero pdf OUT.pdf [--pages DIR]
+//                               # the storyboard as a document: a cover, one page per beat, a page of links;
+//                               # --pages also writes each page as a PNG
+//   bin/hero gif OUT.gif [--theme dark|light] [--width 600]
+//                               # one round of the stepper as a GIF, frame by frame (for the README)
+//   bin/hero video OUT.mp4      # one round as a 4:5 H.264 video for sharing (1080 x 1350, 30 fps, dark)
+//   bin/hero readme             # the README's GIFs, one per scheme, in public/hero/, and the stamp that
+//                               # lets `check` tell when they're stale without a browser
+//
+// pdf, gif and video drive a headless Chromium through Playwright: `npx playwright install --only-shell chromium`
+// once. video also needs ffmpeg on the PATH (or FFMPEG=/path/to/ffmpeg).
+// The storyboard's Ruby is checked by bin/check-code-blocks, like any page; this script checks that every value
+// the animation shows is one of those asserted values.
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { join, dirname, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { createHighlighter } from 'shiki';
+import { parseStoryboard, checkStoryboard, render } from '../src/hero/hero.mjs';
+import { palettes, thermalTheme } from '../src/config/thermal.mjs';
+
+const site = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const source = join(site, 'src/hero/storyboard.md');
+const outDir = join(site, 'src/generated');
+const [command, ...args] = process.argv.slice(2);
+
+const option = (name, fallback) => {
+  const i = args.indexOf(`--${name}`);
+  return i >= 0 ? args[i + 1] : fallback;
+};
+
+function load() {
+  const sb = parseStoryboard(readFileSync(source, 'utf8'));
+  const errors = checkStoryboard(sb);
+  if (errors.length) {
+    for (const e of errors) console.error(`src/hero/storyboard.md: ${e}`);
+    process.exit(1);
+  }
+  return sb;
+}
+
+async function highlighter() {
+  return createHighlighter({
+    themes: [thermalTheme('thermal-dark', 'dark', palettes.dark), thermalTheme('thermal-light', 'light', palettes.light)],
+    langs: ['ruby'],
+  });
+}
+
+// The code background follows the site's code blocks, from the same palette file.
+const surface = [
+  `:root{--hx-bg:${palettes.dark.background}}`,
+  `:root[data-theme='light']{--hx-bg:${palettes.light.background}}`,
+].join('\n');
+
+async function generated() {
+  const sb = load();
+  const { html, css } = render(sb, await highlighter());
+  return { sb, html, css: `${css}${surface}\n` };
+}
+
+async function build() {
+  const { html, css } = await generated();
+  mkdirSync(outDir, { recursive: true });
+  writeFileSync(join(outDir, 'hero.html'), html);
+  writeFileSync(join(outDir, 'hero.css'), css);
+  console.log('bin/hero: wrote src/generated/hero.html and src/generated/hero.css');
+}
+
+// The README GIFs are pictures of the figure, so they are current when the figure's HTML and CSS (and the
+// stylesheets the capture page loads) are what they were when the GIFs were made. The stamp records that.
+const gifDir = join(site, 'public/hero');
+const stampFile = join(outDir, 'readme-gifs.sha256');
+const stampOf = (html, css) =>
+  `${createHash('sha256')
+    .update(html)
+    .update(css)
+    .update(readFileSync(join(site, 'src/styles/hero.css')))
+    .update(readFileSync(join(site, 'src/styles/theme.css')))
+    .digest('hex')}\n`;
+
+async function check() {
+  const { html, css } = await generated();
+  const stale = [
+    ['hero.html', html],
+    ['hero.css', css],
+    ['readme-gifs.sha256', stampOf(html, css), 'bin/hero readme'],
+  ].filter(([name, want]) => {
+    const path = join(outDir, name);
+    return !existsSync(path) || readFileSync(path, 'utf8') !== want;
+  });
+  if (stale.length) {
+    for (const [name, , fix = 'bin/hero build'] of stale) console.error(`src/generated/${name} is stale: run ${fix}`);
+    process.exit(1);
+  }
+  console.log('bin/hero: storyboard checked, generated files current');
+}
+
+// ---- standalone pages for print and capture ----
+
+const fileUrl = (p) => pathToFileURL(join(site, p)).href;
+const fonts = ['jetbrains-mono', 'instrument-sans', 'bricolage-grotesque'].map(
+  (f) => `<link rel="stylesheet" href="${fileUrl(`node_modules/@fontsource-variable/${f}/index.css`)}">`,
+);
+
+function page({ theme, css = '', body }) {
+  return `<!doctype html>
+<html lang="en" data-theme="${theme}">
+<head>
+<meta charset="utf-8">
+<title>Gliders: One action, three calls</title>
+${fonts.join('\n')}
+<link rel="stylesheet" href="${fileUrl('src/styles/theme.css')}">
+<link rel="stylesheet" href="${fileUrl('src/styles/hero.css')}">
+<style>
+:root{--sl-text-sm:0.875rem;--sl-color-text:var(--sl-color-gray-2)}
+html,body{margin:0;background:var(--sl-color-black);color:var(--sl-color-gray-2);font-family:var(--af-font-body)}
+${css}
+</style>
+</head>
+<body>
+${body}
+</body>
+</html>`;
+}
+
+async function browser() {
+  const { chromium } = await import('playwright');
+  return chromium.launch();
+}
+
+async function withTemp(fn) {
+  const dir = mkdtempSync(join(tmpdir(), 'hero-'));
+  try {
+    return await fn(dir);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+// Prose from the storyboard: `code` spans and [text](url) links, nothing else.
+const inline = (s) =>
+  esc(s)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+
+const mark = readFileSync(join(site, 'src/assets/brand/gliders-mark-light.svg'), 'utf8');
+
+const printCss = `
+@page{size:13.333in 7.5in;margin:0}
+body{background:#fff}
+.sheet{box-sizing:border-box;width:13.333in;height:7.5in;padding:0.55in 0.7in 0.45in;display:grid;grid-template-rows:1fr auto;
+  background:var(--sl-color-black);break-after:page;overflow:hidden}
+.sheet:last-child{break-after:auto}
+.foot{display:flex;justify-content:space-between;font-size:11px;color:var(--sl-color-gray-3);border-top:1px solid var(--sl-color-gray-6);padding-top:8px}
+.beat{display:grid;grid-template-columns:4fr 7fr;gap:0.55in;align-items:center;min-height:0}
+.beat .hx{max-width:none}
+.beat .hx-pre,.beat .hx-run{font-size:11.5px;line-height:1.45}
+.beat .hx-pre{padding:6px 0}
+.beat .hx-runs{padding:8px 0;gap:6px}
+.beat .hx-bar{min-height:28px}
+.kicker{font:600 12px var(--af-font-body);letter-spacing:.08em;text-transform:uppercase;color:var(--sl-color-accent)}
+h1,h2{font-family:var(--af-font-display);color:var(--sl-color-white);letter-spacing:-0.02em;font-weight:600;margin:.3em 0 .5em}
+h1{font-size:54px;line-height:1.05;letter-spacing:-0.03em}
+h2{font-size:30px;line-height:1.15}
+.prose p{font-size:16px;line-height:1.6;margin:0 0 .8em;max-width:46ch}
+.prose code{font-family:var(--af-font-code);font-size:.9em;background:var(--sl-color-bg-inline-code);padding:0 .25em;border-radius:.2em}
+a{color:var(--sl-color-accent)}
+.cover{display:grid;grid-template-columns:1fr;align-content:center;gap:10px}
+.beat .cover{align-content:center}
+.cover svg{width:96px;height:96px}
+.cover .sub{font:600 26px var(--af-font-display);color:var(--sl-color-white);margin:-6px 0 18px}
+.cover p{font-size:19px;max-width:34ch}
+.links{list-style:none;padding:0;margin:12px 0 0;display:grid;gap:10px;font-size:18px}
+.links a{text-decoration:none;font-weight:600}
+.links span{display:block;font:13px var(--af-font-code);color:var(--sl-color-gray-3)}
+`;
+
+async function pdf(out) {
+  if (!out) throw new Error('usage: bin/hero pdf OUT.pdf');
+  const { sb, html, css } = await generated();
+  const section = (id) => sb.sections.find((s) => s.id === id);
+  const beats = sb.front.beats;
+  const foot = (n) => `<div class="foot"><span>Gliders: FieldStruct and Actionable</span><span>${n} / ${beats.length + 2}</span></div>`;
+  // The cover shows the finished picture: the plain figure is the final frame.
+  const cover = `<section class="sheet"><div class="beat"><div class="cover prose">${mark}
+<div class="kicker">Gliders</div>
+<h1>${esc(sb.front.title)}</h1>
+<div class="sub">FieldStruct and Actionable</div>
+<p>${inline(sb.front.message)}</p>
+</div>${html.replace(' data-hx', '')}</div>${foot(1)}</section>`;
+  const pages = beats.map((beat, i) => {
+    const s = section(beat.id) ?? { title: beat.id, paragraphs: [beat.caption] };
+    const figure = html.replace('<figure class="hx" data-hx', `<figure class="hx" data-step="${i + 1}"`);
+    return `<section class="sheet"><div class="beat"><div class="prose">
+<div class="kicker">Step ${i + 1} of ${beats.length}</div>
+<h2>${inline(s.title)}</h2>
+${s.paragraphs.map((p) => `<p>${inline(p)}</p>`).join('\n')}
+</div>${figure}</div>${foot(i + 2)}</section>`;
+  });
+  const links = (section('links')?.paragraphs ?? [])
+    .join('\n')
+    .split(/\s*- /)
+    .filter(Boolean)
+    .map((item) => {
+      const m = item.match(/\[([^\]]+)\]\(([^)]+)\)/);
+      return m ? `<li><a href="${m[2]}">${esc(m[1])}</a><span>${esc(m[2])}</span></li>` : '';
+    })
+    .join('\n');
+  const closing = `<section class="sheet"><div class="cover prose">
+<div class="kicker">Try it</div>
+<h2>Every line in these pages runs in CI</h2>
+<p>The code and results here come from one storyboard file, checked like every page of the docs.</p>
+<ul class="links">${links}</ul>
+</div>${foot(beats.length + 2)}</section>`;
+  const doc = page({ theme: 'light', css: `${css}\n${printCss}`, body: [cover, ...pages, closing].join('\n') });
+  await withTemp(async (dir) => {
+    const file = join(dir, 'print.html');
+    writeFileSync(file, doc);
+    const b = await browser();
+    try {
+      const p = await b.newPage();
+      await p.goto(pathToFileURL(file).href);
+      await p.evaluate(() => document.fonts.ready);
+      await p.pdf({ path: out, width: '13.333in', height: '7.5in', printBackground: true, preferCSSPageSize: true, tagged: true, outline: true });
+      const pages = option('pages', null);
+      if (pages) {
+        // The same sheets as PNGs (one per PDF page), for reviewing the PDF where no viewer is at hand.
+        mkdirSync(pages, { recursive: true });
+        await p.setViewportSize({ width: 1280, height: 720 });
+        const sheets = p.locator('.sheet');
+        for (let i = 0; i < (await sheets.count()); i += 1) {
+          await sheets.nth(i).screenshot({ path: join(pages, `page-${String(i + 1).padStart(2, '0')}.png`) });
+        }
+      }
+    } finally {
+      await b.close();
+    }
+  });
+  console.log(`bin/hero: wrote ${out}`);
+}
+
+// ---- one round of the stepper, frame by frame ----
+
+/**
+ * Plays one round of the stepper in a page holding the figure and yields one PNG per frame. The plan opens and
+ * closes on the finished figure, so the clip loops without a jump. Time is driven, not waited for: after each
+ * step change every CSS transition is paused and moved to the frame's time, so the frames don't depend on how
+ * fast the machine is.
+ */
+async function* playback(p, { fps, open, close, onSegment = async () => {} }) {
+  const { total, dwell } = await p.evaluate(() => {
+    const fig = document.querySelector('.hx');
+    return { total: Number(fig.dataset.steps), dwell: fig.dataset.dwell.split(',').map(Number) };
+  });
+  const plan = [{ step: total, seconds: open }, ...dwell.map((seconds, i) => ({ step: i + 1, seconds })), { step: total, seconds: close }];
+  let still = null;
+  for (const [index, { step, seconds }] of plan.entries()) {
+    await onSegment(index === 0 || index === plan.length - 1);
+    const end = await p.evaluate((n) => {
+      document.querySelector('.hx').dataset.step = String(n);
+      const anims = document.getAnimations();
+      for (const a of anims) a.pause();
+      return Math.max(0, ...anims.map((a) => a.effect.getComputedTiming().endTime));
+    }, step);
+    still = null;
+    const count = Math.round(seconds * fps);
+    for (let i = 0; i < count; i += 1) {
+      const ms = (i * 1000) / fps;
+      if (still && ms > end) {
+        yield still; // nothing moves until the next step
+        continue;
+      }
+      await p.evaluate((t) => {
+        for (const a of document.getAnimations()) a.currentTime = t;
+      }, ms);
+      const png = await p.locator('main').screenshot();
+      if (ms > end) still = png;
+      yield png;
+    }
+  }
+}
+
+async function gif(out, theme = option('theme', 'dark')) {
+  if (!out) throw new Error('usage: bin/hero gif OUT.gif [--theme dark|light] [--width 600]');
+  const width = Number(option('width', '600'));
+  const fps = 10;
+  const { html, css } = await generated();
+  const gifenc = await import('gifenc');
+  // gifenc ships CommonJS, so its named functions arrive on the default export.
+  const { GIFEncoder, quantize, applyPalette } = gifenc.default ?? gifenc;
+  const sharp = (await import('sharp')).default;
+  const body = `<main style="padding:12px;width:${width}px;box-sizing:border-box">${html}</main>`;
+  const doc = page({ theme, css, body });
+  await withTemp(async (dir) => {
+    const file = join(dir, 'capture.html');
+    writeFileSync(file, doc);
+    const b = await browser();
+    try {
+      const p = await b.newPage({ viewport: { width, height: 900 }, reducedMotion: 'no-preference' });
+      await p.goto(pathToFileURL(file).href);
+      await p.evaluate(() => document.fonts.ready);
+      // Collect the distinct frames with how long each shows, then encode them with one palette. After the first
+      // frame, a pixel whose colour index didn't change is written as transparent and the frame is left in place,
+      // so each frame stores only what moved: about half the bytes of full frames with a palette each.
+      const frames = [];
+      let size = null;
+      for await (const png of playback(p, { fps, open: 1.5, close: 2.5 })) {
+        const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+        size = info;
+        const last = frames.at(-1);
+        if (last && Buffer.compare(last.rgba, data) === 0) last.delay += 1000 / fps;
+        else frames.push({ rgba: data, delay: 1000 / fps });
+      }
+      const colours = Number(option('colours', '63'));
+      const stride = 7; // every 7th pixel of every distinct frame is plenty to choose the palette from
+      const sample = new Uint8Array(Math.ceil((size.width * size.height) / stride) * 4 * frames.length);
+      let at = 0;
+      for (const { rgba } of frames) {
+        for (let i = 0; i < rgba.length; i += 4 * stride) sample.set(rgba.subarray(i, i + 4), (at += 4) - 4);
+      }
+      const palette = [[0, 0, 0], ...quantize(sample.subarray(0, at), colours)]; // index 0 is the transparent slot
+      const enc = GIFEncoder();
+      let previous = null;
+      for (const { rgba, delay } of frames) {
+        const index = applyPalette(new Uint8Array(rgba), palette.slice(1)).map((i) => i + 1);
+        const out = previous ? index.map((i, n) => (i === previous[n] ? 0 : i)) : index;
+        enc.writeFrame(out, size.width, size.height, { palette, delay, transparent: Boolean(previous), transparentIndex: 0, dispose: 1 });
+        previous = index;
+      }
+      enc.finish();
+      writeFileSync(out, enc.bytes());
+    } finally {
+      await b.close();
+    }
+  });
+  console.log(`bin/hero: wrote ${out}`);
+}
+
+// The video shows the figure, not the page: a 600 x 750 CSS viewport at scale 1.8 is 1080 x 1350 pixels (4:5),
+// with the code and captions enlarged so they read on a phone. It opens and closes on the finished figure with
+// the site's address in a strip, so a looping player shows no seam.
+const videoCss = `
+:root,:root[data-theme='dark']{--af-glow:transparent}
+html,body{height:100%}
+main{box-sizing:border-box;width:600px;height:750px;padding:14px 18px 10px;display:grid;grid-template-rows:1fr auto;gap:8px}
+.hx{align-content:start;gap:10px}
+.hx-pre,.hx-run{font-size:15px;line-height:1.4}
+.hx-pre{padding:6px 0}
+.hx-bar{min-height:28px}
+.hx-runs{padding:6px 0;gap:4px}
+.hx-captions{font-size:18px;line-height:1.35}
+.hx-tag{font-size:12px}
+.strip{display:flex;justify-content:center;gap:.6em;padding-top:8px;border-top:1px solid var(--sl-color-gray-6);
+  font:600 15px var(--af-font-body);color:var(--sl-color-gray-2);transition:none}
+.strip b{color:var(--af-spark);font-weight:600}
+main:not([data-close]) .strip{visibility:hidden}
+`;
+
+async function video(out) {
+  if (!out) throw new Error('usage: bin/hero video OUT.mp4');
+  const ffmpeg = process.env.FFMPEG || 'ffmpeg';
+  const fps = 30;
+  const { html, css } = await generated();
+  const strip = '<div class="strip"><b>gliders-rb.github.io</b><span>·</span><span>field_struct + actionable-rb</span></div>';
+  const doc = page({ theme: 'dark', css: `${css}\n${videoCss}`, body: `<main data-close>${html}${strip}</main>` });
+  const { spawn } = await import('node:child_process');
+  await withTemp(async (dir) => {
+    const file = join(dir, 'video.html');
+    writeFileSync(file, doc);
+    const enc = spawn(
+      ffmpeg,
+      ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(fps), '-i', '-', '-c:v', 'libx264',
+        '-pix_fmt', 'yuv420p', '-crf', '18', '-preset', 'slow', '-r', String(fps), '-movflags', '+faststart', out],
+      { stdio: ['pipe', 'inherit', 'inherit'] },
+    );
+    const done = new Promise((ok, fail) => {
+      enc.on('error', fail);
+      enc.on('close', (code) => (code === 0 ? ok() : fail(new Error(`ffmpeg exited ${code}`))));
+    });
+    const b = await browser();
+    try {
+      const p = await b.newPage({ viewport: { width: 600, height: 750 }, deviceScaleFactor: 1.8, reducedMotion: 'no-preference' });
+      await p.goto(pathToFileURL(file).href);
+      await p.evaluate(() => document.fonts.ready);
+      const over = await p.evaluate(() => document.querySelector('main').scrollHeight - 750);
+      if (over > 0) throw new Error(`the figure and strip are ${over}px taller than the 750px frame`);
+      // The strip shows on the opening and closing holds only.
+      const setStrip = (on) => p.evaluate((v) => document.querySelector('main').toggleAttribute('data-close', v), on);
+      let frame = 0;
+      for await (const png of playback(p, { fps, open: 1, close: 4, onSegment: setStrip })) {
+        if (!enc.stdin.write(png)) await new Promise((r) => enc.stdin.once('drain', r));
+        frame += 1;
+      }
+      enc.stdin.end();
+      await done;
+      console.log(`bin/hero: wrote ${out} (${frame} frames, ${(frame / fps).toFixed(1)} s)`);
+    } finally {
+      await b.close();
+    }
+  });
+}
+
+async function readme() {
+  mkdirSync(gifDir, { recursive: true });
+  for (const theme of ['dark', 'light']) await gif(join(gifDir, `hero-${theme}.gif`), theme);
+  const { html, css } = await generated();
+  writeFileSync(stampFile, stampOf(html, css));
+  console.log('bin/hero: wrote src/generated/readme-gifs.sha256');
+}
+
+const commands = { build, check, readme, pdf: () => pdf(args[0]), gif: () => gif(args[0]), video: () => video(args[0]) };
+if (!commands[command]) {
+  console.error('usage: bin/hero build | check | readme | pdf OUT.pdf | gif OUT.gif [--theme dark|light] [--width 600] | video OUT.mp4');
+  process.exit(2);
+}
+await commands[command]();

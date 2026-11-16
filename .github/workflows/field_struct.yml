@@ -7,10 +7,16 @@ on:
     paths:
       - 'gems/field_struct/**'
       - '.github/workflows/field_struct.yml'
+      - 'tools/doctest/**'
+      - 'tools/doccheck/**'
+      - 'site/src/content/docs/**'
   pull_request:
     paths:
       - 'gems/field_struct/**'
       - '.github/workflows/field_struct.yml'
+      - 'tools/doctest/**'
+      - 'tools/doccheck/**'
+      - 'site/src/content/docs/**'
   workflow_dispatch:
 
 # Pull request code runs here, so the token stays read-only.
@@ -50,8 +56,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BUNDLE_GEMFILE: ${{ github.workspace }}/gems/field_struct/gemfiles/active_support.gemfile
-      FIELD_STRUCT_AS: '1'
-      FIELD_STRUCT_AS_VERSION: ${{ matrix.requirement }}
+      ACTIVE_SUPPORT_LANE: '1'
+      ACTIVE_SUPPORT_VERSION: ${{ matrix.requirement }}
       TZ: America/Denver
     strategy:
       fail-fast: false
@@ -84,9 +90,8 @@ jobs:
 
   # Report-only: prints Steep's problem count and never fails.
   types:
-    name: types (report only)
+    name: types
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
@@ -94,13 +99,14 @@ jobs:
           ruby-version: '3.4'
           bundler-cache: true
           working-directory: gems/field_struct
+      - run: bundle exec rake types:check
       - run: bundle exec rake types:report
 
   # The one check to require in branch protection: green only when every gating job passed.
   required:
     name: field_struct (required)
     if: always()
-    needs: [test, active-support, release-check]
+    needs: [test, active-support, release-check, types]
     runs-on: ubuntu-latest
     defaults:
       run:

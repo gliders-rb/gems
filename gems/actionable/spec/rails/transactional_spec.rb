@@ -32,6 +32,15 @@ RSpec.describe 'Rails adapter: transactional' do
       end
     end
 
+    it 'AC-B#txrollback: a step raising ActiveRecord::Rollback rolls back and raises by name' do
+      stub_const('ScrubDeck', tx_action { define_method(:write) { Voyage.create!(tag: 'r') && raise(ActiveRecord::Rollback) } })
+      expect { ScrubDeck.run }.to raise_error(
+        Actionable::DefinitionError,
+        'ScrubDeck: a step raised ActiveRecord::Rollback; call fail! to roll back a transactional action'
+      )
+      expect(Voyage.count).to eq(0)
+    end
+
     it 'commits a success' do
       expect(tx_action.run).to be_success
       expect(Voyage.count).to eq(1)

@@ -10,6 +10,9 @@ module FieldStruct
       # The range protobuf reserves for its own use.
       # @return [::Range]
       RESERVED = (19_000..19_999)
+      # The keys a +proto:+ Hash may hold (PB-B2a).
+      # @return [::Array<::Symbol>]
+      KEYS = %i[number].freeze
 
       module_function
 
@@ -42,11 +45,38 @@ module FieldStruct
           raise ::ArgumentError, "#{klass}##{field.name}: proto: takes a Hash like {number: 1}, got #{option.inspect}"
         end
 
+        check_keys(klass, field, option)
         number = option[:number]
         return nil if number.nil?
         return number if number.is_a?(::Integer) && RANGE.cover?(number) && !RESERVED.cover?(number)
 
-        raise ::ArgumentError, "#{klass}##{field.name}: #{number.inspect} isn't a usable protobuf field number"
+        raise ::ArgumentError, "#{klass}##{field.name}: #{number.inspect} isn't a usable protobuf field number; " \
+                               "use an Integer in #{RANGE}, outside #{RESERVED}"
+      end
+
+      # @param klass [::Class]
+      # @param field [FieldStruct::Field]
+      # @param option [::Hash{::Object=>::Object}]
+      # @return [void]
+      # @raise [::ArgumentError] for a key other than +number:+
+      def check_keys(klass, field, option)
+        unknown = option.keys.find { |key| !KEYS.include?(key) }
+        return if unknown.nil?
+
+        raise ::ArgumentError, "#{klass}##{field.name}: proto: has no key #{key_label(unknown)}#{key_hint(unknown)}; " \
+                               "it takes #{KEYS.map { |key| "#{key}:" }.join(', ')}"
+      end
+
+      # @param key [::Object]
+      # @return [::String] +number:+ for a Symbol, the inspected key otherwise
+      def key_label(key) = key.is_a?(::Symbol) ? "#{key}:" : key.inspect
+
+      # @param key [::Object]
+      # @return [::String] the did-you-mean clause; a String spelled like a known key suggests the Symbol
+      def key_hint(key)
+        return " (did you mean #{key}:?)" if !key.is_a?(::Symbol) && KEYS.include?(key.to_s.to_sym)
+
+        FieldStruct::Suggestion.clause(key, KEYS, sigil: '', suffix: ':')
       end
     end
   end

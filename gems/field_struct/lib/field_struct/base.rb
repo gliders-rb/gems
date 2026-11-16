@@ -14,7 +14,7 @@ module FieldStruct
     EXPLICIT_RESERVED_NAMES = %i[
       errors attributes attribute_names assign_attributes as_json to_json to_h to_model model_name inspect hash class send
       public_send freeze instance_variable_set instance_variable_get initialize initialize_copy raise with dup clone eql?
-      respond_to? valid? invalid? deconstruct deconstruct_keys
+      respond_to? valid? invalid? deconstruct deconstruct_keys given_fields
     ].freeze
 
     # Values +coercion_policy+ accepts.
@@ -23,8 +23,13 @@ module FieldStruct
     # Values +unknown_attributes+ accepts.
     # @return [::Array<::Symbol>]
     VALID_UNKNOWN_POLICIES = %i[ignore raise].freeze
+    # Values +json_omit+ accepts.
+    # @return [::Array<::Symbol>]
+    VALID_JSON_OMIT_POLICIES = %i[none unset].freeze
 
     extend ClassMacros
+    include Presence
+    include FieldChecks
 
     class << self
       # The class's declared fields and serialization mappings.
@@ -70,12 +75,14 @@ module FieldStruct
       # @param name [Symbol, String]
       # @return [Class]
       # @raise [KeyError] when no registry knows the name
+      # @api private
       def resolve_type(name)
         namespace_registry.lookup(name)
       end
 
       # The registry of the nearest enclosing module that exposes +field_types+, else the base registry.
       # @return [FieldStruct::Registry] the chain this class resolves type names through (semi-internal)
+      # @api private
       def namespace_registry
         return FieldStruct.types unless name
 
@@ -102,6 +109,7 @@ module FieldStruct
       end
 
       # @return [String] the class name, or +AnonymousFieldStruct+
+      # @api private
       def display_name
         name || 'AnonymousFieldStruct'
       end
@@ -136,7 +144,7 @@ module FieldStruct
     # @raise [ArgumentError] when +attrs+ is not Hash-like
     def initialize(attrs = {})
       input = fs_hash_input(attrs.nil? ? {} : attrs, 'new')
-      @__errors__ = Errors.new
+      @__errors__ = Errors.new(self)
       fs_check_unknown(input)
       fs_apply_defaults(input)
       fs_assign(input)
@@ -196,10 +204,11 @@ module FieldStruct
     end
 
     # Re-runs the cross-field validators (if the class has any), then reads the errors.
+    # Frozen errors are read as they are, without re-running the validators.
     #
     # @return [Boolean] whether no field has an error
     def valid?
-      fs_run_validators
+      fs_run_validators unless errors.frozen?
       errors.empty?
     end
 
@@ -228,17 +237,21 @@ module FieldStruct
     end
 
     # The attributes as JSON-ready values: Symbol keys named by the +:json+ mapping, every field present.
+    # Pass +describe_foreign: true+ to write each object that isn't plain data or a struct as a short
+    # description such as +"#<Lantern id=4>"+, calling nothing on it but +class+ and +id+. Other options are ignored.
     #
-    # @param _options [Object] ignored
+    # @param options [Object] +{describe_foreign: true}+, or anything else (ignored)
     # @return [Hash{Symbol=>Object, nil}]
-    def as_json(_options = nil)
-      JsonCodec.as_json(self)
+    def as_json(options = nil)
+      return JsonCodec.as_json(self) unless options.is_a?(::Hash) && options[:describe_foreign]
+
+      JsonCodec.describing { JsonCodec.as_json(self) }
     end
 
     # @param _options [Object] ignored
     # @return [String] +Oj.dump(as_json, mode: :compat)+
     def to_json(_options = nil)
-      Oj.dump(as_json, mode: :compat)
+      JsonCodec.dump(self)
     end
 
     # Pattern matching on canonical field names.
@@ -281,7 +294,8 @@ module FieldStruct
 
     def initialize_copy(source)
       super
-      @__errors__ = source.errors.dup
+      @__errors__ = source.errors.copy_for(self)
+      @__given__ = @__given__&.dup
     end
 
     # Runs on the copy made by +with+: lets setters through even on an immutable class, then restores state.
@@ -327,7 +341,7 @@ module FieldStruct
       self.class.metadata[key]
     end
 
-    def fs_apply_defaults(input)
+    def fs_default_each(input)
       self.class.metadata.each do |field|
         if field.default.nil? && (input.key?(field.name) || input.key?(field.name.name))
           instance_variable_set(field.ivar_name, nil)
@@ -352,11 +366,14 @@ module FieldStruct
     def fs_write(field, value)
       raise ImmutableError, "#{self.class.inspect} is immutable; cannot reassign #{field.name}" if @__ready__ && self.class.immutable?
 
+      fs_mark_given(field.name) unless @__defaulting__
       failure = nil
       coerced = begin
-        field.type_instance.coerce(value, **field.options)
+        field.coerce_value(value)
       rescue Types::Nested::Rejection => e
         raise e.original
+      rescue Types::Array::Unbounded
+        raise ::ArgumentError, "set max_items: on #{FieldBuilder.label(self.class, field.name)}, or load the relation yourself"
       rescue ::ArgumentError, ::TypeError, ::RangeError => e
         failure = e
       end
@@ -379,37 +396,13 @@ module FieldStruct
       errors.add(field.name, "could not be coerced: #{failure.message}")
       policy == :replace ? nil : value
     end
-
-    def fs_validate(field, value)
-      errors.clear(field.name)
-      if field.type_instance.missing?(value)
-        errors.add(field.name, 'is required') if field.required?
-      elsif Restrictions.violated?(value, field.options) || fs_invalid_struct?(value)
-        errors.add(field.name, 'is invalid')
-      else
-        fs_validate_elements(field, value)
-      end
-    end
-
-    # A nested struct, or an Array holding at least one, that is itself invalid.
-    def fs_invalid_struct?(value)
-      return value.invalid? if value.is_a?(Base)
-
-      value.is_a?(::Array) && value.any? { |item| item.is_a?(Base) && item.invalid? }
-    end
-
-    def fs_validate_elements(field, value)
-      element = field.options[:element]
-      return unless element && value.is_a?(::Array)
-
-      bad = value.each_index.select { |index| Restrictions.violated?(value[index], element) }
-      errors.add(field.name, Types::Array.invalid_elements_message(bad)) unless bad.empty?
-    end
   end
 
   class Base
     # Names no field may take: the documented list plus this class's own private helpers.
     # @return [::Array<::Symbol>]
-    RESERVED_FIELD_NAMES = (EXPLICIT_RESERVED_NAMES + private_instance_methods(false).grep(/\Afs_/)).freeze
+    RESERVED_FIELD_NAMES = (EXPLICIT_RESERVED_NAMES +
+                            (private_instance_methods(false) + Presence.private_instance_methods(false) +
+                             FieldChecks.private_instance_methods(false)).grep(/\Afs_/)).freeze
   end
 end

@@ -7,6 +7,9 @@ gemspec
 gem 'actionable-rb', path: '../../gems/actionable'
 gem 'field_struct', path: '../../gems/field_struct'
 gem 'field_struct-json_schema', path: '../field_struct-json_schema'
+# The monorepo's doc-test runner (dev only, never published).
+gem 'gems-doccheck', path: '../../tools/doccheck', require: false
+gem 'gems-doctest', path: '../../tools/doctest', require: false
 gem 'json_schemer', '~> 2.5'
 gem 'mcp', '~> 1.8'
 gem 'rake', '~> 13.0'

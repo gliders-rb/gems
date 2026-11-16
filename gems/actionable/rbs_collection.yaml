@@ -1,6 +1,12 @@
-# Standard-library signatures the gem's own sig refers to (used by Steep and `rbs collection`).
+# Signatures our own checks (Steep, sigs:validate) load. The third-party ones come from ruby/gem_rbs_collection,
+# so the checks see the real Rails, RuboCop and lint_roller types (T-c). Dev-only; the shipped gem needs none of it.
 sources:
   - type: stdlib
+  - type: git
+    name: ruby/gem_rbs_collection
+    remote: https://github.com/ruby/gem_rbs_collection.git
+    revision: ed9e97829b8b22ed4a7e8888d7ce2d6c44835d07
+    repo_dir: gems
 
 path: .gem_rbs_collection
 
@@ -10,6 +16,24 @@ gems:
   - name: bigdecimal
   - name: pathname
   - name: pp
+  - name: prism
+  # The frameworks the adapters build on, from the collection.
+  - name: railties
+  - name: activemodel
+  - name: activesupport
+  - name: activerecord
+  - name: actionpack
+  - name: rubocop
+  - name: rubocop-ast
+  - name: lint_roller
+  # What those signatures load in turn.
+  - name: parser
+  - name: tzinfo
+  - name: rack
+  - name: thor
+  - name: minitest
+  - name: actionview
+  - name: rails-dom-testing
   # Pulled in by the standard libraries above; not needed to check this gem.
   - name: rbs
     ignore: true

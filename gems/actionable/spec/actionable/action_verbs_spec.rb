@@ -131,7 +131,7 @@ RSpec.describe Actionable::Action do
       expect(skipper.run).to be_skipped
     end
 
-    it 'AC-B#bangverbs: halt! alone keeps the current result, and auto-succeeds with none' do
+    it 'AC-B#bangverbs: halt! alone keeps the current result' do
       keeps = build_action do
         step :one
         step :two
@@ -142,12 +142,25 @@ RSpec.describe Actionable::Action do
         private :one, :two, :three
       end
       expect(keeps.run.code).to eq(:kept)
-      bare = build_action do
+    end
+
+    it 'AC-B#bangverbs: a bare halt! with nothing recorded raises and runs no hook' do
+      heard = []
+      bare = named_action('IdleLoom') do
         step :one
         define_method(:one) { halt! }
         private :one
+        always :note
+        define_method(:note) { heard << :always }
       end
-      expect(bare.run).to be_success
+      expect { bare.run }.to raise_error(Actionable::DefinitionError,
+                                         'IdleLoom: halt! with nothing recorded; record an outcome first, or use skip!')
+      expect(heard).to eq([])
+      quiet = build_action do
+        step :one
+        define_method(:one) { nil }
+      end
+      expect(quiet.run).to be_success
     end
 
     it 'AC-B#halttag: a bang verb outside a run surfaces UncaughtThrowError' do

@@ -133,3 +133,6 @@ module FieldStruct
     end
   end
 end
+
+# The field option this adapter reads; registering it lets fields declare it (FS-B10a).
+FieldStruct.register_option(:avro, type: Hash, owner: 'field_struct-avro')

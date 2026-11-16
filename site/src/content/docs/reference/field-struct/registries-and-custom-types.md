@@ -7,7 +7,6 @@ sidebar:
 
 Every type name, `:string` for one, is resolved through a registry. FieldStruct ships a single registry holding the built-in types, and a module can attach its own registry to give the structs inside it more names. This page walks through name resolution, the `Registry` API, how to write a type, and the global `use_alias!`.
 
-Rules: FS-B2, FS-B5, FS-B6, FS-B118, FS-B123 to FS-B126.
 
 ## How a name is resolved
 
@@ -34,7 +33,7 @@ The class's own constant is never consulted, and an anonymous class always gets 
 | `:big_decimal`, `:decimal` | the same class |
 | `:boolean` | `true` or `false` |
 | `:date`, `:time`, `:datetime` | temporal |
-| `:value`, `:array`, `:union` | any value, arrays, unions |
+| `:value`, `:array`, `:hash`, `:union` | any value, arrays, maps, unions |
 
 Struct classes have no registered name. Pass one to a field macro and it builds the nested type itself.
 
@@ -119,16 +118,18 @@ Write a type as a subclass of `FieldStruct::Types::Base`. It can define these me
 
 | Member | Contract |
 |---|---|
-| `#coerce(value, **options)` | returns the coerced value, and `nil` for `nil`. Raise `ArgumentError`, `TypeError` or `RangeError` to refuse a value. List your options as keywords and finish with a `**` catch-all, since the setter hands over every field option, pass-through ones included |
+| `#coerce(value, **options)` | returns the coerced value, and `nil` for `nil`. Raise `ArgumentError`, `TypeError` or `RangeError` to refuse a value. List your options as keywords and finish with a `**` catch-all, since the setter hands over every field option, registered ones included |
 | `#ruby_type` | a class, or an Array of classes |
 | `#missing?(value)` | decides what `required` rejects. Defaults to `value.nil?` |
 | `#rbs_type` | an RBS type String that replaces the generated one. Defaults to `nil` |
 | `.own_option_schema` | the options your type owns, as `{name => option(type: [Class])}`. Defaults to `{}` |
+| `.option_schema` | every option the type takes, inherited keys first, frozen. Read it, don't override it: override `own_option_schema` |
 | `.resolve_options(options)` | a declaration-time hook that validates values and expands presets into concrete ones |
+| `.resolve_format(format)` | a declaration-time hook for `format:`. Defaults to returning a String or `nil` unchanged and raising `ArgumentError` for a Symbol, since the type has no presets |
 
-The base class raises `NotImplementedError` when `coerce` or `ruby_type` is missing. Keep messages free of the input value and name the class, like the built-ins do (FS-I5). A type class that doesn't inherit from `Base` can go straight into a declaration with no registry at all.
+The base class raises `NotImplementedError` when `coerce` or `ruby_type` is missing. Keep messages free of the input value and name the class, like the built-ins do. A `Types::Base` subclass can also go straight into a declaration, `required :code, ShoutType`, with no registry at all.
 
-Option keys are recognised by searching the whole registry chain, so a key your type declares becomes reserved for every other type in that chain, and using it on a type that doesn't declare it raises. A key declared only by an unregistered type is a plain pass-through option.
+Option keys are recognised by searching the whole registry chain, so a key your type declares becomes reserved for every other type in that chain, and using it on a type that doesn't declare it raises. A key declared only by an unregistered type is unknown everywhere and raises, unless something registers it with `FieldStruct.register_option`.
 
 ```ruby run
 class Moisture < FieldStruct::Types::Base

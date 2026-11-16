@@ -5,7 +5,7 @@ sidebar:
   order: 11
 ---
 
-`Actionable/VerbNotLast` flags what the first-run verb check flags (see [Control flow](/reference/actionable/control-flow/#where-a-plain-verb-may-go)), but it does so in your editor and in CI and never executes the code. It looks at one file at a time and shares the Prism-based analyzer with the runtime check (AC §5.15).
+`Actionable/VerbNotLast` flags what the first-run verb check flags (see [Control flow](/reference/actionable/control-flow/#where-a-plain-verb-may-go)), but it does so in your editor and in CI and never executes the code. It looks at one file at a time and shares the Prism-based analyzer with the runtime check.
 
 Every block on this page is plain code, since the cop needs RuboCop and the site's bundle doesn't include it.
 

@@ -87,8 +87,8 @@ module FieldStruct
 
       def typed(field, type)
         literal = Defaults.literal(field, type)
-        return [type, literal] if field.required?
-        return [nullable(type), nil] if literal.equal?(Defaults::NONE)
+        return [type, literal] if field.required? && !field.nullable?
+        return [nullable(type), field.required? ? Defaults::NONE : nil] if literal.equal?(Defaults::NONE)
 
         [null_last(type), literal]
       end
@@ -105,6 +105,7 @@ module FieldStruct
         case node
         when FieldStruct::Introspection::ScalarNode then @scalars.call(node, site, base)
         when FieldStruct::Introspection::ArrayNode then array(site, node, base)
+        when FieldStruct::Introspection::MapNode then string_map(site, node, base)
         when FieldStruct::Introspection::UnionNode then union(site, node, base)
         else struct(site, node.klass, base)
         end
@@ -117,6 +118,16 @@ module FieldStruct
         end
 
         { 'type' => 'array', 'items' => nullable(map(site, element, base)) }
+      end
+
+      # A +:hash+ field: Avro's String-keyed map, values nullable like array items (AV-B10a).
+      def string_map(site, node, base)
+        element = node.element
+        if element.nil?
+          raise ::ArgumentError, "FieldStruct::Avro can't describe #{site.label}: a map of arrays or unions records no value type"
+        end
+
+        { 'type' => 'map', 'values' => nullable(map(site, element, base)) }
       end
 
       def union(site, node, base)

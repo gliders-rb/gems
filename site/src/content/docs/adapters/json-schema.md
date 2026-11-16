@@ -2,9 +2,6 @@
 title: "JSON Schema"
 description: "Turn the JSON a struct writes into a JSON Schema, for API docs, validators in other services and tool parameters."
 sidebar:
-  badge:
-    text: Unreleased
-    variant: caution
   label: "JSON Schema"
   order: 2
 ---
@@ -48,6 +45,26 @@ schema['properties']['folioCount']   # => {"type"=>["integer", "null"], "minimum
 Property names follow what `to_json` writes, which is why `folios` appears as `folioCount`. A field is `required` in the schema when it is required and has no default, since a default fills in a missing key. Optional fields also accept `null`.
 
 Each `generate` call returns a fresh copy, so editing one result never touches another.
+
+```ruby run
+class Valuation < FieldStruct::Base
+  required :insured_for, :big_decimal
+end
+
+FieldStruct::JSONSchema.generate(Valuation)['properties']['insured_for']                      # => {"type"=>"number"}
+FieldStruct::JSONSchema.generate(Valuation, decimals: :string)['properties']['insured_for']   # => {"type"=>"string", "pattern"=>"^-?[0-9]+\\.[0-9]+$"}
+```
+
+A `:hash` field is an object whose keys can be anything. The value schema goes under `additionalProperties`, and like an array element, a value may be `null`.
+
+```ruby run
+class Reliquary < FieldStruct::Base
+  optional :loans, :hash, of: :integer, element: {in: 0..40}
+end
+
+FieldStruct::JSONSchema.generate(Reliquary)['properties']['loans']
+# => {"type"=>["object", "null"], "additionalProperties"=>{"type"=>["integer", "null"], "minimum"=>0, "maximum"=>40}}
+```
 
 If you want `CatalogCard.to_json_schema` as a class method, include the opt-in module.
 
@@ -139,6 +156,8 @@ params['required']          # => ["phrase"]
 
 The `json_schema:` option on a field replaces the derived schema. It accepts a Hash, `true` (no constraint) or `false` (nothing validates). A custom type can define a `json_schema` method to the same end, and a type with neither comes out unconstrained and tagged `x-ruby-type`.
 
+`require 'field_struct/json_schema'` registers `json_schema:` as a field option (with `FieldStruct.register_option`), so require the adapter before the classes that use it. Until then, the option raises and says which file to require.
+
 ```ruby run
 class Drawer < FieldStruct::Base
   required :label, :string, json_schema: { 'type' => 'string', 'minLength' => 4 }
@@ -178,18 +197,32 @@ props['donor']   # => {"type"=>"string", "x-ruby-pattern"=>"\\A\\p{L}+\\z"}
 | Option | On | Meaning |
 |---|---|---|
 | `serialization:` | `generate` | which `serialize` mapping names the properties; default `:json` |
+| `decimals:` | `generate` | `:to_json` (the default) describes decimals as `to_json` writes them; `:string` describes them all as the decimal string `as_json` gives |
+| `freeze:` | `generate`, `to_json_schema` | `true` returns the shared, deep-frozen schema instead of a fresh copy; default `false` |
 | `json_schema:` | a field | a Hash, `true` or `false` that replaces the derived schema |
 | `description:` | a field | becomes `description` |
 | `sensitive:` | a field | adds `x-sensitive` and hides the default |
+| `length:` | a string field | becomes `minLength` and `maxLength`; `:binary` counts bytes, so it gets `maxLength` only |
+| `nullable: true` | a required field | keeps it in `required`, and its `type` also takes `"null"` |
 
 `FieldStruct::JSONSchema.clear_cache` empties the per-class cache. That cache keeps classes alive, so call it whenever code reloads.
 
+If you only read the schema, to validate a payload or list it somewhere, pass `freeze: true`. You get the cached schema itself instead of a copy, deep-frozen, and the same object on every call:
+
+```ruby run
+shared = FieldStruct::JSONSchema.generate(CatalogCard, freeze: true)
+shared.frozen?                                                    # => true
+shared.equal?(FieldStruct::JSONSchema.generate(CatalogCard, freeze: true))   # => true
+```
+
+Changing a frozen schema raises `FrozenError`. A schema that asked a custom type's `json_schema` hook is never cached, so `freeze: true` freezes it but builds it again on each call.
+
 ## Limits
 
-When JSON Schema has no way to say a rule, the adapter leaves it out. It never approximates.
+A rule the adapter doesn't map is left out. It never approximates.
 
-- `in:` on dates, times and decimals, and `strict:`, `base:` and `round:`, do not reach the schema. The struct still enforces them.
-- A decimal shows up as a string matching a decimal pattern, because `to_json` writes it as a string.
+- `in:` on dates, times and decimals, `max_items:`, `strict:`, `base:` and `round:` are left out of the schema. The struct still enforces them.
+- A decimal is a `number`, because `to_json` writes it as one. A field declared `json: :string` is a string matching a decimal pattern instead. If you send `as_json` rather than `to_json`, ask for `generate(klass, decimals: :string)`, which describes every decimal that way.
 - `format:` on a date or time becomes `format` only for the default or `:iso8601` form.
 - An optional string field with `enum:` or `format:` accepts a blank string too, since the struct reads a blank string as missing.
 - `unknown_attributes :raise` on a struct adds `additionalProperties: false`.

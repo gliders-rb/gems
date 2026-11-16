@@ -1,5 +1,20 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- Requiring the adapter registers `proto:` with `FieldStruct.register_option`, so field_struct accepts the key and
+  refuses a non-Hash value when the field is declared.
+- `:hash, of: X` maps to `map<string, X>`, encoded and decoded with String keys. Array and map values are refused,
+  since proto3 has no repeated or map values, and a `nil` value is refused on encode.
+
+### Fixed
+
+- Refusals say what to do: an unusable field number names the allowed range, and a union says to split it into one
+  field per member type or declare it `:value`.
+- `proto:` refuses a key other than `number:`, with a did-you-mean when the key is close.
+
 ## 1.0.0.pre1
 
 - Preview release: Protocol Buffers for field_struct classes, with no `protoc` step.

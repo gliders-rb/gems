@@ -6,16 +6,16 @@ sidebar:
   order: 5
 ---
 
-With `fails` and `skips` an action lists the codes it can end with. That list is a contract: as soon as one code is declared, only declared codes are allowed (AC-I7). The core stores and shows the metadata but never interprets it, and the job adapter is the single reader, and only after an explicit opt-in. Typed outcomes take it a step further by giving each code its own output and result class.
+With `fails` and `skips` an action lists the codes it can end with. That list is a contract: as soon as one code is declared, only declared codes are allowed. The core stores and shows the metadata but never interprets it, and the job adapter is the single reader, and only after an explicit opt-in. Typed outcomes take it a step further by giving each code its own output and result class.
 
 ## `fails` and `skips`
 
 ```ruby
-fails(code, message = nil, **metadata, &output_schema)
-skips(code, message = nil, **metadata, &output_schema)
+fails(code, message = nil, desc: nil, **metadata, &output_schema)
+skips(code, message = nil, desc: nil, **metadata, &output_schema)
 ```
 
-Both keep `{message:, metadata:}` under the code (a Symbol or String, turned into a Symbol), and the metadata is frozen. Any failure or skip ending with that code exposes the metadata as `result.metadata`, plus the declared message when the call passed none, since an explicit message always wins. Subclasses get a copy of the declarations and may add to them or redeclare. A redeclaration replaces message, metadata and schema together, so leaving out the block drops the parent's schema.
+Both keep `{message:, metadata:}` under the code (a Symbol or String, turned into a Symbol), and the metadata is frozen. Any failure or skip ending with that code exposes the metadata as `result.metadata`, plus the declared message when the call passed none, since an explicit message always wins. `desc:` is a description for people (see [Descriptions](/reference/actionable/batches-and-introspection/#descriptions)), never part of the metadata. Subclasses get a copy of the declarations and may add to them or redeclare. A redeclaration replaces message, metadata and schema together, so leaving out the block drops the parent's schema.
 
 ```ruby run
 class HoldBerth < Actionable::Action
@@ -42,14 +42,14 @@ HoldBerth.skip_declarations.keys           # => [:already_held]
 | Reader | Returns |
 |---|---|
 | `declared_failures`, `declared_skips` | `{code => metadata}` |
-| `failure_declarations`, `skip_declarations` | `{code => {message:, metadata:}}`, plus `:output_schema` when the declaration had a block |
+| `failure_declarations`, `skip_declarations` | `{code => {message:, metadata:}}`, plus `:description` when `desc:` was given and `:output_schema` when the declaration had a block |
 | `failure_output_schema(code)`, `skip_output_schema(code)` | the code's schema class, or `nil` |
 | `allows_failure_code?(code)` | true when no failures are declared, the code is declared, or it is a gem code |
 | `allows_skip_code?(code)` | true when no skips are declared or the code is declared |
 
 ## Strictness
 
-Declare one failure code and the action may only fail with declared codes, plus the gem's own `:invalid_input` and `:invalid_output`. Every other `fail`, `fail!`, `fail_with` or `fail_with!` raises `DefinitionError` at the call, and that includes the default `:invalid` of `fail_with`. Skips obey the same rule with no exceptions, since the gem emits no skip codes of its own: once a skip is declared, even the implicit `:skipped` of a bare `skip!` needs a declaration. Declaring failures doesn't make skips strict, nor the reverse, and an action declaring neither is unchecked. A failure adopted from a nested child gets the same check (AC §5.9).
+Declare one failure code and the action may only fail with declared codes, plus the gem's own `:invalid_input` and `:invalid_output`. Every other `fail`, `fail!`, `fail_with` or `fail_with!` raises `DefinitionError` at the call, and that includes the default `:invalid` of `fail_with`. Skips obey the same rule with no exceptions, since the gem emits no skip codes of its own: once a skip is declared, even the implicit `:skipped` of a bare `skip!` needs a declaration. Declaring failures doesn't make skips strict, nor the reverse, and an action declaring neither is unchecked. A failure adopted from a nested child gets the same check.
 
 ```ruby run
 class CastOff < Actionable::Action
@@ -162,7 +162,7 @@ failure.is_a?(Actionable::Failure)     # => true
 ChartRoute.typed_outcomes?             # => true
 ```
 
-Equality goes by class, so with typed outcomes `ChartRoute.run(leagues: 12) == Actionable::Success.new(...)` is false, and you compare against the action's own class instead. When a child's failure crosses into a typed parent, it turns into the parent's own `Failure`, judged by the parent's schema for that code. The parent still has to declare the code, and output that breaks the parent's schema ends the parent as `invalid_output`. A parent without typed outcomes receives a plain `Actionable::Failure`. The gem's two own codes cross with their output as it was (AC §5.10).
+Equality goes by class, so with typed outcomes `ChartRoute.run(leagues: 12) == Actionable::Success.new(...)` is false, and you compare against the action's own class instead. When a child's failure crosses into a typed parent, it turns into the parent's own `Failure`, judged by the parent's schema for that code. The parent still has to declare the code, and output that breaks the parent's schema ends the parent as `invalid_output`. A parent without typed outcomes receives a plain `Actionable::Failure`. The gem's two own codes cross with their output as it was.
 
 :::note
 The generated result classes carry an internal mark, and a `Failure` subclass defined by the host passes through the rebuild untouched. Generated RBS doesn't cover that case.
@@ -171,6 +171,6 @@ The generated result classes carry an internal mark, and a `Failure` subclass de
 ## See also
 
 - [Control flow](/reference/actionable/control-flow/): the verbs these codes are used with
-- [Background jobs](/reference/actionable/jobs/): `honor_retry_metadata` reads the metadata
+- [Background jobs](/reference/actionable/jobs/): the job adapter reads `retry:` metadata
 - [Testing](/reference/actionable/testing/): stubs check codes against declarations
 - [RBS](/reference/actionable/rbs/): the types typed outcomes generate

@@ -8,11 +8,14 @@ module FieldStruct
     # @param options [Hash{Symbol=>Object}] every non-universal option, as declared
     # @param registry [FieldStruct::Registry] the registry chain the field's type was resolved through
     # @param field_name [Symbol]
+    # @param label [String] how errors name the field: +Class#field+, or +field :name+ for an anonymous class
     # @return [Hash{Symbol=>Object}] the options to store: presets resolved, +format:+ prefilled
-    def self.call(type_class, options, registry:, field_name:)
-      check_keys(type_class, options, registry)
+    def self.call(type_class, options, registry:, field_name:, label: "field #{field_name.inspect}")
+      check_keys(type_class, options, registry, label)
       check_required(type_class, options)
       check_shapes(type_class, options)
+      check_length(type_class, options[:length])
+      check_json(type_class, options[:json])
       resolved = resolve(type_class, options, registry, field_name)
       prefill_format(type_class, resolved)
     end
@@ -27,6 +30,8 @@ module FieldStruct
     # @return [Hash{Symbol=>Object}]
     def self.element(type_class, options, registry:, field_name:)
       check_shapes(type_class, options)
+      check_length(type_class, options[:length])
+      check_json(type_class, options[:json])
       resolve(type_class, options, registry, field_name)
     end
 
@@ -38,17 +43,28 @@ module FieldStruct
       klass.name ? klass.name.split('::').last : klass.to_s
     end
 
-    def self.check_keys(type_class, options, registry)
+    def self.check_keys(type_class, options, registry, label)
       schema = type_class.option_schema
-      options.each_key do |key|
+      options.each do |key, value|
         next if schema.key?(key)
 
         owners = registry.type_classes.select { |candidate| candidate.option_schema.key?(key) }
-        next if owners.empty?
+        if owners.empty?
+          check_registered(type_class, key, value, label)
+          next
+        end
 
         raise ::ArgumentError, "#{key}: option does not apply to #{type_class.short_name} fields. " \
                                "It applies to: #{owners.map(&:short_name).join(', ')}."
       end
+    end
+
+    # A key no type declares must be registered (FS-B10), and its value is shape-checked like a native one (FS-B10a).
+    def self.check_registered(type_class, key, value, label)
+      entry = OptionRegistry.entries[key]
+      raise ::ArgumentError, OptionRegistry.unknown_message(key, label, type_class.option_schema.keys) unless entry
+
+      check_shape(type_class, key, value, entry.type)
     end
 
     def self.check_required(type_class, options)
@@ -58,14 +74,29 @@ module FieldStruct
     end
 
     def self.check_shapes(type_class, options)
-      type_class.option_schema.each do |key, descriptor|
-        value = options[key]
-        next if value.nil? || descriptor[:type].any? { |klass| value.is_a?(klass) }
+      type_class.option_schema.each { |key, descriptor| check_shape(type_class, key, options[key], descriptor[:type]) }
+    end
 
-        expected = descriptor[:type].map { |klass| short(klass) }.join(' or ')
-        raise ::ArgumentError,
-              "#{key}: on #{type_class.short_name} expects #{expected}, got #{value.class} (#{value.inspect})"
-      end
+    def self.check_shape(type_class, key, value, classes)
+      return if value.nil? || classes.any? { |klass| value.is_a?(klass) }
+
+      expected = classes.map { |klass| short(klass) }.join(' or ')
+      raise ::ArgumentError, "#{key}: on #{type_class.short_name} expects #{expected}, got #{value.class} (#{value.inspect})"
+    end
+
+    # +length:+ on the string family takes a Range of whole numbers from 0, open at one end at most (FS-B37a).
+    def self.check_length(type_class, bounds)
+      return unless bounds.is_a?(::Range) && type_class <= Types::String && !Restrictions.usable_length?(bounds)
+
+      raise ::ArgumentError, "length: on #{type_class.short_name} takes a Range of whole numbers from 0, " \
+                             "like 3..40 or ..40, got #{bounds.inspect}"
+    end
+
+    # +json:+ on a decimal is +:number+ or +:string+ (FS-B106a).
+    def self.check_json(type_class, mode)
+      return unless mode.is_a?(::Symbol) && type_class <= Types::BigDecimal && !%i[number string].include?(mode)
+
+      raise ::ArgumentError, "json: on #{type_class.short_name} takes :number or :string, got #{mode.inspect}"
     end
 
     # Calls the type's hook, passing +registry:+ and +field_name:+ only if it declares them (4.9.1 says
@@ -84,6 +115,7 @@ module FieldStruct
       options.merge(format: type_class.default_format)
     end
 
-    private_class_method :check_keys, :check_required, :check_shapes, :resolve, :prefill_format
+    private_class_method :check_keys, :check_registered, :check_required, :check_shapes, :check_shape, :check_length,
+                         :check_json, :resolve, :prefill_format
   end
 end

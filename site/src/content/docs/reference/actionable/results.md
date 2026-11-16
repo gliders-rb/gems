@@ -5,7 +5,7 @@ sidebar:
   order: 3
 ---
 
-A run hands back one result. `Actionable::Result` itself is abstract. The concrete classes are `Success`, `Failure` and `Skipped`, all FieldStruct classes carrying `code`, `message`, `output` and `history`, with `metadata` added on failures and skips. The outcomes exclude each other, so for any concrete result exactly one predicate is true (AC-I3).
+A run hands back one result. `Actionable::Result` itself is abstract. The concrete classes are `Success`, `Failure` and `Skipped`, all FieldStruct classes carrying `code`, `message`, `output` and `history`, with `metadata` added on failures and skips. The outcomes exclude each other, so for any concrete result exactly one predicate is true.
 
 ## Attributes
 
@@ -18,7 +18,7 @@ A run hands back one result. `Actionable::Result` itself is abstract. The concre
 | `errors` | yes | yes | yes | empty |
 | `metadata` | no | yes | yes | a fresh `{}` |
 
-`code` gets coerced to a Symbol. `errors` is the FieldStruct collection and not a field, which means `errors[:field]` gives an Array of Strings and `errors.to_h` and `errors.full_messages` behave as on any struct. A `Success` carries no `metadata`, and asking for it raises `NoMethodError` (AC §5.1).
+`code` gets coerced to a Symbol. `errors` is the FieldStruct collection and not a field, which means `errors[:field]` gives an Array of Strings and `errors.to_h` and `errors.full_messages` behave as on any struct. A `Success` carries no `metadata`, and asking for it raises `NoMethodError`.
 
 ```ruby run
 Actionable::Success.new.code                 # => :success
@@ -54,17 +54,43 @@ Actionable::Skipped.new.ok?          # => true
 
 ## Serialization
 
-`to_h` gives `{code:, message:, output:, history:, errors:}`, plus `metadata:` for a failure or skip. A struct output goes through its own `to_h`, the history through `History#as_json`, and `errors` through `errors.to_h`.
+A result is a report, so its plain forms carry everything a reader needs. `to_h` gives `{status:, code:, message:, output:, history:, errors:}`, plus `metadata:` for a failure or skip. A struct output goes through its own `to_h`, the history through `History#as_json`, and `errors` through `errors.to_h`.
+
+`as_json` has the same keys in the same order, with JSON-ready values: `status` and `code` become Strings and a struct output becomes its own `as_json`, so its `serialize :json` names apply. `to_json` is `as_json` dumped through Oj.
+
+A failure or a skip never serializes a live object. When a step leaves an ActiveRecord row in an output that then fails its schema, or calls `fail!` with one in place, `to_h`, `as_json` and `to_json` write it as `"#<Kiln id=4>"`: just the class and the `id`, without calling the object's own `as_json`. The same goes for objects in `metadata`. The output itself keeps the object, so `result.output.kiln` still returns it for debugging. A success is written in full.
+
+```ruby run
+class Kiln
+  attr_reader :id
+  def initialize(id) = @id = id
+  def as_json(*) = { 'id' => id, 'firing_code' => 'k-77' }
+end
+
+class FireBatch < Actionable::Action
+  output { required :kiln, :integer }
+  step :load
+  def load = @kiln = Kiln.new(4)
+end
+
+result = FireBatch.run
+result.code                      # => :invalid_output
+result.as_json[:output]          # => {kiln: "#<Kiln id=4>"}
+result.output.kiln.class         # => Kiln
+```
 
 `to_api_h(index: nil, id_field: :id)` gives exactly `{index:, status:, id:, errors:}`. For `id` the gem reads `id_field` off the output: a declared field when the output is a struct, a key when it is a Hash, and `nil` otherwise.
 
 ```ruby run
 failure = Actionable::Failure.new(code: :adrift)
-failure.to_h.keys                # => [:code, :message, :output, :history, :errors, :metadata]
+failure.to_h.keys                # => [:status, :code, :message, :output, :history, :errors, :metadata]
+failure.as_json                  # => {status: "failure", code: "adrift", message: nil, output: {}, history: [], errors: {}, metadata: {}}
 failure.to_api_h(index: 2)       # => {index: 2, status: :failure, id: nil, errors: {}}
 Actionable::Success.new(output: { id: 31 }).to_api_h # => {index: nil, status: :success, id: 31, errors: {}}
 Actionable::Success.new.to_h.key?(:metadata)  # => false
 ```
+
+A result that `.run` returns is frozen, after the last hook ran. The freeze reaches the plain data inside: errors, the output struct and its errors, history, metadata and every String, Array, Hash and struct under them, but never a foreign object such as a record. `valid?`, `to_h`, `as_json` and `errors.paths` still answer. `with(...)` returns a new result frozen the same way. A result you build yourself (`Actionable::Failure.new`, test stubs) is not frozen. Inside a step, `@result = OtherAction.run` is taken as an unfrozen copy, so the run can still fill it in.
 
 `inspect` and `to_s` produce `#<ClassName name=value ...>`, listing every attribute and `errors` sorted by name. That differs from FieldStruct's own `inspect` on purpose.
 

@@ -21,19 +21,32 @@ module FieldStruct
       attr_reader :struct_class
 
       # @param struct_class [::Class] a +FieldStruct::Base+ subclass
-      def initialize(struct_class)
+      # @param reads [Boolean] whether a mirror class reads other objects (a union member doesn't, FS-B167)
+      def initialize(struct_class, reads: true)
         super()
         @struct_class = struct_class
+        @reads = reads
       end
 
-      # @param value [::Object] nil, an instance of the struct, or a Hash
-      # @return [FieldStruct::Base, nil] the same instance, or a new one built from the Hash
+      # @param value [::Object] nil, an instance of the struct, a Hash, or for a mirror any source object
+      # @return [FieldStruct::Base, nil] the same instance, or a new one built from the Hash or read from the source
       # @raise [TypeError] for anything else
       def coerce(value, **)
         return value if value.nil? || value.is_a?(struct_class)
-        raise ::TypeError, "expected #{struct_class.display_name} or Hash, got #{value.class}" unless value.is_a?(::Hash)
+        return build(value) if value.is_a?(::Hash)
+        return build(read(value)) if @reads && struct_class.mirror?
 
-        build(value)
+        raise ::TypeError, "expected #{struct_class.display_name} or Hash, got #{value.class}"
+      end
+
+      # Internal: {#coerce} with the options as one Hash, no keyword splat (see Types::Base.positional_coerce?).
+      #
+      # @param value [::Object]
+      # @param _options [::Hash{::Symbol=>::Object}] unused: this type takes no options
+      # @return [FieldStruct::Base, nil]
+      # @api private
+      def coerce_positional(value, _options)
+        coerce(value)
       end
 
       # @return [::Class] the struct class
@@ -42,6 +55,21 @@ module FieldStruct
       end
 
       private
+
+      # One public reader per declared field, all checked before any is called (FS-B167).
+      def read(source)
+        names = struct_class.metadata.map(&:name)
+        missing = names.reject { |name| source.respond_to?(name) }
+        raise Rejection, ::ArgumentError.new(missing_readers(source, missing)) unless missing.empty?
+
+        names.to_h { |name| [name, source.public_send(name)] }
+      end
+
+      def missing_readers(source, missing)
+        label = source.class.name || source.class.inspect
+        noun = missing.size == 1 ? 'reader' : 'readers'
+        "#{struct_class.display_name} mirrors #{label}, but #{label} has no public #{noun} for #{missing.map(&:inspect).join(', ')}"
+      end
 
       def build(hash)
         struct_class.new(hash)

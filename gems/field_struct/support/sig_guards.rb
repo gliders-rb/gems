@@ -38,6 +38,46 @@ module SigGuards
     end
   end
 
+  # +Object+ or +::Object+ as a whole name (not +BasicObject+, not +Pottery::Object+).
+  LOOSE_OBJECT = /(?<![\w:])(?:::)?Object\b/
+  # +top+ where a type goes: after an opening bracket, +|+, +&+, +,+, +->+ or a +:+ (optionally after +?+ for an
+  # optional parameter), and not itself a keyword or method name (+top:+).
+  LOOSE_TOP = /(?:[(\[|&,:]|->)\s*\??\btop\b(?!\s*:)/
+  # A superclass is a real parent, not a loose type: +class Kiln < ::Object+ does not count.
+  SUPERCLASS = /^(\s*class\s+\S+\s*<\s*)(?:::)?Object\b/
+
+  # Counts the loose types +Object+ and +top+ on lines that are not comments (the rule: build decision T3 in the
+  # gem's spec). Like +untyped+ they accept anything; unlike it some are the honest type (a value of any class), so
+  # the ratchet holds today's number rather than asking for zero.
+  #
+  # @param paths [Array<String>] signature files
+  # @return [Integer]
+  def count_loose(paths)
+    Array(paths).sum do |path|
+      File.readlines(path).sum do |line|
+        next 0 if line.lstrip.start_with?('#')
+
+        typed = line.sub(SUPERCLASS, '\1')
+        typed.scan(LOOSE_OBJECT).size + typed.scan(LOOSE_TOP).size
+      end
+    end
+  end
+
+  # Compares the loose count with its ceiling, the same way as {untyped_failure}.
+  #
+  # @return [String, nil] a failure message, or nil when they match
+  def loose_failure(count:, ceiling:)
+    return nil if count == ceiling
+
+    label = "sig/ has #{count} `Object`/`top` types (ceiling #{ceiling})"
+    if count > ceiling
+      "#{label}: #{count - ceiling} new. Give them a real type (fix the YARD tags and run `rake sigs:generate`) " \
+        'rather than raising the ceiling.'
+    else
+      "#{label}: #{ceiling - count} fewer. Lower the ceiling in support/loose_ceiling.txt to #{count} so the gain is kept."
+    end
+  end
+
   # The +[OMIT]+ and +[DUCK]+ lines of Sord's log, with colour and the +file.rb:LINE:+ position removed, unique and sorted.
   #
   # @param output [String] Sord's combined output

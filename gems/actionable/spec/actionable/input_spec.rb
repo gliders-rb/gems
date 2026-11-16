@@ -64,6 +64,22 @@ RSpec.describe 'Action input' do
   end
 
   describe 'invalid input' do
+    it 'AC-B#invalidinput: runs no hook either, always included' do
+      heard = []
+      action = build_action do
+        input { required :n, :integer }
+        on_failure :note_failure
+        always :note_always
+        step :sail
+        define_method(:sail) { nil }
+        define_method(:note_failure) { heard << :on_failure }
+        define_method(:note_always) { heard << :always }
+      end
+      expect([action.run.code, heard]).to eq([:invalid_input, []])
+      action.run(n: 1)
+      expect(heard).to eq([:always])
+    end
+
     it 'AC-B#invalidinput: runs no step, returns Failure(:invalid_input) with the struct errors' do
       ran = []
       action = build_action do

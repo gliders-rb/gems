@@ -1,0 +1,68 @@
+name: release one gem
+
+# Called by release.yml, once per gem. RubyGems matches a trusted publisher on the OIDC `job_workflow_ref` claim, which
+# names this file, so each gem's publisher on rubygems.org names `release-gem.yml` (not release.yml) and the environment
+# `rubygems`.
+on:
+  workflow_call:
+    inputs:
+      name:
+        description: The gem's name on RubyGems
+        type: string
+        required: true
+      dir:
+        description: The gem's directory in this repository
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: ${{ inputs.name }}
+    runs-on: ubuntu-latest
+    environment: rubygems
+    permissions:
+      contents: write # rake release pushes the `<gem>/v<version>` tag
+      id-token: write # the OIDC token RubyGems trades for a short-lived push key
+    defaults:
+      run:
+        working-directory: ${{ inputs.dir }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+          working-directory: ${{ inputs.dir }}
+      - name: Read the version
+        id: version
+        env:
+          GEM_NAME: ${{ inputs.name }}
+        run: |
+          version="$(ruby -e 'puts Gem::Specification.load(ARGV[0]).version' "$GEM_NAME.gemspec")"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "$GEM_NAME $version"
+      - name: Skip a version RubyGems already has
+        id: published
+        env:
+          GEM_NAME: ${{ inputs.name }}
+          GEM_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          code="$(curl -s -o /dev/null -w '%{http_code}' "https://rubygems.org/api/v2/rubygems/$GEM_NAME/versions/$GEM_VERSION.json")"
+          case "$code" in
+            200) echo "already=true" >> "$GITHUB_OUTPUT"; echo "$GEM_NAME $GEM_VERSION is already on RubyGems; skipping" ;;
+            404) echo "already=false" >> "$GITHUB_OUTPUT" ;;
+            *) echo "RubyGems answered $code for $GEM_NAME $GEM_VERSION" >&2; exit 1 ;;
+          esac
+      # The same gate as each gem's CI release-check job (SH-I7): nothing is published that would fail it.
+      - name: release:check
+        if: steps.published.outputs.already == 'false'
+        run: bundle exec rake release:check
+      - uses: rubygems/release-gem@7f9650160c1a4e7989fdc9855807bdbd421d8b6b # v1.4.1
+        if: steps.published.outputs.already == 'false'
+        with:
+          working-directory: ${{ inputs.dir }}

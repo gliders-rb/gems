@@ -68,8 +68,16 @@ module FieldStruct
       # @return [::Hash{::String=>::Object}]
       def float(_type, options) = { 'type' => 'number' }.merge!(bounds(options[:in]))
 
+      # A JSON number, as +to_json+ writes it, unless the field's +json:+ or its type's default keeps the string (JS-B24).
+      #
+      # @param type [FieldStruct::Types::BigDecimal]
+      # @param options [::Hash{::Symbol=>::Object}]
       # @return [::Hash{::String=>::Object}]
-      def decimal(*) = { 'type' => 'string', 'pattern' => DECIMAL_PATTERN }
+      def decimal(type, options)
+        return { 'type' => 'number' } unless options.fetch(:json) { type.class.json_default } == :string
+
+        { 'type' => 'string', 'pattern' => DECIMAL_PATTERN }
+      end
 
       # @return [::Hash{::String=>::Object}]
       def value(*) = {}
@@ -103,7 +111,21 @@ module FieldStruct
         format = options[:format]
         schema.merge!(format_keys(type, format)) if format.is_a?(::Regexp)
         schema['enum'] = options[:enum] if options[:enum]
+        schema.merge!(length_keys(type, options[:length])) if options[:length]
         schema
+      end
+
+      # +minLength+/+maxLength+ from +length:+ (JS-B10); +:binary+ counts bytes, so it keeps only the maximum.
+      #
+      # @param type [FieldStruct::Types::String]
+      # @param bounds [::Range]
+      # @return [::Hash{::String=>::Object}]
+      def length_keys(type, bounds)
+        keys = {}
+        keys['minLength'] = bounds.begin if bounds.begin && !type.is_a?(T::Binary)
+        last = bounds.end
+        keys['maxLength'] = bounds.exclude_end? ? last - 1 : last if last
+        keys
       end
 
       # @param type [FieldStruct::Types::String]

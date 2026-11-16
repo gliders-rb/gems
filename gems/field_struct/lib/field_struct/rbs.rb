@@ -51,7 +51,7 @@ module FieldStruct
           raise ::ArgumentError, "FieldStruct::RBS.type_for expects a FieldStruct::Field (e.g. User.metadata[:name]), got #{field.inspect}"
         end
 
-        nullable = !field.required? if nullable.nil?
+        nullable = !field.required? || field.nullable? if nullable.nil?
         base = field.rbs_type ? normalize(field.rbs_type) : derive(field.type_instance, field.options)
         nullable ? nullify(base) : base
       end
@@ -95,6 +95,7 @@ module FieldStruct
         case type
         when Types::Nested then class_name(type.struct_class)
         when Types::Array then array_type(options[:of_type])
+        when Types::Hash then hash_type(options[:of_type])
         when Types::Union then union_type(type)
         else ruby_types(type.ruby_type)
         end
@@ -107,6 +108,12 @@ module FieldStruct
         inner = derive(element)
         inner = nullify(inner) unless element.is_a?(Types::Nested)
         "::Array[#{inner}]"
+      end
+
+      def hash_type(of_type)
+        return '::Hash[::String, untyped]' if of_type.nil?
+
+        "::Hash[::String, #{array_type(of_type).delete_prefix('::Array[').delete_suffix(']')}]"
       end
 
       def union_type(union)

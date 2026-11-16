@@ -23,11 +23,11 @@ Canopy.new(leaves: 'abc').errors[:leaves].first.start_with?('could not be coerce
 
 Coercion turns input into a value of the type, or fails. Validation judges a value that already exists. They ask different questions and a client needs different answers, since "send a number" is not the advice "send a smaller number" gives. One merged message would lose that.
 
-The order is fixed too. A coercion failure ends the pipeline for that field, so a required field given garbage gets the coercion message alone, without an "is required" stacked on it (FS-B43 to FS-B46).
+The order is fixed too. A coercion failure ends the pipeline for that field, so a required field given garbage gets the coercion message alone, without an "is required" stacked on it.
 
 ## What happens when coercion fails
 
-This is where the gem has a policy, with three choices, because outside data is often wrong and the object should live long enough to say why (FS-B43 to FS-B46).
+This is where the gem has a policy, with three choices, because outside data is often wrong and the object should live long enough to say why.
 
 ```ruby run
 class Keep < FieldStruct::Base
@@ -69,7 +69,7 @@ The defaults follow what ActiveModel readers expect, so a Rails client sees fami
 
 ## Messages never echo input
 
-No error message holds the offending value, only its class (FS-I5). That covers coercion errors, `CoercionError`, union and array messages, `from_json` errors and the `cause` chain. The reason is plain: the bad value is the one that turns out to be a password pasted into the wrong box. Errors get logged and sent back to clients, so they must be safe to log.
+No error message holds the offending value, only its class. That covers coercion errors, `CoercionError`, union and array messages, `from_json` errors and the `cause` chain. The reason is plain: the bad value is the one that turns out to be a password pasted into the wrong box. Errors get logged and sent back to clients, so they must be safe to log.
 
 The price is a less helpful message, since the value is the first thing you want while debugging. We pay it. Look at the input where it came in.
 

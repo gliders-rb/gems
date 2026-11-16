@@ -67,7 +67,7 @@ bad.legs.last.errors.to_h           # => {nights: ["is invalid"]}
 bad.legs.first.valid?               # => true
 ```
 
-The booking only says that `legs` is invalid. The details live on the child that is wrong, so ask the legs when you need to know which one.
+The booking only says that `legs` is invalid. The details live on the child that is wrong, so ask the legs when you need to know which one, or read `booking.errors.paths`, which names the leg and its field.
 
 ## JSON out and back in
 
@@ -86,7 +86,7 @@ Equal structs have equal values all the way down, which makes the round trip eas
 
 ## camelCase for another service
 
-The partner desk we meet in chapter 6 wants `contactEmail` and `legList`. We keep snake_case in Ruby and map the names for JSON only. `serialize :json` comes after the fields it names.
+A partner booking desk wants `contactEmail` and `legList`. We keep snake_case in Ruby and map the names for JSON only. `serialize :json` comes after the fields it names.
 
 ```ruby run
 class DeskRequest < FieldStruct::Base

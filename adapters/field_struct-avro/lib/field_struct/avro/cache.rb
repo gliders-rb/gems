@@ -41,16 +41,16 @@ module FieldStruct
         # @return [::Array<FieldStruct::Introspection::Property>] the frozen property list
         # @raise [::ArgumentError] when a field's +avro:+ option is not a Hash
         def properties(klass, serialization)
-          key = [klass, serialization]
-          cached = @props[key]
-          return cached.list if cached&.stamp&.fresh?
+          cached = fresh_props(klass, serialization)
+          return cached.list if cached
 
           @lock.synchronize do
-            cached = @props[key]
-            return cached.list if cached&.stamp&.fresh?
+            cached = fresh_props(klass, serialization)
+            return cached.list if cached
 
-            @props[key] = build_properties(klass, serialization)
-            @props[key].list
+            built = build_properties(klass, serialization)
+            (@props[klass] ||= {})[serialization] = built
+            built.list
           end
         end
 
@@ -86,6 +86,12 @@ module FieldStruct
         end
 
         private
+
+        # Keyed by class, then serialization, so a lookup builds no key Array.
+        def fresh_props(klass, serialization)
+          cached = @props[klass]&.[](serialization)
+          cached if cached&.stamp&.fresh?
+        end
 
         # @param key [::Array]
         # @param entry [Entry]

@@ -1,0 +1,12 @@
+inherit_from: ../../.rubocop.yml
+
+# The shared Exclude globs are relative to the repo root, so repeat them for this directory.
+Metrics/BlockLength:
+  Exclude:
+    - 'spec/**/*'
+    - '*.gemspec'
+    - 'Rakefile'
+
+# DocCheck.check takes one keyword per input of a run (SH-B71); keywords name themselves, so they don't count.
+Metrics/ParameterLists:
+  CountKeywordArgs: false

@@ -55,7 +55,7 @@ rescue Actionable::DefinitionError => e
 end
 ```
 
-So a typo in a code turns into a loud error on the first run, and not into a result nobody handles.
+So a typo in a code turns into a loud error the first time that branch runs, and not into a result nobody handles.
 
 ## 3. Read the code
 

@@ -10,13 +10,15 @@ Run each of these from `site/`:
 
 ```
 npm ci                    # install, from the lockfile
-npm run dev               # dev server at http://localhost:4321/gems/
+npm run dev               # dev server at http://localhost:4321/
 npm run build             # static site into dist/
 npm run preview           # serve dist/
 bundle install            # once, for the code checker
 bin/check-code-blocks     # run every `ruby run` fence (also: npm run check:code)
 bin/check-links           # after a build: every internal link in src/content resolves to a built page (also: npm run check:links)
 bin/brand-marks           # redraw the placeholder marks (needs npm ci first)
+npm run hero              # regenerate the home page animation from src/hero/storyboard.md
+npm run check:hero        # the generator's specs, then: is every shown value asserted, are src/generated/ files current
 ```
 
 The site counts as done when `npm run build`, `bin/check-code-blocks` (both Gemfile lanes) and `bin/check-links` all exit 0.
@@ -41,6 +43,24 @@ A page's runnable blocks go through one fresh Ruby process in order, sharing cla
 - `src/styles/theme.css` - palette, fonts and the small components.
 - `ec.config.mjs` - the code themes and the plugin that marks `# =>` results.
 - `src/assets/brand/`, `public/brand/` - the Gliders marks (a rising coil for Gliders, top-view spirals with FS and Ac for the gems), drawn by `bin/brand-marks`. Run it again after changing a constant.
+
+## The home page animation
+
+The figure beside the hero copy is generated from `src/hero/storyboard.md`. Its front matter is the timeline (beats, captions, which call each beat plays, the marks on the code), and its `ruby run` fences are the code the figure shows, checked by `bin/check-code-blocks` like any page. `bin/hero` refuses to render a value that isn't one of those asserted `# =>` lines.
+
+```
+bin/hero build                           # write src/generated/hero.html and hero.css (commit both)
+bin/hero check                           # fail on an unbacked claim, stale generated files or stale README GIFs
+bin/hero readme                          # the README's GIFs in public/hero/ and their stamp (commit all three)
+bin/hero pdf out.pdf --pages pngs/       # the storyboard as a PDF, and each page as a PNG
+bin/hero gif out.gif --theme light       # one round as a GIF (dark by default)
+bin/hero video out.mp4                   # one round as a 4:5 MP4 for sharing, 1080 x 1350
+npm run test:hero-browser                # build, then the stepper's behaviour in headless Chromium
+```
+
+`readme`, `pdf`, `gif` and `video` need a headless Chromium once: `npx playwright install --only-shell chromium`. It lands in Playwright's own cache, outside the repo; `npx playwright uninstall` removes it. `video` also needs ffmpeg on the PATH, or `FFMPEG=/path/to/ffmpeg`. The PDF, GIFs and video are frame-exact: each step change pauses the CSS transitions and moves them to the frame's time, so a slow machine makes the same file.
+
+Each beat is one step of a stepper. The figure is static HTML that renders as its last step, the finished picture, and `src/components/Hero.astro` adds the controls (previous, the numbered steps, next, play/pause) and autoplay. Autoplay runs while the figure is mostly in view and the tab is visible, holds the last step for 6 s, plays three rounds and rests on the last step. Once the reader picks a step it stops for good; the play button restarts it. With reduced motion asked for there is no autoplay and no play button, but the steps still work; with scripts off the reader gets the finished picture and no controls.
 
 ## Agent outputs
 

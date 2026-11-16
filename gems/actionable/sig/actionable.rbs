@@ -24,6 +24,19 @@ module Actionable
   # _@return_ — whether the first-run verb-position check is on (default true)
   def self.verb_position_check?: () -> bool
 
+  # Accepts a step option key an adapter or app reads from +step.options+; any other unknown key fails at
+  # declaration. Register before the actions that use it are declared.
+  # 
+  # _@param_ `name`
+  # 
+  # _@param_ `owner` — the gem or app that reads the key, named in messages
+  # 
+  # _@return_ — the name
+  def self.register_step_option: ((Symbol | String) name, owner: String) -> Symbol
+
+  # _@return_ — the registered step option keys and their owners (core keys not included), frozen
+  def self.registered_step_options: () -> ::Hash[Symbol, String]
+
   # Marks every remembered required-method list stale.
   # 
   # _@return_ — the new token
@@ -43,7 +56,7 @@ module Actionable
     # 
     # _@param_ `permanent` — failure codes to discard instead of retry
     # 
-    # _@param_ `honor_retry` — let a +retry+ metadata key decide on its own
+    # _@param_ `honor_retry` — let a +retry+ metadata key decide on its own (the default)
     # 
     # _@return_ — +:ack+, +:discard+ or +:retry+
     def self.disposition: (Actionable::Result result, ?permanent: ::Array[Symbol], ?honor_retry: bool) -> Symbol
@@ -64,12 +77,12 @@ module Actionable
       attr_reader actionable_result: Actionable::Result?
     end
 
-    # Class macro on Action: opt in to retry metadata deciding a job's disposition.
+    # Class macro on Action: whether +retry+ metadata decides a job's disposition (on by default).
     module RetryMacro
       # _@param_ `enabled`
       def honor_retry_metadata: (?enabled: bool) -> bool
 
-      # _@return_ — set here, else the nearest ancestor's, else +false+
+      # _@return_ — set here, else the nearest ancestor's, else +true+
       def honor_retry_metadata?: () -> bool
     end
 
@@ -568,6 +581,85 @@ module Actionable
 
   # The private verbs an action's steps use to record an outcome. Plain verbs record and continue; bang verbs halt.
   module Verbs
+    # Records a Success and continues.
+    # 
+    # _@param_ `message`
+    # 
+    # _@param_ `output` — the success output's fields
+    # 
+    # _@return_ — always true
+    private def succeed: (?String? message, **Object output) -> bool
+
+    # Records a Success and halts.
+    # 
+    # _@param_ `message`
+    # 
+    # _@param_ `output` — the success output's fields
+    private def succeed!: (?String? message, **Object output) -> void
+
+    # Records a Failure (keywords are errors) and continues. +output:+ is the failure's output when its code
+    # declares an output schema, or under typed outcomes (AC-B#outputkw); otherwise it is an error key.
+    # 
+    # _@param_ `code`
+    # 
+    # _@param_ `message`
+    # 
+    # _@param_ `errors` — messages by field
+    # 
+    # _@return_ — always false
+    private def fail: ((Symbol | String) code, ?String? message, **Object errors) -> bool
+
+    # Records a Failure and halts.
+    # 
+    # _@param_ `code`
+    # 
+    # _@param_ `message`
+    # 
+    # _@param_ `errors` — messages by field
+    private def fail!: ((Symbol | String) code, ?String? message, **Object errors) -> void
+
+    # Records a Failure that absorbs +source.errors+ and continues.
+    # 
+    # _@param_ `source` — a FieldStruct, a result, or anything whose +errors+ answers +to_h+
+    # 
+    # _@param_ `code`
+    # 
+    # _@param_ `message`
+    # 
+    # _@param_ `output` — the failure's output, when its code declares a schema or under typed outcomes
+    # 
+    # _@return_ — always false
+    private def fail_with: (Object source, ?code: (Symbol | String), ?message: String?, ?output: Object?) -> bool
+
+    # Records a Failure from +source+ and halts.
+    # 
+    # _@param_ `source` — as for {#fail_with}
+    # 
+    # _@param_ `options` — +code:+, +message:+ and +output:+, as for {#fail_with}
+    private def fail_with!: (Object source, **Object options) -> void
+
+    # Records a Skipped and continues.
+    # 
+    # _@param_ `code`
+    # 
+    # _@param_ `message`
+    # 
+    # _@param_ `output` — the skip output's fields
+    # 
+    # _@return_ — always false
+    private def skip: (?(Symbol | String) code, ?String? message, **Object output) -> bool
+
+    # Records a Skipped and halts.
+    # 
+    # _@param_ `code`
+    # 
+    # _@param_ `message`
+    # 
+    # _@param_ `output` — the skip output's fields
+    private def skip!: (?(Symbol | String) code, ?String? message, **Object output) -> void
+
+    # Stops the main steps without recording anything.
+    private def halt!: () -> void
   end
 
   # Subclass to declare steps, then call +.run+. Instances live for exactly one run.
@@ -699,6 +791,19 @@ module Actionable
     # A Hash summary of the action: schemas, steps, declarations, hooks, measure mode.
     def self.describe: () -> ::Hash[Symbol, Object]
 
+    # Describes the action in prose for people (the docs adapter, {#describe}); a run never reads it. Given once per
+    # class and not inherited. With no argument it reads.
+    # 
+    # _@param_ `text`
+    # 
+    # _@return_ — the description, or nil when none was given
+    def self.desc: (?String? text) -> String?
+
+    # The same macro as {#desc}.
+    # 
+    # _@param_ `text`
+    def self.description: (?String? text) -> String?
+
     # A multi-line, human-readable summary (no trailing newline).
     def self.describe_text: () -> String
 
@@ -708,10 +813,17 @@ module Actionable
     # 
     # _@param_ `message` — used when a failure with this code is recorded without a message
     # 
+    # _@param_ `desc` — prose for people (+describe+, the docs adapter); never part of the metadata
+    # 
     # _@param_ `metadata` — opaque; attached to results and shown in +describe+
     # 
     # _@return_ — {#declared_failures}
-    def self.fails: ((Symbol | String) code, ?String? message, **Object metadata) -> ::Hash[Symbol, ::Hash[Symbol, Object]]
+    def self.fails: (
+                      (Symbol | String) code,
+                      ?String? message,
+                      ?desc: String?,
+                      **Object metadata
+                    ) -> ::Hash[Symbol, ::Hash[Symbol, Object]]
 
     # Declares a skip code, like {#fails}.
     # 
@@ -719,10 +831,17 @@ module Actionable
     # 
     # _@param_ `message`
     # 
+    # _@param_ `desc` — prose for people; never part of the metadata
+    # 
     # _@param_ `metadata`
     # 
     # _@return_ — {#declared_skips}
-    def self.skips: ((Symbol | String) code, ?String? message, **Object metadata) -> ::Hash[Symbol, ::Hash[Symbol, Object]]
+    def self.skips: (
+                      (Symbol | String) code,
+                      ?String? message,
+                      ?desc: String?,
+                      **Object metadata
+                    ) -> ::Hash[Symbol, ::Hash[Symbol, Object]]
 
     # _@return_ — +{code => metadata}+ of declared failures
     def self.declared_failures: () -> ::Hash[Symbol, ::Hash[Symbol, Object]]
@@ -730,7 +849,8 @@ module Actionable
     # _@return_ — +{code => metadata}+ of declared skips
     def self.declared_skips: () -> ::Hash[Symbol, ::Hash[Symbol, Object]]
 
-    # _@return_ — +{code => {message:, metadata:}}+, plus +:output_schema+ for a declaration with a block
+    # _@return_ — +{code => {message:, metadata:}}+, plus +:description+ when +desc:+ was
+    # given and +:output_schema+ for a declaration with a block
     def self.failure_declarations: () -> ::Hash[Symbol, ::Hash[Symbol, Object]]
 
     # _@return_ — the same for skips
@@ -795,7 +915,7 @@ module Actionable
     # _@param_ `enabled`
     def self.honor_retry_metadata: (?enabled: bool) -> bool
 
-    # _@return_ — set here, else the nearest ancestor's, else +false+
+    # _@return_ — set here, else the nearest ancestor's, else +true+
     def self.honor_retry_metadata?: () -> bool
 
     # _@return_ — the result recorded so far
@@ -830,11 +950,23 @@ module Actionable
     # _@return_ — true unless this is a failure
     def ok?: () -> bool
 
+    # Freezes the plain data too: errors, output, history, metadata and the structs, Hashes, Arrays and Strings
+    # inside them. A foreign object, such as a record in a +:value+ field, is never frozen. +.run+ calls this
+    # after the last hook; a hand-built result stays unfrozen until you call it.
+    def freeze: () -> self
+
     # _@return_ — +:success+, +:skipped+ or +:failure+
     def status: () -> Symbol
 
-    # _@return_ — code, message, output, history and errors as plain data
+    # The result as a report: status first, then code, message, output, history and errors, as plain data.
     def to_h: () -> ::Hash[Symbol, Object]
+
+    # The JSON-ready form of {#to_h}: the same keys in the same order, with values as FieldStruct's +as_json+
+    # renders them (Symbols as Strings, a struct output as its own +as_json+). A failed or skipped result writes
+    # each live object in its output or metadata as a description such as +"#<Lantern id=4>"+, never its own JSON.
+    # 
+    # _@param_ `_options` — ignored (accepted like FieldStruct::Base#as_json)
+    def as_json: (?Object? _options) -> ::Hash[Symbol, Object?]
 
     # _@param_ `index`
     # 
@@ -846,7 +978,8 @@ module Actionable
     # _@return_ — +#<Class name=value ...>+, sorted by name
     def inspect: () -> String
 
-    # Copies every message of +source.errors+ onto this result, one at a time.
+    # Copies every message of +source.errors+ onto this result. A FieldStruct source stays the origin of those keys,
+    # so +errors.paths+ walks it (FS-B40a).
     # 
     # _@param_ `source` — a FieldStruct or another result (anything whose +errors+ answers +to_h+ works)
     def absorb_errors_from: (::FieldStruct::Base source) -> self
@@ -874,7 +1007,7 @@ module Actionable
   class Failure < Actionable::Result
     def failure?: () -> bool
 
-    # _@return_ — {Result#to_h} plus +metadata+
+    # _@return_ — {Result#to_h} plus +metadata+, live objects described
     def to_h: () -> ::Hash[Symbol, Object]
   end
 
@@ -882,7 +1015,7 @@ module Actionable
   class Skipped < Actionable::Result
     def skipped?: () -> bool
 
-    # _@return_ — {Result#to_h} plus +metadata+
+    # _@return_ — {Result#to_h} plus +metadata+, live objects described
     def to_h: () -> ::Hash[Symbol, Object]
   end
 
@@ -900,6 +1033,9 @@ module Actionable
   # Per-run record of executed steps, produced only when measuring.
   class History
     def initialize: () -> void
+
+    # Freezes the steps and their nested histories too, so a frozen result's history can't change.
+    def freeze: () -> self
 
     # _@param_ `step`
     def <<: (Step step) -> self
@@ -1044,17 +1180,73 @@ module Actionable
   module Declarations
   end
 
+  # Finds the actions an action runs by hand (+Child.run+ inside a method body), for +describe+'s +calls+.
+  # 
+  # Static: it reads the Prism parse VerbPosition caches, starting from the methods the verb check covers and following
+  # bare calls into the class's own methods. Dynamic receivers are out of reach by design.
+  # @api private
+  module HiddenCalls
+    RUNS: ::Array[Symbol]
+
+    # The Action subclasses run by hand, in order of first appearance, without repeats.
+    # 
+    # _@param_ `klass` — an Action subclass
+    def self.of: (Class klass) -> ::Array[Class]
+  end
+
+  # The step option keys a declaration may use: the core ones plus the ones adapters registered (AC-B#stepoptions).
+  # @api private
+  module StepOptions
+    CORE: ::Array[Symbol]
+
+    # Raises when +step+ carries a key nothing reads, or a +desc:+ that is not a String.
+    # 
+    # _@param_ `action` — the declaring action
+    # 
+    # _@param_ `step`
+    # 
+    # _@param_ `registered` — the registered keys
+    # 
+    # _@param_ `label` — the step's label in messages
+    def self.check!: (
+                       Class action,
+                       Actionable::Steps::Base step,
+                       ::Hash[Symbol, String] registered,
+                       String label
+                     ) -> void
+
+    # _@param_ `action`
+    # 
+    # _@param_ `step`
+    # 
+    # _@param_ `label`
+    def self.check_desc!: (Class action, Actionable::Steps::Base step, String label) -> void
+  end
+
   # Class-level +describe+ and +describe_text+.
   module Introspection
     # A Hash summary of the action: schemas, steps, declarations, hooks, measure mode.
     def describe: () -> ::Hash[Symbol, Object]
+
+    # Describes the action in prose for people (the docs adapter, {#describe}); a run never reads it. Given once per
+    # class and not inherited. With no argument it reads.
+    # 
+    # _@param_ `text`
+    # 
+    # _@return_ — the description, or nil when none was given
+    def desc: (?String? text) -> String?
+
+    # The same macro as {#desc}.
+    # 
+    # _@param_ `text`
+    def description: (?String? text) -> String?
 
     # A multi-line, human-readable summary (no trailing newline).
     def describe_text: () -> String
   end
 
   # A no-op Railtie so Rails knows the gem; it configures nothing.
-  class Railtie < ::Rails::Railtie
+  class Railtie
   end
 
   # Class-level +input+, +input_for+ and +output+ declarations and their readers.
@@ -1114,6 +1306,21 @@ module Actionable
     # 
     # _@return_ — +[method name, file, offense]+ triples, in declaration order
     def self.check: (Class klass) -> ::Array[[Symbol, String, Offense]]
+
+    # Names of the methods the check covers: method steps, case-step branch targets and hooks.
+    # 
+    # _@param_ `klass` — an Action subclass
+    def self.checked_method_names: (Class klass) -> ::Array[Symbol]
+
+    # The parsed +def+ of an instance method, from the per-file cache.
+    # 
+    # _@param_ `klass`
+    # 
+    # _@param_ `name`
+    # 
+    # _@return_ — the node and its file; nil when there is no Ruby source or it
+    # does not parse cleanly
+    def self.def_node: (Class klass, Symbol name) -> [::Prism::DefNode, String]?
 
     # The error message for a class's offenses.
     # 
@@ -1480,14 +1687,7 @@ module Actionable
   end
 
   # The RuboCop plugin (RuboCop 1.72 and newer, through +lint_roller+): points RuboCop at the shipped cop config.
-  class RubocopPlugin < LintRoller::Plugin
-    def about: () -> ::LintRoller::About
-
-    # _@param_ `context`
-    def supported?: (::LintRoller::Context context) -> bool
-
-    # _@param_ `_context`
-    def rules: (::LintRoller::Context _context) -> ::LintRoller::Rules
+  class RubocopPlugin
   end
 
   # Builds the anonymous FieldStruct classes behind +input+ and +output+ blocks.
@@ -1553,10 +1753,17 @@ module Actionable
     # 
     # _@param_ `message` — used when a failure with this code is recorded without a message
     # 
+    # _@param_ `desc` — prose for people (+describe+, the docs adapter); never part of the metadata
+    # 
     # _@param_ `metadata` — opaque; attached to results and shown in +describe+
     # 
     # _@return_ — {#declared_failures}
-    def fails: ((Symbol | String) code, ?String? message, **Object metadata) -> ::Hash[Symbol, ::Hash[Symbol, Object]]
+    def fails: (
+                 (Symbol | String) code,
+                 ?String? message,
+                 ?desc: String?,
+                 **Object metadata
+               ) -> ::Hash[Symbol, ::Hash[Symbol, Object]]
 
     # Declares a skip code, like {#fails}.
     # 
@@ -1564,10 +1771,17 @@ module Actionable
     # 
     # _@param_ `message`
     # 
+    # _@param_ `desc` — prose for people; never part of the metadata
+    # 
     # _@param_ `metadata`
     # 
     # _@return_ — {#declared_skips}
-    def skips: ((Symbol | String) code, ?String? message, **Object metadata) -> ::Hash[Symbol, ::Hash[Symbol, Object]]
+    def skips: (
+                 (Symbol | String) code,
+                 ?String? message,
+                 ?desc: String?,
+                 **Object metadata
+               ) -> ::Hash[Symbol, ::Hash[Symbol, Object]]
 
     # _@return_ — +{code => metadata}+ of declared failures
     def declared_failures: () -> ::Hash[Symbol, ::Hash[Symbol, Object]]
@@ -1575,7 +1789,8 @@ module Actionable
     # _@return_ — +{code => metadata}+ of declared skips
     def declared_skips: () -> ::Hash[Symbol, ::Hash[Symbol, Object]]
 
-    # _@return_ — +{code => {message:, metadata:}}+, plus +:output_schema+ for a declaration with a block
+    # _@return_ — +{code => {message:, metadata:}}+, plus +:description+ when +desc:+ was
+    # given and +:output_schema+ for a declaration with a block
     def failure_declarations: () -> ::Hash[Symbol, ::Hash[Symbol, Object]]
 
     # _@return_ — the same for skips
@@ -1604,11 +1819,6 @@ module Actionable
 
   # ActiveModel validation rules over another object: subclass, declare +validates+, build with +Rules.new(delegate)+.
   class ProxyValidator
-    include ActiveModel::Validations
-
-    # _@return_ — built from the class name, +ProxyValidator+ for an anonymous class
-    def self.model_name: () -> ::ActiveModel::Name
-
     # _@param_ `delegate`
     def initialize: (Object delegate) -> void
 
@@ -1652,7 +1862,7 @@ module RuboCop
       #     fail!(:declined) if card.declined?
       #     capture
       #   end
-      class VerbNotLast < Base
+      class VerbNotLast
         MSG: String
         DEFAULT_BASES: ::Array[String]
 

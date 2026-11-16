@@ -14,7 +14,7 @@ RSpec.describe 'Action introspection' do
 
   describe '.describe' do
     it 'AC-B#describe: has exactly the documented keys' do
-      expect(probe.describe.keys).to eq(%i[name input output steps failures skips hooks measure transactional])
+      expect(probe.describe.keys).to eq(%i[name description input output steps failures skips hooks measure transactional calls])
     end
 
     it 'AC-B#describe: free-form action with one step' do
@@ -22,7 +22,8 @@ RSpec.describe 'Action introspection' do
       expect(description[:name]).to eq('Probe')
       expect(description[:input]).to be_nil
       expect(description[:output]).to eq(probe.output_schema.metadata.to_h)
-      expect(description[:steps]).to eq([{ type: :method, name: :compute, options: {} }])
+      expect(description[:description]).to be_nil
+      expect(description[:steps]).to eq([{ type: :method, name: :compute, options: {}, description: nil }])
       expect(description[:failures]).to eq({})
       expect(description[:skips]).to eq({})
       expect(description[:hooks]).to eq(on_success: [], on_failure: [], on_skip: [], always: [])
@@ -47,11 +48,16 @@ RSpec.describe 'Action introspection' do
         always child
       end
       expect(action.describe[:steps]).to eq([
-                                              { type: :method, name: :a, options: { if: :sail } },
-                                              { type: :action, name: child, options: { input: %i[x] } },
-                                              { type: :case, name: :kind, options: {} }
+                                              { type: :method, name: :a, options: { if: :sail }, description: nil,
+                                                guard: { if: 'sail' } },
+                                              { type: :action, name: child, options: { input: %i[x] }, description: nil },
+                                              { type: :case, name: :kind, options: {}, description: nil,
+                                                branches: [{ on: 'a', step: { type: :method, name: :b, options: {}, description: nil } }],
+                                                default: nil }
                                             ])
-      expect(action.describe[:hooks]).to eq(on_success: [:s], on_failure: [:f], on_skip: [:k], always: [child])
+      entry = ->(type, name) { { type: type, name: name, options: {}, description: nil } }
+      expect(action.describe[:hooks]).to eq(on_success: [entry.call(:method, :s)], on_failure: [entry.call(:method, :f)],
+                                            on_skip: [entry.call(:method, :k)], always: [entry.call(:action, child)])
     end
 
     it 'AC-B#describe: a dispatched input reports the discriminator and the match values' do

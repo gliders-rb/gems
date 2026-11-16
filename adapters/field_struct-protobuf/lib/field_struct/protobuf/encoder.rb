@@ -26,6 +26,7 @@ module FieldStruct
       def node_value(node, value, key)
         case node
         when Introspection::ArrayNode then value.map { |item| element(node.element, item, key) }
+        when Introspection::MapNode then value.to_h { |name, item| [name.to_s, entry_value(node.element, item, key)] }
         when Introspection::StructNode then call(value)
         else scalar(node.type, value, key)
         end
@@ -33,6 +34,12 @@ module FieldStruct
 
       def element(node, item, key)
         raise ::ArgumentError, "#{key}: protobuf repeated fields can't hold nil" if item.nil?
+
+        node_value(node, item, key)
+      end
+
+      def entry_value(node, item, key)
+        raise ::ArgumentError, "#{key}: protobuf map values can't be nil" if item.nil?
 
         node_value(node, item, key)
       end

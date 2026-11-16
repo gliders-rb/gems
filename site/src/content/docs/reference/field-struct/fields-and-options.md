@@ -7,7 +7,7 @@ sidebar:
 
 A field is a name, a type and some options. Declare it in the class body with `required`, `optional` or `field`, and the gem adds a reader and a writer. Declarations are checked as the class body runs, so a mistake raises when the class loads, not the first time somebody uses it.
 
-Rules: FS-B1 to FS-B17, FS-I14, FS-I17, FS-I19. Types live on [Types](/reference/field-struct/types/). Every error message a declaration can raise is gathered at the bottom of this page.
+Types live on [Types](/reference/field-struct/types/). Every error message a declaration can raise is gathered at the bottom of this page.
 
 ## required, optional and field
 
@@ -66,6 +66,7 @@ Every type accepts these. They live on the field itself and are never passed to 
 | Option | Values | Notes |
 |---|---|---|
 | `required:` | `true` or `false` | `required` and `optional` force it |
+| `nullable:` | `true` or `false` only, on a required field | the key must be given, and `nil` is a valid answer. On an optional field it raises |
 | `default:` | a literal, or anything that responds to `call` | `nil` means no default. A callable runs once for each instance, at construction, and its result passes through the setter like any other value |
 | `coercion_policy:` | `:keep_raw`, `:replace`, `:raise` | overrides the class policy for this field. See [Validation and errors](/reference/field-struct/validation-and-errors/) |
 | `description:` or `desc:` | String | aliases of each other. Passing both raises |
@@ -100,6 +101,19 @@ Planting.new(stage: nil).valid?           # => false
 Planting.new(stage: nil).errors[:stage]   # => ["is required"]
 ```
 
+A nullable field is required in a different sense: the caller has to send the key, and `nil` counts as an answer. Leave the key out and it's `"is required"`, unless a default fills it. Only `nil` is the null answer, so a blank String is still missing.
+
+```ruby run
+class Frost < FieldStruct::Base
+  required :bed, :string
+  required :last_frost_on, :date, nullable: true
+end
+
+Frost.new(bed: 'north', last_frost_on: nil).valid?      # => true
+Frost.new(bed: 'north').errors[:last_frost_on]           # => ["is required"]
+Frost.metadata[:last_frost_on].nullable?                 # => true
+```
+
 `Field#default` gives back the declared default as written and never calls a callable. Since `nil` means "no default", a default of `false`, `0`, `''` or `[]` still counts as one, and `default: nil` equals leaving the option out.
 
 ## Options that belong to a type
@@ -108,7 +122,7 @@ Each type declares the options it understands, like `format:` and `enum:` on str
 
 - the value has to be the shape the type expects, and `nil` is always allowed
 - an option declared by some other registered type raises, and the message names the types it applies to
-- an option the type itself requires (`of:` on `:array` and `:union`) has to be there
+- an option the type itself requires (`of:` on `:array`, `:hash` and `:union`) has to be there
 
 ```ruby run
 begin
@@ -126,23 +140,31 @@ end
 
 The "applies to" list is built from the class's registry chain. A custom type that declares a new option therefore reserves that key against every other type in the chain.
 
-## Pass-through options
+## Registered options
 
-Any key that is neither universal nor declared by a registered type is a pass-through option. It sits in `Field#options` exactly as written and does nothing at runtime. Exporters such as the adapter gems read these keys, which lets `avro_doc:` or `json_schema:` sit right beside the field it describes.
+A key that is neither universal nor declared by a registered type raises, so a typo fails at load. When something close exists, the message suggests it: `unknown option requird: on Hedge#metres (did you mean required:?)`.
+
+An exporter or app that reads a key of its own registers it once with `FieldStruct.register_option(name, type:, owner:)`. From then on any field can carry it. The value has to be an instance of `type:` (a class or an Array of classes, and `nil` always passes), and it sits in `Field#options` exactly as written and does nothing at runtime. The adapter gems register what they read when you require them: `avro:` and `proto:` take a Hash, `json_schema:` a Hash, `true` or `false`.
 
 ```ruby run
+FieldStruct.register_option(:hedge_doc, type: String, owner: 'hedge_docs')
+
 class Hedge < FieldStruct::Base
-  optional :metres, :integer, avro_doc: 'length in metres', json_schema: {minimum: 1}
+  optional :metres, :integer, hedge_doc: 'length in metres'
 end
 
-Hedge.metadata[:metres].options[:avro_doc]       # => "length in metres"
-Hedge.metadata[:metres].options[:json_schema]    # => {minimum: 1}
+Hedge.metadata[:metres].options[:hedge_doc]      # => "length in metres"
 Hedge.new(metres: '12').metres                   # => 12
+FieldStruct.registered_options[:hedge_doc].type  # => [String]
 ```
 
-Pass-through keys belong to the field level only. Inside an array's `element:` they raise, the same as any key the element type does not know.
+Registering a name again with the same `type:` and `owner:` does nothing, so an adapter can call it on every load. A different `type:` or `owner:` raises, and so does a universal key or one a built-in type declares (`round:`, `format:`, ...). `owner:` is a non-empty String, named in the errors.
 
-The `options` Hash is frozen and holds native and pass-through options only, with presets already turned into concrete values: `values: :numeric` on a boolean is stored as its Hash, `format: :v4` on a UUID as its Regexp. Two entries stay as declared, a temporal `format:` (so tooling can read the preset name) and `zone:`. On an array field `of:` is swapped for `of_type:`, placed first. A string-shaped type without `format:` gets its default format added at the end (`:uuid`, `:url`, `:email`), and a temporal type stores `format: nil` if you declare none. That prefilled `format:` is the one option the gem supplies for you.
+Using a first-party adapter's key before requiring the adapter says so: `unknown option proto: on Hedge#metres; proto: is registered by field_struct-protobuf, so require 'field_struct/protobuf' before declaring the field`.
+
+Registered keys belong to the field level only. Inside an array's `element:` they raise, the same as any key the element type does not know.
+
+The `options` Hash is frozen and holds native and registered options only, with presets already turned into concrete values: `values: :numeric` on a boolean is stored as its Hash, `format: :v4` on a UUID as its Regexp. Two entries stay as declared, a temporal `format:` (so tooling can read the preset name) and `zone:`. On an array or map field `of:` is swapped for `of_type:`, placed first. A string-shaped type without `format:` gets its default format added at the end (`:uuid`, `:url`, `:email`), and a temporal type stores `format: nil` if you declare none. That prefilled `format:` is the one option the gem supplies for you.
 
 ## Reserved names
 
@@ -152,7 +174,7 @@ A field may not use a name that `FieldStruct::Base` depends on. The check covers
 errors attributes attribute_names assign_attributes as_json to_json to_h
 to_model model_name inspect hash class send public_send freeze
 instance_variable_set initialize initialize_copy raise with dup
-deconstruct deconstruct_keys
+deconstruct deconstruct_keys given_fields
 ```
 
 The gem's private helpers are reserved as well, while `method`, `name`, `type` and `format` are fine. The complete list is `FieldStruct::Base::RESERVED_FIELD_NAMES`.
@@ -184,13 +206,13 @@ The `type` argument can be:
 - a registered name whose value is a `Base` subclass, which also makes a nested field
 - a type class that is not a `Base` subclass, used as is with no registration
 
-`:decimal` and `:big_decimal` resolve to one class. An unknown name raises `KeyError` at declaration, and so does an unknown name in `of:` or among union members.
+`:decimal` and `:big_decimal` resolve to one class. An unknown name raises `KeyError` at declaration, and so does an unknown name in `of:` or among union members. When a registered name is close, the message suggests it.
 
 ```ruby run
 begin
   Class.new(FieldStruct::Base) { required :species, :strng }
 rescue KeyError => e
-  e.message   # => "no FieldStruct type registered for :strng"
+  e.message   # => "no FieldStruct type registered for :strng (did you mean :string?)"
 end
 
 FieldStruct.types.lookup(:decimal).equal?(FieldStruct.types.lookup(:big_decimal))   # => true
@@ -227,15 +249,19 @@ All of these raise while the class body runs, as `ArgumentError` unless marked o
 
 | Situation | Message |
 |---|---|
-| unknown type name | `KeyError`: `no FieldStruct type registered for :tuber` |
+| unknown type name | `KeyError`: `no FieldStruct type registered for :tuber`, ending ` (did you mean :string?)` when a registered name is close |
+| a class that isn't a type, like `String` for `:string` | `String is not a FieldStruct type (subclass FieldStruct::Types::Base); did you mean :string?` (the suggestion only when a registered type has that class name) |
 | reserved name | `field :errors is reserved: ...` |
 | `description:` and `desc:` both given | `pass either description: or desc:, not both` |
 | bad field `coercion_policy:` | `unknown coercion policy :bad (expected one of [:keep_raw, :replace, :raise])` |
 | `rbs_type:` blank or not a String | `rbs_type: must be a non-empty String of RBS ...` |
 | `sensitive:` not true or false | `sensitive: must be true or false, got Integer` |
+| unknown option key | `unknown option requird: on Hedge#metres (did you mean required:?)`; `field :metres` for an anonymous class |
+| a first-party adapter's key before the adapter loads | `unknown option proto: on Hedge#metres; proto: is registered by field_struct-protobuf, so require 'field_struct/protobuf' before declaring the field` |
 | option on the wrong type | `round: option does not apply to Integer fields. It applies to: Float, BigDecimal.` |
-| option of the wrong shape | `round: on Float expects Integer, got String ("2")` |
+| option of the wrong shape, native or registered | `round: on Float expects Integer, got String ("2")` |
 | `:array` without `of:` | ``array field requires an `of:` option naming the element type`` |
+| `:hash` without `of:` | ``hash field requires an `of:` option naming the value type`` |
 | `:union` without `of:` | ``union field requires an `of: [...]` option naming the member types`` |
 
 The messages for presets, zones and `element:` are on [Types](/reference/field-struct/types/) and [Dates, times and zones](/reference/field-struct/dates-and-times/).

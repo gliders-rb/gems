@@ -5,7 +5,7 @@ sidebar:
   order: 10
 ---
 
-Testing takes two requires. `actionable/rspec` brings the matcher and the stub helpers, and `actionable/rspec/coverage` keeps track of which declared outcomes your suite reached. The core loads neither (AC §5.18, §5.19).
+Testing takes two requires. `actionable/rspec` brings the matcher and the stub helpers, and `actionable/rspec/coverage` keeps track of which declared outcomes your suite reached. The core loads neither.
 
 ```ruby
 require 'actionable/rspec'
@@ -133,7 +133,7 @@ end
 
 Where the action declares failures, a stubbed failure takes the declared metadata, and the declared message when you pass none. Metadata you pass explicitly beats the declared one. A code the action didn't declare raises the same `ArgumentError` as the matcher, with gem codes allowed. Skips work the same way, except the default `:skipped` gets no exemption: `allow_actionable_skip(action)` raises unless the action declares `:skipped` or declares no skips at all.
 
-What the stub returns as output depends on the action. Without typed outcomes you get exactly what you passed, so a Hash stays a Hash: `result.output[:id]` works and `result.id` doesn't. With typed outcomes, and for any code that has an output schema, the output goes through the schema the way a real run would shape it. Output that breaks the schema raises `ArgumentError`, saying a real run would end as `invalid_output`, and so does output for a code with no schema. When a parent's action step absorbs a stubbed child, only the fields you gave the stub come through (AC-B#stubshape, AC-B#stubparent).
+What the stub returns as output depends on the action. Without typed outcomes you get exactly what you passed, so a Hash stays a Hash: `result.output[:id]` works and `result.id` doesn't. With typed outcomes, and for any code that has an output schema, the output goes through the schema the way a real run would shape it. Output that breaks the schema raises `ArgumentError`, saying a real run would end as `invalid_output`, and so does output for a code with no schema. When a parent's action step absorbs a stubbed child, only the fields you gave the stub come through.
 
 ## Outcome coverage
 

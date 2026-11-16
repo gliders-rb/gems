@@ -18,7 +18,7 @@ RSpec.describe 'string-family types' do
     it 'has the preset table, default and schema' do
       expect(described_class.presets.keys).to eq(%i[any_version v4 v7])
       expect(described_class.default_format).to equal(described_class.presets[:any_version])
-      expect(described_class.option_schema.keys).to eq(%i[format enum strict])
+      expect(described_class.option_schema.keys).to eq(%i[format enum strict length])
       expect(described_class.option_schema[:format][:presets]).to eq(%i[any_version v4 v7])
       expect(described_class.presets[:v7]).to match('018f0000-0000-7000-8000-000000000000')
       expect(described_class.presets[:v4]).not_to match('018f0000-0000-7000-8000-000000000000')
@@ -70,7 +70,7 @@ RSpec.describe 'string-family types' do
     end
 
     it 'declares the string schema, no default_format, ruby_type String' do
-      expect(described_class.option_schema.keys).to eq(%i[format enum strict])
+      expect(described_class.option_schema.keys).to eq(%i[format enum strict length])
       expect(described_class).not_to respond_to(:default_format)
       expect(type.ruby_type).to eq(String)
       expect { type.coerce(1.5, strict: true) }.to raise_error(TypeError)
@@ -79,7 +79,7 @@ RSpec.describe 'string-family types' do
 
   it 'FS-B124: registers them under their names, in table order' do
     names = FieldStruct.types.type_classes.map(&:short_name)
-    expect(names).to eq(%w[String ImmutableString Integer Float BigDecimal Boolean Date Time DateTime Value Array Symbol UUID URL Email
+    expect(names).to eq(%w[String ImmutableString Integer Float BigDecimal Boolean Date Time DateTime Value Array Hash Symbol UUID URL Email
                            Union Binary])
   end
 

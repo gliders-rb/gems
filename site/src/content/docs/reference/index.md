@@ -1,6 +1,6 @@
 ---
 title: "Reference"
-description: "Exact behaviour of every field_struct and actionable macro, method, option and error, checked against the released versions."
+description: "Exact behaviour of every field_struct and actionable macro, method, option and error, checked against the 1.0.0.pre1 and 2.0.0.pre1 code in this repository."
 sidebar:
   label: "Overview"
   order: 1
@@ -54,4 +54,4 @@ Service objects with declared inputs, steps and outcomes.
 
 ## Outside this section
 
-Both gems keep a short README in the repository that links back here: [field_struct](https://github.com/gliders-rb/gems/tree/main/gems/field_struct) and [actionable](https://github.com/gliders-rb/gems/tree/main/gems/actionable). The optional format adapters have their own pages under [Adapters](/adapters/), and they are not released yet.
+Both gems keep a short README in the repository that links back here: [field_struct](https://github.com/gliders-rb/gems/tree/main/gems/field_struct) and [actionable](https://github.com/gliders-rb/gems/tree/main/gems/actionable). The optional format adapters have their own pages under [Adapters](/adapters/), and each is a prerelease too.

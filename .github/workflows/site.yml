@@ -9,13 +9,19 @@ on:
       - 'site/**'
       - 'gems/**'
       - 'adapters/**'
+      - 'README.md'
+      - 'public/README.md'
       - '.github/workflows/site.yml'
+      - 'tools/doctest/**'
   pull_request:
     paths:
       - 'site/**'
       - 'gems/**'
       - 'adapters/**'
+      - 'README.md'
+      - 'public/README.md'
       - '.github/workflows/site.yml'
+      - 'tools/doctest/**'
   workflow_dispatch:
 
 # Pull request code runs here, so the token stays read-only. The deploy job raises it for itself.
@@ -48,9 +54,11 @@ jobs:
           bundler-cache: true
           working-directory: site
       - run: npm ci
+      # The hero's storyboard claims only what its Ruby asserts, and src/generated/ and the README GIFs match it.
+      - run: npm run check:hero
       - run: npm run build
       - name: Check the core code blocks
-        run: bin/check-code-blocks $(find src/content/docs -name '*.md' -o -name '*.mdx' | grep -v '/adapters/' | sort)
+        run: bin/check-code-blocks $(find src/content/docs src/hero -name '*.md' -o -name '*.mdx' | grep -v '/adapters/' | sort)
 
   # Adapter lane: the build, then the adapters/ pages against Gemfile.edge.
   build-adapters:
@@ -77,9 +85,36 @@ jobs:
       - name: Check the adapter code blocks
         run: bin/check-code-blocks $(find src/content/docs/adapters -name '*.md' -o -name '*.mdx' | sort)
 
+  # The hero's printed and recorded forms: the PDF, both GIFs and the 4:5 video, from the same storyboard, uploaded
+  # as an artifact for review. It needs a browser download, so it runs on every change but doesn't gate: the fast
+  # check:hero in the core lane does.
+  hero:
+    name: hero PDF + GIF + video (not gating)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+      - name: Install headless Chromium (the version the pinned Playwright expects) and ffmpeg
+        run: |
+          npx playwright install --with-deps --only-shell chromium
+          sudo apt-get install -y --no-install-recommends ffmpeg
+      - run: mkdir -p dist-hero && npm run hero:pdf && npm run hero:gif && npm run hero:video
+      - name: The stepper in a real browser (autoplay, keys, visibility, reduced motion, scripts off)
+        run: npm run test:hero-browser
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: hero
+          path: site/dist-hero/
+          if-no-files-found: error
+
   # Every internal link in the content resolves to a built page.
   links:
-    name: internal links
+    name: internal links + rule IDs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -91,6 +126,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: bin/check-links
+      - run: bin/check-rule-ids
 
   # Push to main (or a manual run on main), and only once this repo is public: a fresh build, pushed as one commit to
   # gliders-rb/gliders-rb.github.io, which GitHub Pages serves at the org root. SITE_DEPLOY_KEY is a deploy key

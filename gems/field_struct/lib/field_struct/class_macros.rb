@@ -27,6 +27,19 @@ module FieldStruct
       @unknown_attributes = policy
     end
 
+    # Reads or sets which fields +as_json+ and +to_json+ leave out. Inherited like {.coercion_policy}.
+    #
+    # @param policy [Symbol, nil] +:none+ writes every field; +:unset+ leaves out a field that was not given and is
+    #   +nil+ (defaults and a given +nil+ are written); omit to read
+    # @return [Symbol]
+    # @raise [ArgumentError] for any other value
+    def json_omit(policy = nil)
+      return inherited_setting(:@json_omit, :json_omit, :none) if policy.nil?
+
+      check_policy!(policy, Base::VALID_JSON_OMIT_POLICIES, 'json_omit policy')
+      @json_omit = policy
+    end
+
     # Refuses every setter call after construction (+ImmutableError+). One-way; inherited.
     #
     # @return [true]
@@ -39,6 +52,19 @@ module FieldStruct
     # @return [true]
     def frozen!
       @frozen_on_construct = true
+    end
+
+    # Marks the class as a mirror: a field of its type reads any other object into it, one public reader per declared
+    # field. One-way; inherited.
+    #
+    # @return [true]
+    def mirror!
+      @mirror = true
+    end
+
+    # @return [Boolean] whether this class or an ancestor called {.mirror!}
+    def mirror?
+      flagged?(:@mirror, :mirror?)
     end
 
     # @return [Boolean] whether this class or an ancestor called {.immutable!}
@@ -90,6 +116,16 @@ module FieldStruct
     # @raise [EncodingError] when the JSON is malformed (the message never quotes the input)
     def from_json(json)
       JsonCodec.load(self, json)
+    end
+
+    # A sibling class for update (PATCH) bodies, +<Klass>::Partial+, built on the first call and the same after:
+    # every field optional with no default, the same mappings and policies, and +json_omit :unset+. Cross-field
+    # validators and methods defined on this class (reader overrides too) don't carry over.
+    #
+    # @return [Class] a direct subclass of +FieldStruct::Base+
+    # @raise [ArgumentError] when this class already has its own +Partial+ constant on the first call
+    def partial
+      @partial ||= PartialBuilder.call(self)
     end
 
     # @return [Array<Proc>] the validators, inherited as a copy when the subclass was created

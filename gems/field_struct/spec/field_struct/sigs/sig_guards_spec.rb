@@ -36,6 +36,41 @@ RSpec.describe SigGuards do
     end
   end
 
+  describe '.count_loose' do
+    it 'counts Object and top used as types, outside comments, across files' do
+      Dir.mktmpdir do |dir|
+        a = write(dir, 'a.rbs', <<~RBS)
+          # Object and top in a comment
+          class Kiln < ::Object
+            def fire: (::Object load, ?top: Integer) -> Object
+            def glaze: (Integer top) -> top
+            def stack: () -> ::Array[::Object?]
+          end
+        RBS
+        b = write(dir, 'b.rbs', "  K: BasicObject\n  L: Pottery::Object\n  M: (top | Object)\n")
+        expect(described_class.count_loose(a)).to eq(4)
+        expect(described_class.count_loose([a, b])).to eq(6)
+      end
+    end
+  end
+
+  describe '.loose_failure' do
+    it 'is nil when the count equals the ceiling' do
+      expect(described_class.loose_failure(count: 9, ceiling: 9)).to be_nil
+    end
+
+    it 'names the new ones when above' do
+      message = described_class.loose_failure(count: 11, ceiling: 9)
+      expect(message).to start_with('sig/ has 11 `Object`/`top` types (ceiling 9): 2 new.')
+    end
+
+    it 'asks to lower the ceiling when below' do
+      message = described_class.loose_failure(count: 6, ceiling: 9)
+      expect(message).to start_with('sig/ has 6 `Object`/`top` types (ceiling 9): 3 fewer.')
+      expect(message).to include('support/loose_ceiling.txt to 6')
+    end
+  end
+
   describe '.sord_warnings' do
     let(:log) do
       <<~LOG
@@ -95,6 +130,7 @@ RSpec.describe SigGuards do
     it 'holds an integer ceiling and a sorted, duplicate-free allowlist' do
       root = File.expand_path('../../../support', __dir__)
       expect(File.read(File.join(root, 'untyped_ceiling.txt')).strip).to match(/\A\d+\z/)
+      expect(File.read(File.join(root, 'loose_ceiling.txt')).strip).to match(/\A\d+\z/)
       entries = described_class.parse_allowlist(File.read(File.join(root, 'sord_allowlist.txt')))
       expect(entries).to eq(entries.uniq.sort)
     end

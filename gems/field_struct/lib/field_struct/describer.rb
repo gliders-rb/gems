@@ -16,7 +16,7 @@ module FieldStruct
     end
 
     def flags(field)
-      [('required' if field.required?), ('sensitive' if field.sensitive?)].compact
+      [('required' if field.required?), ('nullable' if field.nullable?), ('sensitive' if field.sensitive?)].compact
     end
 
     def settings(field)
@@ -92,6 +92,7 @@ module FieldStruct
       }
       entry[:rbs_type] = field.rbs_type if field.rbs_type
       entry[:sensitive] = true if field.sensitive?
+      entry[:nullable] = true if field.nullable?
       entry
     end
 
@@ -115,7 +116,8 @@ module FieldStruct
 
     # One +describe+ line (FS-B122).
     def describe_field(field)
-      head = [label(field), field.required? ? 'required' : 'optional', ('sensitive' if field.sensitive?)].compact
+      head = [label(field), field.required? ? 'required' : 'optional', ('nullable' if field.nullable?),
+              ('sensitive' if field.sensitive?)].compact
       segments = ["  #{field.name} (#{head.join(', ')})", field.description&.inspect, declared_text(field),
                   accepts_segment(field), element_segment(field)]
       segments.compact.join(SEPARATOR)
@@ -133,7 +135,11 @@ module FieldStruct
 
     def element_segment(field)
       names = element_names(field)
-      "element accepts #{names.join(', ')}" if field.type_instance.is_a?(Types::Array) && !names.empty?
+      "element accepts #{names.join(', ')}" if composite?(field.type_instance) && !names.empty?
+    end
+
+    def composite?(type)
+      type.is_a?(Types::Array) || type.is_a?(Types::Hash)
     end
 
     def label(field)

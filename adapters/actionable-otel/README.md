@@ -23,8 +23,7 @@ OpenTelemetry::SDK.configure { |c| c.service_name = "apiary" }
 
 ## What a run looks like
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'opentelemetry/sdk'
 require 'actionable/otel'
 
@@ -93,8 +92,7 @@ Spans are emitted whatever the action's `measure` is; sampling is the SDK's job.
 
 Process-wide.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'opentelemetry'
 require 'actionable/otel'
 
@@ -128,3 +126,7 @@ them.
 
 Ruby 3.3+, `actionable-rb` `>= 2.0.0.pre1, < 3` (the gem wraps `Action.run` and the runner's internal `record` seam, so
 a major release may move it), `opentelemetry-api` `~> 1.7`.
+
+## Docs
+
+The guide on the docs site, with every example run in CI: https://gliders-rb.github.io/adapters/opentelemetry/

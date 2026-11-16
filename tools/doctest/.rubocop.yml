@@ -1,0 +1,8 @@
+inherit_from: ../../.rubocop.yml
+
+# The shared Exclude globs are relative to the repo root, so repeat them for this directory.
+Metrics/BlockLength:
+  Exclude:
+    - 'spec/**/*'
+    - '*.gemspec'
+    - 'Rakefile'

@@ -91,5 +91,20 @@ RSpec.describe 'FS-B90 / FS-B91 format: :iso8601 (RFC 3339)' do
       expect(render(:date, '2026-07-03')).to eq('2026-07-03')
       expect(render(:datetime, '2026-07-03T10:30:00-06:00')).to eq('2026-07-03T10:30:00-06:00')
     end
+
+    it 'pads years below 1000 to four digits and keeps the sign inside the width for years before 0' do
+      time = FieldStruct.types.lookup(:time).new
+      date = FieldStruct.types.lookup(:date).new
+      expect(render(:date, '0042-11-08')).to eq('0042-11-08')
+      expect(render(:time, '0007-03-09T04:05:06+01:00')).to eq('0007-03-09T04:05:06+01:00')
+      expect(date.render(Date.new(-12, 4, 1), format: :iso8601)).to eq('-012-04-01')
+      expect(time.render(Time.new(-3, 2, 1, 9, 8, 7, '+00:00'), format: :iso8601)).to eq('-003-02-01T09:08:07Z')
+    end
+
+    it 'drops the seconds of an offset that has them' do
+      time = FieldStruct.types.lookup(:time).new
+      expect(time.render(Time.new(1850, 5, 6, 7, 8, 9, -17_995), format: :iso8601)).to eq('1850-05-06T07:08:09-04:59')
+      expect(time.render(Time.new(1850, 5, 6, 7, 8, 9, 3_725), format: :iso8601)).to eq('1850-05-06T07:08:09+01:02')
+    end
   end
 end

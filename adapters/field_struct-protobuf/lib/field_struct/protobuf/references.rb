@@ -21,7 +21,7 @@ module FieldStruct
       # @param node [FieldStruct::Introspection::ScalarNode, FieldStruct::Introspection::ArrayNode, FieldStruct::Introspection::StructNode]
       # @return [::Class, nil]
       def target(node)
-        node = node.element if node.is_a?(Introspection::ArrayNode)
+        node = node.element if node.is_a?(Introspection::ArrayNode) || node.is_a?(Introspection::MapNode)
         node.klass if node.is_a?(Introspection::StructNode)
       end
     end

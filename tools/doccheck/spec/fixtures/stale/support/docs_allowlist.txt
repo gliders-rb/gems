@@ -1,0 +1,2 @@
+# A method that no longer exists, so the check reports it as stale.
+Apiary::Hive#drone

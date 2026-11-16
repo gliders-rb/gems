@@ -1,0 +1,120 @@
+name: release
+
+# Publishes the pure-Ruby gems to RubyGems through trusted publishing (OIDC): no API key exists anywhere.
+# Run it by hand from the Actions tab. `all` publishes every gem in dependency order, waiting for each layer to show up
+# on RubyGems before the next starts. A gem whose version is already on RubyGems is skipped, so a failed run can be
+# re-run as it is. Each gem's tag (`<gem>/v<version>`, SH-I2) is created and pushed by `rake release`.
+#
+# field_struct-avro-native is not here: its precompiled platform gems come from field_struct-avro-native-release.yml,
+# run after field_struct-avro is published.
+#
+# Each gem's trusted publisher on rubygems.org names this repository, the called workflow release-gem.yml (RubyGems
+# reads the `job_workflow_ref` claim, which names the called file, not this one) and the environment `rubygems`. Add
+# required reviewers to that environment in the repository settings to make every publish wait for a person.
+on:
+  workflow_dispatch:
+    inputs:
+      gem:
+        description: Which gem to publish (all = every gem below, in dependency order)
+        type: choice
+        default: all
+        options:
+          - all
+          - field_struct
+          - actionable-rb
+          - field_struct-json_schema
+          - field_struct-avro
+          - field_struct-protobuf
+          - actionable-docs
+          - actionable-otel
+          - actionable-tools
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  # Splits the chosen gems into dependency layers. Layer 2 needs layer 1 (actionable-rb, and field_struct-json_schema for
+  # actionable-tools); layer 1 needs field_struct.
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    outputs:
+      layer0: ${{ steps.plan.outputs.layer0 }}
+      layer1: ${{ steps.plan.outputs.layer1 }}
+      layer2: ${{ steps.plan.outputs.layer2 }}
+    steps:
+      - id: plan
+        env:
+          CHOSEN: ${{ inputs.gem }}
+        run: |
+          layer() {
+            out='['
+            sep=''
+            for pair in "$@"; do
+              name="${pair%%=*}"
+              if [ "$CHOSEN" = all ] || [ "$CHOSEN" = "$name" ]; then
+                out="$out$sep{\"name\":\"$name\",\"dir\":\"${pair#*=}\"}"
+                sep=','
+              fi
+            done
+            echo "$out]"
+          }
+          {
+            echo "layer0=$(layer field_struct=gems/field_struct)"
+            echo "layer1=$(layer actionable-rb=gems/actionable field_struct-json_schema=adapters/field_struct-json_schema \
+              field_struct-avro=adapters/field_struct-avro field_struct-protobuf=adapters/field_struct-protobuf)"
+            echo "layer2=$(layer actionable-docs=adapters/actionable-docs actionable-otel=adapters/actionable-otel \
+              actionable-tools=adapters/actionable-tools)"
+          } >> "$GITHUB_OUTPUT"
+          cat "$GITHUB_OUTPUT"
+
+  layer0:
+    name: publish ${{ matrix.gem.name }}
+    needs: plan
+    if: needs.plan.outputs.layer0 != '[]'
+    strategy:
+      matrix:
+        gem: ${{ fromJSON(needs.plan.outputs.layer0) }}
+    uses: ./.github/workflows/release-gem.yml
+    with:
+      name: ${{ matrix.gem.name }}
+      dir: ${{ matrix.gem.dir }}
+    permissions:
+      contents: write
+      id-token: write
+
+  layer1:
+    name: publish ${{ matrix.gem.name }}
+    needs: [plan, layer0]
+    if: ${{ !failure() && !cancelled() && needs.plan.outputs.layer1 != '[]' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        gem: ${{ fromJSON(needs.plan.outputs.layer1) }}
+    uses: ./.github/workflows/release-gem.yml
+    with:
+      name: ${{ matrix.gem.name }}
+      dir: ${{ matrix.gem.dir }}
+    permissions:
+      contents: write
+      id-token: write
+
+  layer2:
+    name: publish ${{ matrix.gem.name }}
+    needs: [plan, layer1]
+    if: ${{ !failure() && !cancelled() && needs.plan.outputs.layer2 != '[]' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        gem: ${{ fromJSON(needs.plan.outputs.layer2) }}
+    uses: ./.github/workflows/release-gem.yml
+    with:
+      name: ${{ matrix.gem.name }}
+      dir: ${{ matrix.gem.dir }}
+    permissions:
+      contents: write
+      id-token: write

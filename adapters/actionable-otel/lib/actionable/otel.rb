@@ -66,6 +66,7 @@ module Actionable
       # The tracer of the current provider, cached together with that provider as one frozen pair.
       #
       # @return [Object] an OpenTelemetry tracer
+      # @api private
       def tracer
         provider = OpenTelemetry.tracer_provider
         pair = @tracer_pair
@@ -81,6 +82,7 @@ module Actionable
       # @param action [Class] the action class being run
       # @yieldreturn [Actionable::Result] the result of the run
       # @return [Actionable::Result] the block's result, unchanged
+      # @api private
       def trace_run(action, &block)
         label = label_for(action)
         name = temporary_name?(action) ? "#{label}.run" : run_name(label)
@@ -99,6 +101,7 @@ module Actionable
       # @param step [Object] the step object (`name`, `kind`)
       # @yieldreturn [Object] the step's value
       # @return [Object] the block's value
+      # @api private
       def trace_step(instance, section, step, &block)
         return yield unless step_spans?
 
@@ -114,6 +117,7 @@ module Actionable
       #
       # @param klass [Class]
       # @return [String]
+      # @api private
       def label_for(klass) = klass.name || Actionable::Action.name
 
       private

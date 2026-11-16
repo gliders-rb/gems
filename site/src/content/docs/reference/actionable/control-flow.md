@@ -5,7 +5,7 @@ sidebar:
   order: 2
 ---
 
-Steps close a run by recording an outcome through a verb. A plain verb records and lets the run continue, and a bang verb records and stops the main steps. Stopping is done with a `throw` and never with an exception (AC-I1), while a real exception from a step goes straight through `.run` (AC-I2). The verbs are all private, and `result` and `input` are the public readers.
+Steps close a run by recording an outcome through a verb. A plain verb records and lets the run continue, and a bang verb records and stops the main steps. Stopping is done with a `throw` and never with an exception, while a real exception from a step goes straight through `.run`. The verbs are all private, and `result` and `input` are the public readers.
 
 ## The verbs
 
@@ -18,7 +18,7 @@ Steps close a run by recording an outcome through a verb. A plain verb records a
 | `succeed!`, `fail!`, `skip!`, `fail_with!` | the same, then `halt!` | never returns |
 | `halt!` | nothing | never returns |
 
-Whichever record comes last wins (AC-I4). If nothing was recorded, the run succeeds by itself with code `:success`. Hooks still fire after a halt (see [Hooks and history](/reference/actionable/hooks-and-history/)).
+Whichever record comes last wins. If the steps finish with nothing recorded, the run succeeds by itself with code `:success`. A bare `halt!` with nothing recorded is the exception: it raises (see below). Hooks still fire after a halt (see [Hooks and history](/reference/actionable/hooks-and-history/)).
 
 ```ruby run
 class Refloat < Actionable::Action
@@ -51,7 +51,7 @@ end
 LogCrossing.run.output # => {passengers: 41}
 ```
 
-`skip` accepts a code and defaults to `:skipped`. It isn't a failure, and `ok?` is true for it (AC-I3).
+`skip` accepts a code and defaults to `:skipped`. It isn't a failure, and `ok?` is true for it.
 
 ```ruby run
 class RefuelTender < Actionable::Action
@@ -89,7 +89,7 @@ In an action, `fail` records a failure and is not `Kernel#fail`. To raise an exc
 
 ### Codes
 
-Codes have to be identifiers, matching `/\A[[:alpha:]_][[:alnum:]_]*[?!]?\z/`. Passing a sentence raises `ArgumentError` at the call. `fail 'berth unavailable'` is a `Kernel#fail` habit, and storing it as a code would bury the mistake. A String code is converted to a Symbol (AC §5.2).
+Codes have to be identifiers, matching `/\A[[:alpha:]_][[:alnum:]_]*[?!]?\z/`. Passing a sentence raises `ArgumentError` at the call. `fail 'berth unavailable'` is a `Kernel#fail` habit, and storing it as a code would bury the mistake. A String code is converted to a Symbol.
 
 ```ruby run
 class Phrase < Actionable::Action
@@ -155,9 +155,27 @@ DropAnchor.run.message # => "anchored"
 Actionable::HALT       # => :actionable_halt
 ```
 
+A `halt!` in the steps with nothing recorded raises `Actionable::DefinitionError`, and no hook runs. A halt that means "nothing to do" is a skip, so use `skip!`. In a hook, `halt!` never raises, because by then there is always a result.
+
+```ruby run
+class Becalmed < Actionable::Action
+  step :wait_for_wind
+
+  private
+
+  def wait_for_wind = halt!
+end
+
+begin
+  Becalmed.run
+rescue Actionable::DefinitionError => e
+  e.message # => "Becalmed: halt! with nothing recorded; record an outcome first, or use skip!"
+end
+```
+
 ## Where a plain verb may go
 
-When a plain verb has more code after it in the same method, that code still runs, and nearly always a bang was forgotten. A class's first `.run` reads its step and hook methods with Prism and raises `Actionable::DefinitionError` that names each offense, once per class (AC §5.14). The RuboCop cop `Actionable/VerbNotLast` flags the same things in your editor (see [RuboCop cop](/reference/actionable/rubocop/)).
+When a plain verb has more code after it in the same method, that code still runs, and nearly always a bang was forgotten. A class's first `.run` reads its step and hook methods with Prism and raises `Actionable::DefinitionError` that names each offense, once per class. The RuboCop cop `Actionable/VerbNotLast` flags the same things in your editor (see [RuboCop cop](/reference/actionable/rubocop/)).
 
 A plain verb is fine when it is:
 

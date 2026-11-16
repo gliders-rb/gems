@@ -46,7 +46,7 @@ end
 
 ## 3. Report the errors
 
-A bad value never makes `new` raise. You get an object with `errors`, and the messages never include the input, which makes them safe to log and to send back (FS-I5).
+A bad value never makes `new` raise. You get an object with `errors`, and the messages never include the input, which makes them safe to log and to send back.
 
 ```ruby run
 bad = NewCrossing.new('route' => '', 'departs_on' => '2026-02-30')

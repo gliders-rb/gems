@@ -15,11 +15,10 @@ module SigTools
     *%w[field_struct actionable].map { |gem| File.expand_path("../../gems/#{gem}/sig", ROOT) },
     File.expand_path('../field_struct-json_schema/sig', ROOT)
   ].freeze
-  # actionable-rb's hand-written stand-ins for the third-party names its sig mentions (Prism, RuboCop, Rails).
-  EXTERNAL_SIG = File.expand_path('../../gems/actionable/support/external', ROOT)
   GEMFILE = File.join(ROOT, 'gemfiles', 'sigs.gemfile')
   SORD_GEN = File.join(ROOT, 'support', 'sord_gen.rb')
   CEILING_FILE = File.join(ROOT, 'support', 'untyped_ceiling.txt')
+  COLLECTION_LOCK = File.join(ROOT, 'rbs_collection.lock.yaml')
   ALLOWLIST_FILE = File.join(ROOT, 'support', 'sord_allowlist.txt')
   LIBRARIES = %w[date time bigdecimal pathname pp].freeze
 
@@ -42,14 +41,14 @@ module SigTools
   # @raise [RuntimeError] when YARD or Sord fails, or Sord cannot resolve a YARD type
   def generate
     FileUtils.rm_rf(File.join(ROOT, '.yardoc'))
-    # Sord's RBS loader would pick up a collection lock left by the types lane and fail on gems it lists.
-    FileUtils.rm_f(File.join(ROOT, 'rbs_collection.lock.yaml'))
     yard_output, yard = run('yard', 'doc', '--no-output', '--quiet')
     raise "yard failed:\n#{yard_output}" unless yard.success?
 
     Dir.mktmpdir('tools_sig') do |dir|
       target = File.join(dir, 'actionable-tools.rbs')
-      log, sord = run('ruby', SORD_GEN, target, *BASE_SIGS)
+      # Sord's RBS loader would read a collection lock left by the types lane and fail on gems it lists, so the
+      # lock is moved away while Sord runs and put back after (the types lane needs it).
+      log, sord = without_file(COLLECTION_LOCK) { run('ruby', SORD_GEN, target, *BASE_SIGS) }
       raise "sord failed (exit #{sord.exitstatus}):\n#{log}" unless sord.success? && File.exist?(target)
 
       unresolved = SigGuards.unresolved_names(log)
@@ -60,6 +59,32 @@ module SigTools
 
       [File.read(target), log]
     end
+  end
+
+  # Moves +path+ (when it exists) out of the way while the block runs, and puts it back afterwards, raise or not.
+  #
+  # @param path [String]
+  # @return [Object] the block's value
+  def without_file(path)
+    return yield unless File.exist?(path)
+
+    Dir.mktmpdir('without_file') do |dir|
+      parked = File.join(dir, File.basename(path))
+      FileUtils.mv(path, parked)
+      begin
+        yield
+      ensure
+        FileUtils.mv(parked, path)
+      end
+    end
+  end
+
+  # Prism's own signatures (actionable-rb's sig names Prism nodes), from the prism gem the main bundle resolves: the
+  # sigs bundle has none.
+  #
+  # @return [String]
+  def prism_sig
+    File.join(Gem::Specification.find_by_name('prism').full_gem_path, 'sig')
   end
 
   # @return [Integer]

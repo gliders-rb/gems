@@ -68,9 +68,10 @@ RSpec.describe FieldStruct::Avro::Options do
     )
   end
 
-  it 'AV-B16: refuses a non-Hash avro: option the same way from to_datum' do
-    klass = define_struct('Loose') { required :v, :string, avro: 'string' }
-    expect { FieldStruct::Avro.to_datum(klass.new(v: 'x')) }.to raise_error(ArgumentError, /Loose#v\) avro: takes a Hash/)
-    expect { FieldStruct::Avro.schema(klass) }.to raise_error(ArgumentError, /Loose#v\) avro: takes a Hash/)
+  it 'AV-B16: registers avro: as a Hash, so core refuses any other value at declaration' do
+    expect(FieldStruct.registered_options[:avro].owner).to eq('field_struct-avro')
+    expect { define_struct('Loose') { required :v, :integer, avro: 'long' } }.to raise_error(
+      ArgumentError, 'avro: on Integer expects Hash, got String ("long")'
+    )
   end
 end

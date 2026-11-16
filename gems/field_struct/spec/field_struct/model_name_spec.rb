@@ -17,6 +17,12 @@ RSpec.describe FieldStruct::ModelName do
     expect(model.to_str).to eq('Nursery::LineItem')
   end
 
+  it 'FS-B117: param_key is the singular, without the namespace' do
+    model = model_name_for('Observatory::StarChart')
+    expect(model.param_key).to eq('star_chart')
+    expect(model.param_key).to eq(model.singular)
+  end
+
   it 'FS-B117: runs of capitals split as acronyms' do
     expect(model_name_for('HTTPRequest').element).to eq('http_request')
   end

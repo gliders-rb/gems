@@ -1,7 +1,7 @@
 # Rule to spec map
 
 Every `AC-B#` behaviour rule and the spec files holding a tagged example for it.
-Written by the slice 13 conformance sweep: 197 rules (196 bullets plus the inline allowss), all with at least one tagged example.
+Written by the slice 13 conformance sweep: 198 rules (197 bullets plus the inline allowss), all with at least one tagged example.
 
 | Rule | Spec files |
 |---|---|
@@ -12,6 +12,7 @@ Written by the slice 13 conformance sweep: 197 rules (196 bullets plus the inlin
 | metadataonly | spec/actionable/result_spec.rb |
 | inspect | spec/actionable/result_spec.rb |
 | toh | spec/actionable/result_spec.rb |
+| asjson | spec/actionable/result_spec.rb |
 | toapi | spec/actionable/result_spec.rb |
 | delegation | spec/actionable/result_spec.rb |
 | patternmatch | spec/actionable/result_spec.rb |
@@ -183,7 +184,7 @@ Written by the slice 13 conformance sweep: 197 rules (196 bullets plus the inlin
 | rbsformat | spec/actionable/rbs_spec.rb |
 | rbsshipped | spec/sigs/shipped_sig_spec.rb |
 | gemshape | spec/gemspec_spec.rb |
-| docs | spec/adapter_sigs/docs_names_spec.rb, spec/docs/docs_check_spec.rb |
+| docs | spec/adapter_sigs/docs_coverage_spec.rb (and tools/doccheck) |
 | skill | spec/skill_spec.rb |
 | bench | spec/bench_spec.rb |
 | ci | spec/conformance/sweep_spec.rb |

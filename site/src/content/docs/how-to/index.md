@@ -15,6 +15,7 @@ A guide takes one task, walks it in three to five steps and points to the refere
 - [Keep secrets out of logs](/how-to/hide-sensitive-values/): mask passwords and tokens in `inspect` and `pp`
 - [Dates, times and zones](/how-to/dates-and-time-zones/): parse dates and local times the same way on every machine
 - [Nested structs and arrays](/how-to/nested-structs-and-arrays/): find which element is wrong
+- [Add your own type](/how-to/custom-types/): read a value the built-in types don't
 
 ## Actions (actionable)
 

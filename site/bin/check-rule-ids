@@ -1,0 +1,38 @@
+#!/usr/bin/env node
+// Fails when a public page cites a design-spec rule ID (FS-B106, AC-I7, AC-B#asjson, AC §5.4 ...).
+//   bin/check-rule-ids
+// The specs are private, so their IDs mean nothing to a reader: they belong in code comments and tests only.
+// Scans the site's pages, the hero storyboard and the READMEs of the repo and of every gem and adapter.
+import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
+import { join, dirname, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const site = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const repo = resolve(site, '..');
+const prefixes = 'FS|AC|AT|AV|AN|JS|PB|OT|SH|SI';
+const id = new RegExp(`\\b(?:${prefixes})-(?:[BINL]?[0-9]+[a-z]?|B#[a-z0-9]+)\\b|\\b(?:${prefixes}) §[0-9.]+`, 'g');
+
+const walk = (d) => readdirSync(d).flatMap((f) => {
+  const p = join(d, f);
+  return statSync(p).isDirectory() ? walk(p) : [p];
+});
+const readmes = [join(repo, 'README.md'), join(repo, 'public/README.md')]
+  .concat(['gems', 'adapters'].flatMap((top) => readdirSync(join(repo, top)).map((g) => join(repo, top, g, 'README.md'))))
+  .filter((p) => existsSync(p));
+// The hero storyboard is public too: its prose prints into the hero PDF.
+const pages = [...walk(join(site, 'src/content/docs')), ...walk(join(site, 'src/hero'))].filter((p) => /\.(md|mdx)$/.test(p));
+
+let found = 0;
+for (const file of [...pages, ...readmes]) {
+  readFileSync(file, 'utf8').split('\n').forEach((line, i) => {
+    for (const match of line.matchAll(id)) {
+      found += 1;
+      console.error(`${relative(repo, file)}:${i + 1}: ${match[0]}`);
+    }
+  });
+}
+if (found > 0) {
+  console.error(`check-rule-ids: ${found} rule ID(s) on public pages; say what the rule means instead`);
+  process.exit(1);
+}
+console.log(`check-rule-ids: ${pages.length + readmes.length} files, no rule IDs`);

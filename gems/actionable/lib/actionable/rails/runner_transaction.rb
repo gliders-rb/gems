@@ -15,12 +15,18 @@ module Actionable
           outcome = super()
           raise Rollback, outcome if outcome.failure?
         end
-        outcome
+        outcome || raise_swallowed_rollback
       rescue Rollback => e
         e.result
       end
 
       private
+
+      # Only ActiveRecord::Rollback ends the block without a result: the transaction swallows it silently.
+      def raise_swallowed_rollback
+        raise DefinitionError, "#{Actionable.label_for(@instance.class)}: a step raised ActiveRecord::Rollback; " \
+                               'call fail! to roll back a transactional action'
+      end
 
       def store_class(model)
         return model if model.is_a?(Class)

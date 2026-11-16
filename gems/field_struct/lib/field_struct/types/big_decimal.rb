@@ -7,7 +7,15 @@ module FieldStruct
       class << self
         # @return [::Hash{::Symbol=>::Hash{::Symbol=>::Object}}]
         def own_option_schema
-          { round: option(type: ::Integer), in: option(type: [::Array, ::Range]) }
+          { round: option(type: ::Integer), in: option(type: [::Array, ::Range]), json: option(type: ::Symbol) }
+        end
+
+        # How +to_json+ writes this type's values when a field declares no +json:+ (FS-B106a). A subclass that must
+        # survive JavaScript's float parsing answers +:string+.
+        #
+        # @return [::Symbol] +:number+ or +:string+
+        def json_default
+          :number
         end
 
         # Class-wide rounding places used when a field declares no +round:+.
@@ -23,13 +31,17 @@ module FieldStruct
       # @return [::BigDecimal, nil]
       # @raise [ArgumentError] when the value cannot be read or is not finite
       def coerce(value, round: nil, **)
-        return nil if value.nil?
+        coerce_with(value, round)
+      end
 
-        number = to_decimal(value)
-        raise ::ArgumentError, "BigDecimal fields expect a finite number, got a non-finite #{value.class}" unless number.finite?
-
-        places = round || self.class.default_round
-        places ? number.round(places, ::BigDecimal::ROUND_HALF_UP) : number
+      # Internal: {#coerce} with the options as one Hash, no keyword splat (see Types::Base.positional_coerce?).
+      #
+      # @param value [::Object]
+      # @param options [::Hash{::Symbol=>::Object}]
+      # @return [::BigDecimal, nil]
+      # @api private
+      def coerce_positional(value, options)
+        coerce_with(value, options[:round])
       end
 
       # @return [::Class]
@@ -38,6 +50,16 @@ module FieldStruct
       end
 
       private
+
+      def coerce_with(value, round)
+        return nil if value.nil?
+
+        number = to_decimal(value)
+        raise ::ArgumentError, "BigDecimal fields expect a finite number, got a non-finite #{value.class}" unless number.finite?
+
+        places = round || self.class.default_round
+        places ? number.round(places, ::BigDecimal::ROUND_HALF_UP) : number
+      end
 
       def to_decimal(value)
         case value

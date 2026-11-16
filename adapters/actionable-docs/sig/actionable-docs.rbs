@@ -1,0 +1,153 @@
+# The actionable-rb namespace; this gem adds {Docs}.
+module Actionable
+  # Process pages for actions: Markdown with a Mermaid flowchart, built from +describe+ and the descriptions, for
+  # people who read about an action rather than its code. Nothing here runs an action.
+  module Docs
+    VERSION: String
+
+    # The page for one action.
+    # 
+    # _@param_ `action` — a named Actionable::Action subclass
+    # 
+    # _@return_ — Markdown, ending with one newline
+    def self.markdown: (Class action) -> String
+
+    # _@param_ `action` — a named Actionable::Action subclass
+    # 
+    # _@return_ — the words of its title, e.g. "Service bike"
+    def self.title: (Class action) -> String
+
+    # _@param_ `action` — a named Actionable::Action subclass
+    # 
+    # _@return_ — the page's path relative to the docs folder, e.g. +workshop/service_bike.md+
+    def self.path_for: (Class action) -> String
+
+    # Writes every action's page under +dir+, creating folders.
+    # 
+    # _@param_ `actions` — named action classes; a repeat is written once
+    # 
+    # _@param_ `dir` — the docs folder
+    # 
+    # _@return_ — the paths written, in the given order
+    def self.write: (::Array[Class] actions, dir: String) -> ::Array[String]
+
+    # The pages under +dir+ that are missing or differ from a fresh one. Writes nothing.
+    # 
+    # _@param_ `actions` — named action classes
+    # 
+    # _@param_ `dir` — the docs folder
+    # 
+    # _@return_ — the stale paths, empty when every page is current
+    def self.stale: (::Array[Class] actions, dir: String) -> ::Array[String]
+
+    # _@param_ `action`
+    # 
+    # _@return_ — the action, when it is a named Actionable::Action subclass
+    def self.checked: (Object action) -> Class
+
+    # The Markdown page of one action, in the AD-B10 order.
+    # @api private
+    class Page
+      FOOTER: String
+      HOOKS: ::Hash[Symbol, String]
+
+      # _@param_ `action` — a named action
+      def initialize: (Class action) -> void
+
+      # _@return_ — the page, ending with one newline
+      def to_s: () -> String
+    end
+
+    # Rake tasks for a host app: +actionable:docs+ writes the pages, +actionable:docs:check+ fails when the
+    # committed pages differ from fresh ones (AD-B32).
+    module Tasks
+      # Defines the two tasks.
+      # 
+      # _@param_ `actions` — the actions to document, or a callable returning them (called when a task runs, so an app can load its code first)
+      # 
+      # _@param_ `dir` — the docs folder the pages live in
+      def self.define: (actions: (::Array[Class] | Proc), dir: String) -> void
+
+      # _@param_ `actions`
+      # 
+      # _@param_ `dir`
+      def self.check: (::Array[Class] actions, String dir) -> void
+    end
+
+    # The words a page and its chart use: titles, paths, labels, guard and branch words (AD-B2..AD-B4).
+    # @api private
+    module Words
+      METHOD_NAME: Regexp
+
+      # _@param_ `klass` — a named action
+      # 
+      # _@return_ — its last name segment as words, only the first letter upper case
+      def self.title: (Class klass) -> String
+
+      # _@param_ `klass` — a named action
+      # 
+      # _@return_ — the page's relative path, e.g. +workshop/service_bike.md+
+      def self.path_for: (Class klass) -> String
+
+      # _@param_ `from` — the action whose page holds the link
+      # 
+      # _@param_ `to` — the linked action
+      # 
+      # _@return_ — the relative path from +from+'s page to +to+'s
+      def self.link: (Class from, Class to) -> String
+
+      # _@param_ `name` — a method or code name
+      # 
+      # _@return_ — +fit_brakes+ as "Fit brakes" (a trailing +?+ or +!+ dropped)
+      def self.humanize: ((Symbol | String) name) -> String
+
+      # _@param_ `entry` — a step entry from +describe+
+      # 
+      # _@return_ — its description, or its humanized name (the title for an action step)
+      def self.plain_label: (::Hash[Symbol, Object] entry) -> String
+
+      # _@param_ `label` — a +guard:+ label from +describe+
+      # 
+      # _@return_ — a method name as lower-case words; a description as it is
+      def self.guard_words: (String label) -> String
+
+      # _@param_ `guard` — an entry's +guard:+
+      # 
+      # _@return_ — +" (only when ...)"+, +" (skipped when ...)"+, both joined by +and+, or +""+
+      def self.guard_suffix: (::Hash[Symbol, String]? guard) -> String
+
+      # _@param_ `value` — a branch's +on+ value
+      # 
+      # _@return_ — an Array joined with +or+, a Regexp as +matching /src/+, anything else as text
+      def self.on_words: (Object value) -> String
+
+      # _@param_ `text`
+      # 
+      # _@return_ — with only its first letter changed to upper case
+      def self.sentence: (String text) -> String
+
+      # _@param_ `text`
+      # 
+      # _@return_ — with only its first letter changed to lower case
+      def self.lower_first: (String text) -> String
+
+      # _@param_ `segment` — a constant name segment
+      # 
+      # _@param_ `separator`
+      # 
+      # _@return_ — +ServiceBike+ split before each capital that follows a lower-case letter or digit
+      def self.split_words: (String segment, String separator) -> String
+    end
+
+    # The Mermaid flowchart of one action: the happy path top to bottom, decisions for guards and case steps, each
+    # child action one linked box, and one exit node per declared failure or skip (AD-B20..AD-B24).
+    # @api private
+    class Flowchart
+      # _@param_ `action` — a named action
+      def initialize: (Class action) -> void
+
+      # _@return_ — the chart text, ending with a newline
+      def to_s: () -> String
+    end
+  end
+end

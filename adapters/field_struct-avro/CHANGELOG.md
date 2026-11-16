@@ -1,5 +1,25 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- Requiring the adapter registers `avro:` with `FieldStruct.register_option`, so field_struct accepts the key and
+  refuses a non-Hash value when the field is declared.
+- A required field declared `nullable: true` is the union `["null", T]` with no default, so a nil encodes and a reader
+  still needs the field; with a default it is `[T, "null"]` plus that default.
+- `:hash, of:` is an Avro `map` with nullable values; values are written and read like array items, and struct values
+  become records.
+
+### Fixed
+
+- `avro:` refuses a key the adapter doesn't read (`avro: {scal: 2}` raises with "did you mean scale:?"), where it used
+  to be ignored; it takes `type:`, `scale:`, `precision:`, `timestamp:`, `enum:` and `enum_default:`.
+
+### Changed
+
+- Faster encoding and decoding of plain scalar fields; error messages are unchanged.
+
 ## 1.0.0.pre1
 
 - First release: Apache Avro for field_struct classes.

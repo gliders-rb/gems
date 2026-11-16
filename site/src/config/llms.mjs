@@ -1,7 +1,7 @@
 // Settings for the llms.txt outputs.
 const gemLines = [
   '- `field_struct` is a Ruby gem for typed plain Ruby objects: fields are declared, coerced and validated. Its RubyGems name is `field_struct`.',
-  '- `actionable-rb` is a Ruby gem for action objects with declared inputs, steps and three outcomes (success, failure, error). Its RubyGems name is `actionable-rb`; you require it as `actionable`.',
+  '- `actionable-rb` is a Ruby gem for action objects with declared inputs, steps and three outcomes (success, failure, skip). Its RubyGems name is `actionable-rb`; you require it as `actionable`.',
   '- Adapters (JSON Schema, Avro, OpenTelemetry, Protobuf, tools) build on the two gems and are not released yet.',
   '- Every runnable Ruby example in these docs is executed in CI, so a `# => value` comment is a real result, not an illustration.',
 ];

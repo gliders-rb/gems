@@ -10,6 +10,16 @@ module FieldStruct
         value
       end
 
+      # Internal: {#coerce} with the options as one Hash, no keyword splat (see Types::Base.positional_coerce?).
+      #
+      # @param value [::Object]
+      # @param _options [::Hash{::Symbol=>::Object}] unused: this type takes no options
+      # @return [::Object]
+      # @api private
+      def coerce_positional(value, _options)
+        coerce(value)
+      end
+
       # @return [::Class]
       def ruby_type
         ::Object

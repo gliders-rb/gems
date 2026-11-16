@@ -18,9 +18,9 @@ module Actionable
       #
       # @param result [Actionable::Result]
       # @param permanent [Array<Symbol>] failure codes to discard instead of retry
-      # @param honor_retry [Boolean] let a +retry+ metadata key decide on its own
+      # @param honor_retry [Boolean] let a +retry+ metadata key decide on its own (the default)
       # @return [Symbol] +:ack+, +:discard+ or +:retry+
-      def disposition(result, permanent: DEFAULT_PERMANENT_CODES, honor_retry: false)
+      def disposition(result, permanent: DEFAULT_PERMANENT_CODES, honor_retry: true)
         return metadata_verdict(result) if honor_retry && carries_retry_hint?(result)
         return :ack if result.ok?
 

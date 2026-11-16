@@ -28,7 +28,7 @@ quiet.success?   # => false
 quiet.ok?        # => true
 ```
 
-Nothing failed, so nobody should be paged. Nothing succeeded either, since no work happened and a metric of synced runs should not count it. That is a skip, meaning there was nothing to do. Every result is exactly one of the three, never two (AC-I3).
+Nothing failed, so nobody should be paged. Nothing succeeded either, since no work happened and a metric of synced runs should not count it. That is a skip, meaning there was nothing to do. Every result is exactly one of the three, never two.
 
 ## Why a third outcome
 
@@ -40,7 +40,7 @@ A child's skip is also not an outcome for its parent, which carries on as if the
 
 ## Recording is not stopping
 
-`fail` and `succeed` note the outcome and keep going. Only the bang forms, `fail!` and `succeed!`, also stop (AC-I4), and the last record wins.
+`fail` and `succeed` note the outcome and keep going. Only the bang forms, `succeed!`, `fail!`, `fail_with!`, `skip!` and `halt!`, also stop, and the last record wins.
 
 ```ruby run
 class Regroup < Actionable::Action
@@ -60,7 +60,7 @@ This is a trade. An earlier design had the plain `fail` stop quietly through a h
 
 ## Halting is a throw
 
-A bang verb stops with a `throw`, which the runner catches (AC-I1). No exception is ever raised for control flow, and the payoff is the reverse direction: a real exception can't be mistaken for a deliberate stop.
+A bang verb stops with a `throw`, which the runner catches. No exception is ever raised for control flow, and the payoff is the reverse direction: a real exception can't be mistaken for a deliberate stop.
 
 ```ruby run
 class Stranded < Actionable::Action
@@ -78,7 +78,7 @@ rescue RuntimeError => e
 end
 ```
 
-A real exception goes through `.run` untouched (AC-I2). It is not a failure, since a failure is something the action expected and gave a name. An exception is a bug or an outage, and your error tracker should see it. Control flow built on exceptions tends to swallow exactly those, usually under a broad `rescue`.
+A real exception goes through `.run` untouched. It is not a failure, since a failure is something the action expected and gave a name. An exception is a bug or an outage, and your error tracker should see it. Control flow built on exceptions tends to swallow exactly those, usually under a broad `rescue`.
 
 The cost is that no cleanup hook runs when an exception escapes. Hooks belong to outcomes, and an exception is not one. For cleanup on every exit, write an `ensure` in your own code.
 

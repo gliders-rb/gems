@@ -24,8 +24,8 @@ end
    says `coercion_policy :raise`. Always check `valid?`.
 2. **`required` doesn't mean non-nil.** It means `valid?` fails when the value is missing. An unset required field reads
    as `nil`.
-3. **Whitespace-only strings and empty arrays are missing** for `required` (not for `:binary` or `:value`).
-4. **`of:` is required** on `:array` and `:union`. A missing one raises at declaration.
+3. **Whitespace-only strings, empty arrays and empty hashes are missing** for `required` (not for `:binary` or `:value`).
+4. **`of:` is required** on `:array`, `:hash` and `:union`. A missing one raises at declaration.
 5. **Options are scoped to types.** `round:` is for numbers, `format:` for strings and dates, `enum:` for strings and
    symbols. Options for array elements go in `element: {...}`.
 6. **Cross-field rules go to `errors[:base]`**, from a `validate` method or block.
@@ -40,9 +40,12 @@ end
 
 ```
 bundle exec rake                 # specs and RuboCop (fast)
-bundle exec rake release:check   # adds doctests, the signature checks, and the YARD build
+bundle exec rake release:check   # adds doctests, signature checks, the docs check and the YARD build
 bundle exec rake sigs:generate   # after changing any YARD comment: regenerate sig/field_struct.rbs and commit it
 ```
 
 Public methods need short YARD comments with types. Inside `FieldStruct::Types`, write stdlib names with a leading `::`
 (`::String`, `::Hash{::Symbol=>::Object}`). The signature file is generated, never edited by hand.
+A change to `lib/` needs a CHANGELOG entry under `[Unreleased]`. The docs check fails when a public method or a field
+option isn't named in code on USAGE.md and the site reference; a method that is public only for the gem's own use gets
+`# @api private` instead.

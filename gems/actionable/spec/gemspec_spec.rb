@@ -25,7 +25,7 @@ RSpec.describe 'actionable-rb.gemspec' do
   it 'AC-B#gemshape: ships the library, signatures, docs, skill and licence' do
     files = spec.files
     expect(files).to include('lib/actionable.rb', 'lib/actionable-rb.rb', 'lib/actionable/rubocop/config.yml',
-                             'sig/actionable.rbs', 'sig/actionable_blocks.rbs', 'sig/actionable_adapters.rbs',
+                             'sig/actionable.rbs', 'sig/actionable_blocks.rbs', 'sig/actionable_adapters.rbs', 'sig/manifest.yaml',
                              'README.md', 'USAGE.md', 'CHANGELOG.md', 'AGENTS.md', 'LICENSE.txt',
                              'docs/getting_started.md', 'skills/actionable/SKILL.md',
                              '.claude-plugin/plugin.json', '.claude-plugin/marketplace.json')

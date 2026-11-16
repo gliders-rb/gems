@@ -7,9 +7,10 @@ RSpec.describe FieldStruct::Types::String do
     expect(type.ruby_type).to eq(String)
   end
 
-  it 'declares format, enum and strict (in that order)' do
+  it 'declares format, enum, strict and length (in that order)' do
     schema = described_class.option_schema
-    expect(schema.keys).to eq(%i[format enum strict])
+    expect(schema.keys).to eq(%i[format enum strict length])
+    expect(schema[:length][:type]).to eq([Range])
     expect(schema[:format][:type]).to eq([Regexp, Symbol])
     expect(schema[:enum][:type]).to eq([Array])
     expect(schema[:strict][:type]).to eq([TrueClass, FalseClass])

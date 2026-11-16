@@ -118,11 +118,11 @@ module Actionable
       # @return [Actionable::Result]
       def run(*args, **kwargs)
         instance = typed_input? ? typed_instance(args, kwargs) : new(*args, **kwargs)
-        return own_result(instance) if instance.is_a?(Result)
+        return own_result(instance).freeze if instance.is_a?(Result)
 
         check_implemented!(instance)
         check_verb_positions!
-        own_result(Runner.new(instance).run)
+        own_result(Runner.new(instance).run).freeze
       end
 
       # Runs the action once per item, independently.
@@ -163,6 +163,7 @@ module Actionable
 
       # Adds +item+, or replaces an equal one in place so the first declaration keeps its position.
       def upsert(set, item)
+        check_options!(item)
         Actionable.layout_changed!
         return set << item unless set.include?(item)
 
@@ -171,6 +172,33 @@ module Actionable
 
       def typed_input?
         !input_schema.nil? || !input_dispatch.nil?
+      end
+
+      # Each declared step (and a case step's branches) uses only known option keys (AC-B#stepoptions) and a guard
+      # of the right type (AC-B#guards).
+      def check_options!(item)
+        registered = Actionable.registered_step_options
+        [item, *(item.kind == :case ? item.branch_steps : [])].each do |step|
+          StepOptions.check!(self, step, registered, guard_owner_label(step))
+          check_guards!(step)
+        end
+      end
+
+      # +if:+ and +unless:+ take a method name or a callable; anything else raises here, by name (AC-B#guards).
+      def check_guards!(item)
+        %i[if unless].each do |key|
+          next unless item.options.key?(key)
+
+          guard = item.options[key]
+          next if guard.is_a?(Symbol) || guard.is_a?(String) || guard.respond_to?(:call)
+
+          raise ArgumentError, "#{Actionable.label_for(self)}##{guard_owner_label(item)}: #{key}: takes a method name " \
+                               "(Symbol or String) or a callable, got #{guard.class} (#{guard.inspect})"
+        end
+      end
+
+      def guard_owner_label(item)
+        item.name.is_a?(Class) ? Actionable.label_for(item.name) : item.name.to_s
       end
 
       # An instance holding the validated input, or the Failure(:invalid_input) to return instead.
@@ -222,9 +250,28 @@ module Actionable
         names = required_method_names
         return if names.all? { |name| implemented?(instance, name) }
 
-        missing = names.reject { |name| implemented?(instance, name) }
-        raise DefinitionError, "#{Actionable.label_for(self)} declares step(s) calling #{missing.map(&:inspect).join(', ')} " \
+        raise DefinitionError, "#{Actionable.label_for(self)} declares #{missing_by_kind(instance).join(' and ')} " \
                                'but does not implement them'
+      end
+
+      # The missing names grouped by kind, steps first (AC-B#missingmethod). Only built when the check fails.
+      def missing_by_kind(instance)
+        step_set_kinds.filter_map do |label, readers|
+          missing = missing_in(readers, instance)
+          "#{label} calling #{missing.map(&:inspect).join(', ')}" unless missing.empty?
+        end
+      end
+
+      # Message label => the step set readers it covers; an adapter set reads as "<name> hook(s)".
+      def step_set_kinds
+        kinds = { 'step(s)' => [:steps], 'hook(s)' => STEP_SETS.drop(1) }
+        Action.adapter_step_sets.each { |reader| kinds["#{reader.to_s.delete_suffix('_hooks')} hook(s)"] = [reader] }
+        kinds
+      end
+
+      def missing_in(readers, instance)
+        names = readers.flat_map { |reader| public_send(reader).to_a.flat_map(&:required_methods) }.uniq
+        names.reject { |name| implemented?(instance, name) }
       end
 
       def required_method_names

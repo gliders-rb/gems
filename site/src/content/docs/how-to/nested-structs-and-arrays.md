@@ -39,7 +39,13 @@ planting.seedlings.first.valid?    # => true
 
 ## 3. Find the element
 
-Every element is a struct with its own errors, so ask each one. If you want an indexed report, build it yourself.
+`errors.paths` names the element and the field inside it:
+
+```ruby run
+planting.errors.paths              # => {"seedlings[1].leaves" => ["is invalid"]}
+```
+
+Every element is also a struct with its own errors, so you can ask each one, for a report shaped your own way:
 
 ```ruby run
 bad = planting.seedlings.each_with_index.reject { |seedling, _| seedling.valid? }
@@ -57,7 +63,8 @@ Validity gets computed when a value is assigned (see [Validity is computed on as
 
 ```ruby run
 planting.seedlings[1].leaves = 3
-planting.valid?                    # => false, still stale
+# Still stale: the parent kept the verdict from the last assignment.
+planting.valid?                    # => false
 
 planting.seedlings = planting.seedlings
 planting.valid?                    # => true

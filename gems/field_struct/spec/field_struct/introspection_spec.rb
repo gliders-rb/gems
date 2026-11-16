@@ -25,7 +25,7 @@ RSpec.describe FieldStruct::Introspection do
   describe 'FS-B140 surface' do
     it 'defines exactly the five nested classes and the module functions' do
       nested = described_class.constants.map { |c| described_class.const_get(c) }.grep(Class).map { |c| c.name.split('::').last }
-      expect(nested).to contain_exactly('Property', 'ScalarNode', 'ArrayNode', 'UnionNode', 'StructNode')
+      expect(nested).to contain_exactly('Property', 'ScalarNode', 'ArrayNode', 'MapNode', 'UnionNode', 'StructNode')
       expect(described_class).to respond_to(:properties, :node, :named?)
     end
 
@@ -254,10 +254,10 @@ RSpec.describe FieldStruct::Introspection do
       expect(node.options[:enum]).to equal(k.metadata[:level].options[:enum])
     end
 
-    it 'FS-B151 reports pass-through options verbatim without judging them' do
-      k = klass { optional :id, :integer, avro: { doc: 'the id' }, json_schema: { format: 'int64' } }
+    it 'FS-B151 reports registered options verbatim without judging them' do
+      k = klass { optional :id, :integer, archive: { box: 'the id' }, shelf_mark: 'int64' }
       node = described_class.properties(k).first.node
-      expect(node.options).to eq(avro: { doc: 'the id' }, json_schema: { format: 'int64' })
+      expect(node.options).to eq(archive: { box: 'the id' }, shelf_mark: 'int64')
     end
 
     it 'FS-B152 changes nothing on the class and shows a redeclared field next time' do

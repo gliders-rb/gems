@@ -75,12 +75,19 @@ RSpec.describe Actionable::Result do
 
   describe 'to_h' do
     it 'AC-B#toh: Success has no metadata key' do
-      expect(success.new(message: 'm').to_h).to eq(code: :success, message: 'm', output: {}, history: [], errors: {})
+      expect(success.new(message: 'm').to_h)
+        .to eq(status: :success, code: :success, message: 'm', output: {}, history: [], errors: {})
     end
 
     it 'AC-B#toh: Failure and Skipped always include metadata' do
-      expect(failure.new.to_h).to eq(code: :error, message: nil, output: {}, history: [], errors: {}, metadata: {})
+      expect(failure.new.to_h)
+        .to eq(status: :failure, code: :error, message: nil, output: {}, history: [], errors: {}, metadata: {})
       expect(skipped.new(metadata: { a: 1 }).to_h[:metadata]).to eq(a: 1)
+    end
+
+    it 'AC-B#toh: status leads, and is the status of each outcome' do
+      expect([success, failure, skipped].map { |klass| klass.new.to_h.first })
+        .to eq([%i[status success], %i[status failure], %i[status skipped]])
     end
 
     it 'AC-B#toh: struct output renders as a Hash and a History as its as_json' do
@@ -89,6 +96,60 @@ RSpec.describe Actionable::Result do
       result = success.new(output: schema.new(n: 3), history: history)
       result.errors.add(:n, 'x')
       expect(result.to_h).to include(output: { n: 3 }, history: [], errors: { n: ['x'] })
+    end
+  end
+
+  describe 'as_json and to_json' do
+    let(:tide) do
+      Class.new(FieldStruct::Base) do
+        required :berth_no, :integer
+        optional :toll, :decimal
+        serialize :json, berth_no: :berthNo
+      end
+    end
+
+    it 'AC-B#asjson: a success carries its status and errors, with to_h keys in to_h order' do
+      result = success.new(code: :moored, output: { lane: 3 })
+      expect(result.as_json)
+        .to eq(status: 'success', code: 'moored', message: nil, output: { lane: 3 }, history: [], errors: {})
+      expect(result.as_json.keys).to eq(result.to_h.keys)
+    end
+
+    it 'AC-B#asjson: a failure carries its status, errors and metadata' do
+      result = failure.new(code: :deck_full, message: 'no berth', metadata: { retry: false })
+      result.errors.add(:bunks, 'is too many')
+      expect(result.as_json).to eq(
+        status: 'failure', code: 'deck_full', message: 'no berth', output: {}, history: [],
+        errors: { bunks: ['is too many'] }, metadata: { retry: false }
+      )
+      expect(result.as_json.keys).to eq(result.to_h.keys)
+    end
+
+    it 'AC-B#asjson: a skip carries status skipped and its metadata' do
+      expect(skipped.new(code: :ebb).as_json)
+        .to eq(status: 'skipped', code: 'ebb', message: nil, output: {}, history: [], errors: {}, metadata: {})
+    end
+
+    it 'AC-B#asjson: a struct output is its own as_json and a history is History#as_json' do
+      history = Actionable::History.new
+      result = success.new(output: tide.new(berth_no: 4, toll: '1.50'), history: history)
+      expect(result.as_json).to include(output: { berthNo: 4, toll: '1.5' }, history: [])
+    end
+
+    it 'AC-B#asjson: to_json is the Oj compat dump of as_json and loads back with the status and errors' do
+      result = failure.new(code: :adrift, metadata: { tries: 2 })
+      result.errors.add(:base, 'lost the tide')
+      expect(result.to_json).to eq(Oj.dump(result.as_json, mode: :compat))
+      expect(Oj.load(result.to_json, mode: :compat)).to eq(
+        'status' => 'failure', 'code' => 'adrift', 'message' => nil, 'output' => {}, 'history' => [],
+        'errors' => { 'base' => ['lost the tide'] }, 'metadata' => { 'tries' => 2 }
+      )
+    end
+
+    it 'AC-B#asjson: writes a BigDecimal in the report as a JSON number in to_json and a String in as_json' do
+      result = failure.new(code: :adrift, metadata: { drift_knots: BigDecimal('2.75') })
+      expect(result.as_json[:metadata]).to eq(drift_knots: '2.75')
+      expect(result.to_json).to end_with('"metadata":{"drift_knots":2.75}}')
     end
   end
 

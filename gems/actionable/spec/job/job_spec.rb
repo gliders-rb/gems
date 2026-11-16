@@ -34,8 +34,9 @@ RSpec.describe Actionable::Job do
       expect(described_class.disposition(failure(:not_found), permanent: [])).to eq(:retry)
     end
 
-    it 'disregards retry metadata while honor_retry is off' do
-      expect(described_class.disposition(failure(:timeout, retry: false))).to eq(:retry)
+    it 'reads retry metadata by default, and disregards it with honor_retry: false' do
+      expect(described_class.disposition(failure(:timeout, retry: false))).to eq(:discard)
+      expect(described_class.disposition(failure(:timeout, retry: false), honor_retry: false)).to eq(:retry)
     end
   end
 
@@ -61,18 +62,18 @@ RSpec.describe Actionable::Job do
   end
 
   describe 'AC-B#honormacro' do
-    it 'is false by default' do
-      expect(build_action.honor_retry_metadata?).to be(false)
+    it 'is true by default' do
+      expect([build_action.honor_retry_metadata?, Actionable::Action.honor_retry_metadata?]).to eq([true, true])
     end
 
-    it 'opts in, inherits by dynamic lookup and can be turned off in a subclass' do
+    it 'opts out, inherits by dynamic lookup and can be turned back on in a subclass' do
       parent = build_action
       child = Class.new(parent)
-      parent.honor_retry_metadata
-      expect(child.honor_retry_metadata?).to be(true)
-      off = Class.new(parent) { honor_retry_metadata(enabled: false) }
-      expect(off.honor_retry_metadata?).to be(false)
-      expect(Class.new(off).honor_retry_metadata?).to be(false)
+      parent.honor_retry_metadata(enabled: false)
+      expect(child.honor_retry_metadata?).to be(false)
+      on = Class.new(parent) { honor_retry_metadata }
+      expect(on.honor_retry_metadata?).to be(true)
+      expect(Class.new(on).honor_retry_metadata?).to be(true)
     end
 
     it 'exists on Action once the adapter is loaded' do
@@ -132,10 +133,10 @@ RSpec.describe Actionable::Job do
       expect(job.actionable_result.code).to eq(:timeout)
     end
 
-    it 'honors retry metadata only when the action opted in' do
-      build = lambda do |opt_in|
+    it 'honors retry metadata unless the action opted out' do
+      build = lambda do |honor|
         action do
-          honor_retry_metadata if opt_in
+          honor_retry_metadata(enabled: false) unless honor
           fails :not_found, 'x', retry: true
           step :sail
           def sail = fail!(:not_found)

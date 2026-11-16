@@ -10,7 +10,8 @@ module Actionable
       # @param context_fields [Array<::Symbol>] field names taken from context
       # @return [::Hash{::String=>::Object}] a fresh schema (draft 2020-12), context fields removed under their JSON names
       def build(input, context_fields)
-        schema = FieldStruct::JSONSchema.generate(input)
+        # A decimal stays a string, as the model must send it (AT-B13).
+        schema = FieldStruct::JSONSchema.generate(input, decimals: :string)
         keys = FieldStruct::Introspection.properties(input).select { |property| context_fields.include?(property.field.name) }
         keys.each { |property| remove(schema, property.key) }
         schema

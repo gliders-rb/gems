@@ -1,0 +1,6 @@
+# Libraries the shipped signatures refer to: FieldStruct (whose own manifest brings pp, date and bigdecimal)
+# and Prism (::Prism nodes in the verb-position check). RBS loads them along with this gem's sig. The sig names no
+# other library: the Rails, ActiveModel, RuboCop and LintRoller parents are left out on purpose (AC-B#rbsshipped).
+dependencies:
+  - name: field_struct
+  - name: prism

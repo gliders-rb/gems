@@ -43,14 +43,23 @@ module FieldStruct
       # @param value [::Date, ::DateTime, ::Time]
       # @return [::String] +YYYY-MM-DD+ or +YYYY-MM-DDThh:mm:ss[.f]Z|+-hh:mm+
       def render(value)
+        date_only = kind == :date || (value.is_a?(::Date) && !value.is_a?(::DateTime))
+        return padded_render(value, date_only) if value.year.negative?
+        return value.strftime('%Y-%m-%d') if date_only
+
+        "#{value.strftime('%Y-%m-%dT%H:%M:%S')}#{fraction_text(value)}#{offset_text(value)}"
+      end
+
+      private
+
+      # strftime pads a negative year to four digits after the sign; +format+ counts the sign as one of the four.
+      def padded_render(value, date_only)
         date = format('%<y>04d-%<m>02d-%<d>02d', y: value.year, m: value.mon, d: value.mday)
-        return date if kind == :date || (value.is_a?(::Date) && !value.is_a?(::DateTime))
+        return date if date_only
 
         "#{date}T#{format('%<h>02d:%<i>02d:%<s>02d', h: value.hour, i: value.min, s: value.sec)}" \
           "#{fraction_text(value)}#{offset_text(value)}"
       end
-
-      private
 
       def date_components(match)
         { year: match[1].to_i, mon: match[2].to_i, mday: match[3].to_i }
@@ -94,7 +103,11 @@ module FieldStruct
         return 'Z' if seconds.zero?
 
         minutes = seconds.abs / 60
-        format('%<sign>s%<h>02d:%<m>02d', sign: seconds.negative? ? '-' : '+', h: minutes / 60, m: minutes % 60)
+        "#{seconds.negative? ? '-' : '+'}#{two_digits(minutes / 60)}:#{two_digits(minutes % 60)}"
+      end
+
+      def two_digits(number)
+        number.to_s.rjust(2, '0')
       end
     end
   end

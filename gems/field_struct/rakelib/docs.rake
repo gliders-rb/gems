@@ -18,7 +18,25 @@ namespace :docs do
     abort 'Undocumented members remain: document them (a short comment and YARD types).' unless output.include?('100.00% documented')
   end
 
-  desc 'Run the README / USAGE / getting-started doctests (each block in its own Ruby process)'
+  desc 'Rewrite the generated reference tables in USAGE.md and the site from the type registry'
+  task :tables do
+    require_relative '../lib/field_struct'
+    require_relative '../support/doc_tables'
+    changed = DocTables.write
+    puts changed.empty? ? 'docs:tables: up to date' : "docs:tables: rewrote #{changed.join(', ')}"
+  end
+
+  desc 'Fail when a public name is on no page, or lib/ changed without a CHANGELOG [Unreleased] entry (doc coverage)'
+  task :check do
+    require 'doccheck'
+    require_relative '../support/docs_coverage'
+    failure = DocCheck.check(root: DocsCoverage::ROOT, api: DocsCoverage.api, targets: DocsCoverage.targets,
+                             words: DocsCoverage.words, base: ENV.fetch('DOCS_CHECK_BASE', 'origin/main'))
+    abort failure if failure
+    puts 'docs:check: every public name is on its pages'
+  end
+
+  desc 'Run the README / USAGE / getting-started doctests (one Ruby process per file)'
   task :test do
     sh 'bundle', 'exec', 'rspec', '--tag', 'doctest', '--format', 'progress'
   end

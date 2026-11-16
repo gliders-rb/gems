@@ -14,7 +14,7 @@ input { |schema_body| ... } # declare
 input                       # read the schema class, or nil
 ```
 
-The block holds a FieldStruct body. `Action.input_schema` reads the same thing, `Action.input.new(...)` makes an instance, and a subclass shares the schema of its parent. If the action has no `input`, both the class reader and the step-side `input` return `nil` (AC-B#inputnoblock).
+The block holds a FieldStruct body. `Action.input_schema` reads the same thing, `Action.input.new(...)` makes an instance, and a subclass shares the schema of its parent. If the action has no `input`, both the class reader and the step-side `input` return `nil`.
 
 `.run(**kwargs)` builds the struct from the keywords (string keys are fine), checks `valid?` and gives the steps the struct as `input`. Values get coerced, so `bunks: '12'` turns into `12`. Keywords the schema doesn't know are dropped, except under `unknown_attributes :raise`, where `.run` raises `FieldStruct::UnknownAttributeError` itself and no failure is returned.
 
@@ -42,7 +42,7 @@ FillDeck.input_schema.attribute_names # => [:bunks, :remark]
 FillDeck.input.equal?(FillDeck.input_schema) # => true
 ```
 
-With invalid input, no step runs. The failure holds the struct's errors, an empty output and whatever metadata was declared for `:invalid_input` (AC-B#invalidinput). An invalid nested struct field reports just the field name with `"is invalid"`.
+With invalid input, no step runs. The failure holds the struct's errors, an empty output and whatever metadata was declared for `:invalid_input`. An invalid nested struct field reports just the field name with `"is invalid"`.
 
 :::caution
 One positional argument that is already an instance of the input schema is taken as is. Any other positional argument, a Hash too, is dropped without a word, and the run ends `:invalid_input` with "is required" on every required field. Splat your hashes: `.run(**params)`.
@@ -116,9 +116,9 @@ output { |schema_body| ... } # declare
 output                       # read the schema class, or nil
 ```
 
-Nothing but the fields declared in `output` reaches the result (AC-I5). Once the steps are done, and again after each hook, each declared field is filled from the instance variable with the same name (a variable holding `nil` still counts as set). Keywords given to `succeed` beat variables, and the struct is then coerced and validated. Variables and keywords that were never declared are left out. A valid struct becomes `result.output`, and its fields can be read straight off the result (see [Results](/reference/actionable/results/#output-delegation)).
+Nothing but the fields declared in `output` reaches the result. Once the steps are done, and again after each hook, each declared field is filled from the instance variable with the same name (a variable holding `nil` still counts as set). Keywords given to `succeed` beat variables, and the struct is then coerced and validated. Variables and keywords that were never declared are left out. A valid struct becomes `result.output`, and its fields can be read straight off the result (see [Results](/reference/actionable/results/#output-delegation)).
 
-When a success can't satisfy its output schema, it is swapped for `Failure(:invalid_output)`: the message is `output failed validation`, the field errors come from the struct, and the invalid struct stays available as `output` for inspection. Later hooks keep that invalid output instead of rebuilding it. Only a strict success is validated against the success schema (AC-B#invalidout).
+When a success can't satisfy its output schema, it is swapped for `Failure(:invalid_output)`: the message is `output failed validation`, the field errors come from the struct, and the invalid struct stays available as `output` for inspection. Later hooks keep that invalid output instead of rebuilding it. Only a strict success is validated against the success schema.
 
 ```ruby run
 class SettleFare < Actionable::Action
@@ -165,7 +165,7 @@ CountDecks.run.decks # => 4
 CountDecks.run.tag   # => "7"
 ```
 
-With no output schema the output is whatever `succeed` received (a Hash, `{}` if nothing), and fields are not delegated. A failure or skip grabs the declared variables that were set up to that point, as a best effort, without validating and without adding an `output` error. A failure code with its own schema is built from the keywords it was given and nothing else (see [Declared outcomes](/reference/actionable/declared-outcomes/)). A hook that sets a variable named like an output field is picked up by the next refresh, which means a hook can break an output that was valid before (AC-B#hookoutput).
+With no output schema the output is whatever `succeed` received (a Hash, `{}` if nothing), and fields are not delegated. A failure or skip grabs the declared variables that were set up to that point, as a best effort, without validating and without adding an `output` error. A failure code with its own schema is built from the keywords it was given and nothing else (see [Declared outcomes](/reference/actionable/declared-outcomes/)). A hook that sets a variable named like an output field is picked up by the next refresh, which means a hook can break an output that was valid before.
 
 ### Reserved output names
 

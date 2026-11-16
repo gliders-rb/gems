@@ -5,6 +5,9 @@ source 'https://rubygems.org'
 gemspec
 
 gem 'field_struct', path: '../../gems/field_struct'
+# The monorepo's doc-test runner (dev only, never published).
+gem 'gems-doccheck', path: '../../tools/doccheck', require: false
+gem 'gems-doctest', path: '../../tools/doctest', require: false
 gem 'rake', '~> 13.0'
 gem 'rbs', '~> 3.0', require: false
 gem 'rspec', '~> 3.13'

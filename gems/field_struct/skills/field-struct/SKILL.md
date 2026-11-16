@@ -15,12 +15,19 @@ or `bundle info field_struct` for the path). `docs/getting_started.md` has the t
 ## Define a model
 
 1. List the fields and decide which are `required` (must be present) and which are `optional`.
-2. Pick a type for each: `:string`, `:integer`, `:float`, `:decimal`, `:boolean`, `:symbol`, `:date`, `:time`,
-   `:datetime`, `:uuid`, `:url`, `:email`, `:binary`, `:value` (anything), `:array` (needs `of:`), `:union` (needs `of: [...]`),
-   or another struct class for a nested field.
-3. Add the options the type takes: `format:`, `enum:`, `in:`, `round:`, `base:`, `strict:`, `values:`, `zone:`,
-   `element:`. Universal ones: `default:`, `coercion_policy:`, `description:`, `rbs_type:`, `sensitive:`.
-4. Add class settings if needed: `unknown_attributes :raise`, `coercion_policy :raise`, `immutable!`, `frozen!`.
+2. Pick a type for each: `:string`, `:immutable_string`, `:integer`, `:float`, `:decimal` (or `:big_decimal`),
+   `:boolean`, `:symbol`, `:date`, `:time`, `:datetime`, `:uuid`, `:url`, `:email`, `:binary`, `:value` (anything),
+   `:array` (needs `of:`), `:hash` (String keys; needs `of:` for the values), `:union` (needs `of: [...]`;
+   `discriminator:` picks struct members by a tag), or another struct class for a nested field.
+3. Add the options the type takes: `format:`, `enum:`, `in:`, `length:`, `round:`, `base:`, `strict:`, `values:`,
+   `zone:`, `element:`, `discriminator:`, `max_items:`. Universal ones: `default:`, `nullable:` (a required field that
+   may be sent as null), `coercion_policy:`, `description:` (or `desc:`), `rbs_type:`, `sensitive:`. An unknown option
+   key raises at declaration; adapter keys (`avro:`, `proto:`, `json_schema:`) work once that adapter is required.
+   For an option key your app reads itself, call `FieldStruct.register_option(:catalog, type: Hash, owner: 'my_app')`
+   before the classes that use it.
+4. Add class settings if needed: `unknown_attributes :raise`, `coercion_policy :raise`, `json_omit :unset` (leave out
+   fields the caller didn't send), `immutable!`, `frozen!`, `mirror!` (a field of this class reads any object
+   through its public readers).
 5. Add cross-field rules with `validate :method` (add messages to `errors[:base]`).
 6. Add `serialize :json, field: 'externalName'` if the JSON names differ.
 7. Check it: `Model.describe`, then build one from sample input and read `valid?` and `errors.to_h`.
@@ -37,8 +44,8 @@ end
 
 - Expecting setters to raise. They store the raw value and record an error. Check `valid?`.
 - Treating `required` as "never nil". An unset required field reads as `nil`; `valid?` is what fails.
-- Whitespace-only strings and empty arrays are missing.
-- Leaving out `of:` on `:array` or `:union`.
+- Whitespace-only strings, empty arrays and empty hashes are missing.
+- Leaving out `of:` on `:array`, `:hash` or `:union`.
 - Putting an option on a type that doesn't take it (`round:` on a string). The error lists the types that do.
 - Putting element options on the field instead of in `element: {...}`.
 - Putting cross-field rules anywhere but `errors[:base]` via `validate`.
@@ -50,6 +57,9 @@ end
 ## Debug an invalid instance
 
 Read `obj.errors.to_h` (Symbol field to Array of Strings). Messages never contain the value, only its class.
+`obj.errors.paths` gives the same messages keyed by full path (`"name"`, `"trays[1].label"`).
+`obj.given_fields` says which fields the input actually carried. Frozen errors (`errors.freeze`, as on an actionable
+result) refuse `add` and `clear`, and `valid?` then reads them as they are instead of re-running the validators.
 
 - `"is required"`: the field is nil, blank or empty. Send a value or make it `optional`.
 - `"is invalid"`: the value was read but broke `format:`, `enum:` or `in:`, or a nested struct inside it is invalid.

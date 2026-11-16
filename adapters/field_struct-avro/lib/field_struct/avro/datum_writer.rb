@@ -28,12 +28,30 @@ module FieldStruct
       def property(value, prop, trail)
         field = prop.field
         opts = Options.read(field) { trail.label(field) }
-        site = Spot.new(trail, field, opts)
         override = Options.override(opts)
         return nil if value.nil?
-        return overridden(value, prop.node, Options.stringify(override), site) unless override.nil?
+        return overridden(value, prop.node, Options.stringify(override), Spot.new(trail, field, opts)) unless override.nil?
 
-        node_value(value, prop.node, site)
+        node = prop.node
+        # Most fields are scalars that need neither the options nor an error label, so they skip building a Spot.
+        return plain_scalar(value, node) if plain_scalar?(node)
+
+        node_value(value, node, Spot.new(trail, field, opts))
+      end
+
+      def plain_scalar?(node)
+        return false unless node.is_a?(NODES::ScalarNode)
+
+        type = node.type
+        !type.is_a?(Types::BigDecimal) && !type.is_a?(Types::Time) && !type.is_a?(Types::DateTime)
+      end
+
+      def plain_scalar(value, node)
+        case node.type
+        when Types::Symbol then value.to_s
+        when Types::Value then ValueJson.dump(value)
+        else value
+        end
       end
 
       def node_value(value, node, site)
@@ -42,6 +60,7 @@ module FieldStruct
         case node
         when NODES::ScalarNode then scalar(value, node, site)
         when NODES::ArrayNode then array(value, node, site)
+        when NODES::MapNode then entries(value, node, site)
         when NODES::StructNode then nested(value, node.klass, site)
         else union(value, node, site)
         end
@@ -54,6 +73,13 @@ module FieldStruct
         value.map { |item| node_value(item, element, site) }
       end
 
+      def entries(value, node, site)
+        element = node.element
+        return raw(value, site) if element.nil? || !value.is_a?(::Hash)
+
+        value.transform_values { |item| node_value(item, element, site) }
+      end
+
       def nested(value, klass, site)
         return value unless value.is_a?(klass)
 
@@ -64,9 +90,7 @@ module FieldStruct
         case node.type
         when Types::BigDecimal then decimal(value, node, site)
         when Types::Time, Types::DateTime then time(value, site)
-        when Types::Symbol then value.to_s
-        when Types::Value then ValueJson.dump(value)
-        else value
+        else plain_scalar(value, node)
         end
       end
 

@@ -80,7 +80,34 @@ module Actionable
       def check(klass)
         return [] unless prism?
 
-        method_names(klass).flat_map { |name| method_offenses(klass, name) }
+        checked_method_names(klass).flat_map { |name| method_offenses(klass, name) }
+      end
+
+      # Names of the methods the check covers: method steps, case-step branch targets and hooks.
+      #
+      # @param klass [Class] an Action subclass
+      # @return [Array<Symbol>]
+      def checked_method_names(klass)
+        steps = klass.step_set_readers.flat_map { |reader| klass.public_send(reader).to_a }
+        steps.flat_map { |step| step.kind == :case ? step.branch_steps : [step] }
+             .select { |step| step.kind == :method }.map(&:name).uniq
+      end
+
+      # The parsed +def+ of an instance method, from the per-file cache.
+      #
+      # @param klass [Class]
+      # @param name [Symbol]
+      # @return [Array(::Prism::DefNode, String), nil] the node and its file; nil when there is no Ruby source or it
+      #   does not parse cleanly
+      def def_node(klass, name)
+        return nil unless prism?
+
+        location, original = source_of(klass, name)
+        return nil unless location
+
+        file, line = location
+        node = parsed_file(file)&.defs&.[]([line, original])
+        node && [node, file]
       end
 
       # The error message for a class's offenses.
@@ -111,19 +138,8 @@ module Actionable
         found
       end
 
-      # Names of the methods the check covers: method steps, case-step branch targets and hooks.
-      def method_names(klass)
-        steps = klass.step_set_readers.flat_map { |reader| klass.public_send(reader).to_a }
-        steps.flat_map { |step| step.kind == :case ? step.branch_steps : [step] }
-             .select { |step| step.kind == :method }.map(&:name).uniq
-      end
-
       def method_offenses(klass, name)
-        location, original = source_of(klass, name)
-        return [] unless location
-
-        file, line = location
-        node = parsed_file(file)&.defs&.[]([line, original])
+        node, file = def_node(klass, name)
         return [] unless node
 
         offenses_in(node).map { |offense| [name, file, offense] }

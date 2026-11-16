@@ -24,6 +24,7 @@ module FieldStruct
     # @param type [Class] a +Types::Base+ subclass
     # @param type_instance [FieldStruct::Types::Base, nil] defaults to +type.new+
     # @param required [Boolean]
+    # @param nullable [Boolean] a required field whose key must be given but may hold nil (FS-B34)
     # @param default [Object] a literal or a callable
     # @param coercion_policy [Symbol, nil]
     # @param description [String, nil]
@@ -31,20 +32,35 @@ module FieldStruct
     # @param sensitive [Boolean]
     # @param options [Object] native and pass-through options (keyword arguments)
     def initialize(name:, type:, type_instance: nil, required: false, default: nil, coercion_policy: nil,
-                   description: nil, rbs_type: nil, sensitive: false, **options)
+                   description: nil, rbs_type: nil, sensitive: false, nullable: false, **options)
       @name = name.to_sym
       @setter_name = :"#{@name}="
       @ivar_name = :"@#{@name}"
       @type = type
       @type_instance = type_instance || type.new
       @required = required ? true : false
+      @nullable = nullable ? true : false
       @default = default
       @coercion_policy = coercion_policy
       @description = description
       @rbs_type = rbs_type
       @sensitive = sensitive ? true : false
       @options = options.freeze
+      @positional = @type_instance.class.positional_coerce?
       freeze
+    end
+
+    # Internal: the setter's coerce call. Built-ins take the options as one Hash, with no keyword splat
+    # (Types::Base.positional_coerce?); any other type gets them as keywords, and none when there are none.
+    #
+    # @param value [::Object]
+    # @return [::Object]
+    # @api private
+    def coerce_value(value)
+      if @positional then @type_instance.coerce_positional(value, @options)
+      elsif @options.empty? then @type_instance.coerce(value)
+      else @type_instance.coerce(value, **@options)
+      end
     end
 
     # Same as {#description}.
@@ -57,6 +73,11 @@ module FieldStruct
     # @return [Boolean]
     def required?
       @required
+    end
+
+    # @return [Boolean] whether the field is required but a given +nil+ satisfies it (FS-B34)
+    def nullable?
+      @nullable
     end
 
     # @return [Boolean] whether +inspect+ masks this field's value
@@ -78,11 +99,13 @@ module FieldStruct
     end
 
     # @return [Symbol] the writer method name
+    # @api private
     def setter_name # rubocop:disable Style/TrivialAccessors
       @setter_name
     end
 
     # @return [Symbol] the instance variable holding the value
+    # @api private
     def ivar_name # rubocop:disable Style/TrivialAccessors
       @ivar_name
     end

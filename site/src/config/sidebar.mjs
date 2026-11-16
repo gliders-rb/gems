@@ -13,6 +13,7 @@ export const sidebar = [
     ],
   },
   section('Explanation', 'explanation'),
-  // Starlight has no group badge, so every adapters page carries the "Unreleased" badge in its front matter.
+  // No stage badges: every gem ships as a prerelease, and the adapters overview says which APIs may change.
+  // (Starlight 0.42 can badge a group too, should one be needed: `badge` on the group object.)
   section('Adapters', 'adapters'),
 ];

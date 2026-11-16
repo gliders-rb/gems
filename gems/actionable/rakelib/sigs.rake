@@ -32,19 +32,23 @@ namespace :sigs do
     puts 'sig/actionable.rbs is current'
   end
 
-  desc 'Run rbs validate over sig/'
+  desc "Run rbs validate over sig/ (standard libraries, field_struct and prism's own sig; no collection)"
   task :validate do
     libraries = SigTools::LIBRARIES.flat_map { |name| ['-r', name] }
-    output, status = SigTools.run('rbs', '--no-collection', *libraries, '-I', 'sig', '-I', SigTools::EXTERNAL, 'validate')
+    output, status = SigTools.run('rbs', '--no-collection', *libraries, '-I', SigTools.prism_sig, '-I', 'sig', 'validate')
     abort "rbs validate failed:\n#{output}" unless status.success?
     puts 'rbs validate: ok'
   end
 
-  desc 'Fail unless the `untyped` count in sig/ equals the committed ceiling (support/untyped_ceiling.txt)'
+  desc 'Fail unless the `untyped` count, and the `Object`/`top` count, in sig/ equal their committed ceilings'
   task :untyped do
-    count = SigGuards.count_untyped(Dir[File.join(SigTools::ROOT, 'sig', '**', '*.rbs')])
-    failure = SigGuards.untyped_failure(count: count, ceiling: SigTools.ceiling)
-    abort failure if failure
+    paths = Dir[File.join(SigTools::ROOT, 'sig', '**', '*.rbs')]
+    count = SigGuards.count_untyped(paths)
+    loose = SigGuards.count_loose(paths)
+    failures = [SigGuards.untyped_failure(count: count, ceiling: SigTools.ceiling),
+                SigGuards.loose_failure(count: loose, ceiling: SigTools.loose_ceiling)].compact
+    abort failures.join("\n") unless failures.empty?
     puts "sig/ has #{count} `untyped` (ceiling #{SigTools.ceiling})"
+    puts "sig/ has #{loose} `Object`/`top` types (ceiling #{SigTools.loose_ceiling})"
   end
 end

@@ -149,12 +149,12 @@ RSpec.describe FieldStruct::Base, 'declaring fields' do
   end
 
   describe 'FS-B10 / FS-B11 / FS-B15 options' do
-    it 'stores pass-through options verbatim and removes universal options from options' do
+    it 'stores registered options verbatim and removes universal options from options' do
       klass = Class.new(described_class)
-      klass.optional :id, :integer, avro_doc: 'the id', description: 'Id', default: 1, sensitive: true,
+      klass.optional :id, :integer, shelf_mark: 'the id', description: 'Id', default: 1, sensitive: true,
                                     coercion_policy: :replace, rbs_type: '::Integer', in: 1..9
       field = klass.metadata[:id]
-      expect(field.options).to eq(avro_doc: 'the id', in: 1..9)
+      expect(field.options).to eq(shelf_mark: 'the id', in: 1..9)
       expect(field.options).to be_frozen
       expect(field.description).to eq('Id')
       expect(field.default).to eq(1)

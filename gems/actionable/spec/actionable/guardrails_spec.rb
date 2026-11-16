@@ -130,7 +130,7 @@ RSpec.describe 'Action guardrails' do
       expect { action.run }.to raise_error(Actionable::DefinitionError, /calling :fold but/)
       action.steps.clear
       action.steps.merge([Actionable::Steps.build(:press)])
-      expect { action.run }.to raise_error(Actionable::DefinitionError, /calling :press, :fold but/)
+      expect { action.run }.to raise_error(Actionable::DefinitionError, /step\(s\) calling :press and hook\(s\) calling :fold but/)
     end
 
     it 'AC-B#runorder: input is validated before the method check' do

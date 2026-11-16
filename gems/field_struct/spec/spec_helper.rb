@@ -7,7 +7,7 @@ end
 
 # The ActiveSupport lane (rake spec:active_support): load ActiveSupport BEFORE the gem and make its
 # deprecations fatal, so any dependence on what it redefines shows up as a failure (FS-I6).
-if ENV['FIELD_STRUCT_AS']
+if ENV['ACTIVE_SUPPORT_LANE']
   require 'active_support'
   require 'active_support/all'
   ActiveSupport.deprecator.behavior = :raise

@@ -5,7 +5,7 @@ sidebar:
   order: 6
 ---
 
-Hooks fire after the main steps, when the outcome is already known. Measurement keeps a record of what ran and for how long. You declare both on the class, and a subclass gets a copy at the moment it is created (AC-I6).
+Hooks fire after the main steps, when the outcome is already known. Measurement keeps a record of what ran and for how long. You declare both on the class, and a subclass gets a copy at the moment it is created.
 
 ## Hooks
 
@@ -16,12 +16,12 @@ on_skip(target, **options)
 always(target, **options)
 ```
 
-A hook accepts what a step accepts: a method name or an action class, plus `if:` and `unless:`. Declaring the same hook again swaps it in place. The four lists are readable through `Action.success_hooks`, `failure_hooks`, `skip_hooks` and `always_hooks`.
+A hook accepts what a step accepts: a method name or an action class, plus the [step options](/reference/actionable/actions-and-steps/#step) (`if:`, `unless:`, `desc:` and the rest). Any other key raises `DefinitionError` at the declaration. Declaring the same hook again swaps it in place. The four lists are readable through `Action.success_hooks`, `failure_hooks`, `skip_hooks` and `always_hooks`.
 
-The order of a run (AC §5.4):
+The order of a run. It starts only once the input is valid: invalid input returns `:invalid_input` before step 1, so no step and no hook runs, `always` included.
 
 1. The main steps run in order, all inside a single halt catch.
-2. The result is whatever was recorded, or a new `Success` when nothing was.
+2. The result is whatever was recorded, or a new `Success` when nothing was. A bare `halt!` with nothing recorded raises here instead (see [Control flow](/reference/actionable/control-flow/)).
 3. Output is refreshed (see [Input and output](/reference/actionable/input-and-output/#output)).
 4. One category is chosen from the result as it stands now: success picks `on_success`, skipped picks `on_skip`, everything else picks `on_failure`. That choice is final, even when a hook later changes the outcome.
 5. The category's hooks run in the order declared, then the `always` hooks run inside a halt catch of their own.
@@ -55,7 +55,7 @@ CastOff.skip_hooks.size            # => 0
 
 ### What a hook may do
 
-Verbs work inside hooks. A plain verb replaces the result and lets the remaining hooks run. A bang verb adopts its result and cuts off the rest of its own category, though `always` still runs and sees the new result. `halt!` leaves the result alone and ends the phase. That is why `succeed!` in an `on_failure` hook rescues the run, and `fail!(:overdue)` in an `on_success` hook turns a success into a failure (AC-B#hookverbs).
+Verbs work inside hooks. A plain verb replaces the result and lets the remaining hooks run. A bang verb adopts its result and cuts off the rest of its own category, though `always` still runs and sees the new result. `halt!` leaves the result alone and ends the phase. That is why `succeed!` in an `on_failure` hook rescues the run, and `fail!(:overdue)` in an `on_success` hook turns a success into a failure.
 
 ```ruby run
 class Reroute < Actionable::Action
@@ -86,7 +86,7 @@ end
 PastCurfew.run.code # => :overdue
 ```
 
-If a hook raises, the exception travels up at once and nothing after it runs, `always` hooks too (AC-I2). A hook whose guard says no is passed over. When a hook sets an instance variable named like an output field, the next refresh picks it up.
+If a hook raises, the exception travels up at once and nothing after it runs, `always` hooks too. A hook whose guard says no is passed over. When a hook sets an instance variable named like an output field, the next refresh picks it up.
 
 ## `measure`
 
@@ -102,7 +102,7 @@ measure(mode = nil, rate: nil)
 
 A mode it doesn't know raises `ArgumentError` (`unknown measure mode`), and so does `:sampled` with a missing or out-of-range rate (`measure :sampled requires rate: between 0 and 1`). A rate of 1 always records, a rate of 0 never does. Called with no argument, `measure` returns the mode. The readers behind it are `measure_rate`, `measure_all?`, `measure_sampled?` and `measure_sample_hit?`. A subclass inherits a snapshot of mode and rate.
 
-Measuring spreads downward: every run nested in a measuring run (action steps, hook actions, `run_each` items) measures as well, whatever its own `measure` says. A parent that doesn't measure passes nothing down (AC-B#cascade). The state lives per fiber, so concurrent runs stay apart, and a run in a different Fiber never shows up in the parent's history.
+Measuring spreads downward: every run nested in a measuring run (action steps, hook actions, `run_each` items) measures as well, whatever its own `measure` says. A parent that doesn't measure passes nothing down. The state lives per fiber, so concurrent runs stay apart, and a run in a different Fiber never shows up in the parent's history.
 
 ```ruby run
 class Crossing < Actionable::Action
@@ -142,7 +142,7 @@ The `history` of a measuring run is an `Actionable::History`, holding one `Histo
 | `code` | the code of the result the step recorded, or `nil` when it only set variables |
 | `nested` | the child's `History` for an action step in a measuring run, else `nil` |
 
-A history responds to `steps`, `<<(step)` (returns the history), `empty?`, `took` (total of the durations), `as_json` (an Array of step hashes) and `to_json` (via Oj, compat mode). The `as_json` keys are `section`, `name`, `started_at` (ISO 8601, six fractional digits), `duration`, `code` and `history` (the nested `as_json`, or `nil`); for an action step `name` is the class name as a String. The entry for an action step times the child run from start to finish (AC §5.11).
+A history responds to `steps`, `<<(step)` (returns the history), `empty?`, `took` (total of the durations), `as_json` (an Array of step hashes) and `to_json` (via Oj, compat mode). The `as_json` keys are `section`, `name`, `started_at` (ISO 8601, six fractional digits), `duration`, `code` and `history` (the nested `as_json`, or `nil`); for an action step `name` is the class name as a String. The entry for an action step times the child run from start to finish.
 
 ```ruby run
 history = Crossing.run.history

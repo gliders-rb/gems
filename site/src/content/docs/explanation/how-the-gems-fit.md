@@ -2,7 +2,7 @@
 title: "How the two gems fit together"
 description: "Where FieldStruct shows up inside Actionable, why only a success is held to the declared output, and where adapters plug in."
 sidebar:
-  order: 7
+  order: 9
 ---
 
 Actionable has no type system of its own. Whatever is typed in an action is a FieldStruct, and you can see it in three places.
@@ -34,10 +34,10 @@ result.nights_booked                 # => 2
 ## Three places
 
 - Input is a struct. `booking_id: '7'` became `7` and was validated before any step ran, using FieldStruct's own messages.
-- Output is a struct. Only the fields declared in `output` reach the result (AC-I5).
+- Output is a struct. Only the fields declared in `output` reach the result.
 - The result holds the output struct and forwards its readers, which is why `result.nights_booked` works.
 
-All three share one set of coercion rules, one set of messages and one `errors` object (AC-I9). When input validation fails, `errors.to_h` looks exactly like it would on a failed struct. We didn't add a second schema language. A second one would mean a second set of rules to learn, and the two would drift apart.
+All three share one set of coercion rules, one set of messages and one `errors` object. When input validation fails, `errors.to_h` looks exactly like it would on a failed struct. We didn't add a second schema language. A second one would mean a second set of rules to learn, and the two would drift apart.
 
 ## Why the output is declared
 
@@ -64,7 +64,7 @@ Declaring the output is a contract: the caller gets this and nothing else. It al
 
 ## Only a success is held to it
 
-If the steps finish without producing what the schema promised, the run turns into an `:invalid_output` failure. Only a success gets this check (AC §5.5). A failure or a skip captures whatever it can, since a failure tends to happen exactly when the output isn't ready, and failing a second time for that same reason would bury the first.
+If the steps finish without producing what the schema promised, the run turns into an `:invalid_output` failure. Only a success gets this check. A failure or a skip captures whatever it can, since a failure tends to happen exactly when the output isn't ready, and failing a second time for that same reason would bury the first.
 
 When a failure or a skip should carry data, give that code its own schema (see [Declared outcomes](/reference/actionable/declared-outcomes/#per-code-output-schemas)). That is the opt-in form of the same idea, and it is built only from keywords you pass, never from variables that happen to be lying around.
 

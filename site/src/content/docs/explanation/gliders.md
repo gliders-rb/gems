@@ -2,7 +2,7 @@
 title: "The Gliders idea"
 description: "Why the gems live under the Gliders name: work with the forces already in a system instead of fighting them."
 sidebar:
-  order: 9
+  order: 13
 ---
 
 A glider has no engine. It stays up by reading the air - a thermal, the lift off a ridge - and using what is already there instead of fighting it. That is the idea behind these gems, and why they live under the Gliders name.

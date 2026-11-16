@@ -35,7 +35,7 @@ namespace :sigs do
   desc 'Run rbs validate over sig/'
   task :validate do
     libraries = SigTools::LIBRARIES.flat_map { |name| ['-r', name] }
-    base = [*SigTools::BASE_SIGS, SigTools::EXTERNAL_SIG].flat_map { |dir| ['-I', dir] }
+    base = [*SigTools::BASE_SIGS, SigTools.prism_sig].flat_map { |dir| ['-I', dir] }
     output, status = SigTools.run('rbs', '--no-collection', *libraries, *base, '-I', 'sig', 'validate')
     abort "rbs validate failed:\n#{output}" unless status.success?
     puts 'rbs validate: ok'

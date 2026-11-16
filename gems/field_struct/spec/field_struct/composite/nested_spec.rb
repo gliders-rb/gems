@@ -39,14 +39,14 @@ RSpec.describe FieldStruct::Types::Nested do
       expect(klass.metadata[:a].type_instance).not_to equal(klass.metadata[:b].type_instance)
     end
 
-    it 'FS-B81: accepts no native options, but pass-through ones' do
+    it 'FS-B81: accepts no native options, but registered ones' do
       bd = bed
       expect { Class.new(FieldStruct::Base) { optional :border, bd, strict: true } }.to raise_error(
         ArgumentError,
         'strict: option does not apply to Nested fields. It applies to: String, ImmutableString, Integer, UUID, URL, Email, Binary.'
       )
-      klass = Class.new(FieldStruct::Base) { optional :border, bd, doc: 'x' }
-      expect(klass.metadata[:border].options).to eq(doc: 'x')
+      klass = Class.new(FieldStruct::Base) { optional :border, bd, shelf_mark: 'x' }
+      expect(klass.metadata[:border].options).to eq(shelf_mark: 'x')
     end
   end
 

@@ -9,12 +9,6 @@ import { sidebar } from './src/config/sidebar.mjs';
 const base = '/';
 const site = 'https://gliders-rb.github.io';
 
-const gemLink = (name) => ({
-  icon: 'github',
-  label: `${name} on GitHub`,
-  href: `https://github.com/gliders-rb/gems/tree/main/gems/${name}`,
-});
-
 const fonts = [
   '@fontsource-variable/jetbrains-mono',
   '@fontsource-variable/instrument-sans',
@@ -36,8 +30,11 @@ export default defineConfig({
       favicon: '/brand/favicon.svg',
       head: [{ tag: 'link', attrs: { href: '/brand/apple-touch-icon.png', rel: 'apple-touch-icon' } }],
       customCss: [...fonts, './src/styles/theme.css'],
+      // The home page hero carries the code animation; every other page keeps Starlight's hero.
+      components: { Hero: './src/components/Hero.astro' },
       plugins: [starlightLlmsTxt(llmsOptions)],
-      social: [gemLink('field_struct'), gemLink('actionable')],
+      // One link to the monorepo; the home hero links each gem's own directory.
+      social: [{ icon: 'github', label: 'Gliders on GitHub', href: 'https://github.com/gliders-rb/gems' }],
       sidebar,
     }),
   ],

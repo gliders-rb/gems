@@ -1,0 +1,17 @@
+inherit_from: ../../.rubocop.yml
+
+# One file holds the app, its models and controllers, and the examples (SH-B60).
+Metrics/BlockLength:
+  Exclude:
+    - 'app_spec.rb'
+    - 'Rakefile'
+
+Style/OneClassPerFile:
+  Enabled: false
+
+# Actionable's verbs read as Kernel#fail to these cops.
+Style/SignalException:
+  Enabled: false
+
+Style/RedundantException:
+  Enabled: false

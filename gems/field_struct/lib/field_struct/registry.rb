@@ -32,7 +32,27 @@ module FieldStruct
       return @entries[key] if @entries.key?(key)
       return @parent.lookup(key) if @parent&.key?(key)
 
-      raise KeyError, "no FieldStruct type registered for #{key.inspect}"
+      raise KeyError, "no FieldStruct type registered for #{key.inspect}#{Suggestion.clause(key, names)}"
+    end
+
+    # Every name resolvable here, own first, then the parent's, each once.
+    # @api private
+    #
+    # @return [Array<Symbol>]
+    def names
+      (@entries.keys + (@parent ? @parent.names : [])).uniq
+    end
+
+    # The first name (in chain order) whose type has the same short class name as +klass+, e.g. +:string+ for String.
+    # @api private
+    #
+    # @param klass [Class] a class given as a type that is not one
+    # @return [Symbol, nil]
+    def name_for_lookalike(klass)
+      short = klass.name.to_s.split('::').last
+      return nil if short.nil? || short.empty?
+
+      names.find { |name| lookup(name).name.to_s.split('::').last == short }
     end
 
     # @param name [Symbol, String]

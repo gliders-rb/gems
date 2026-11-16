@@ -39,11 +39,17 @@ module FieldStruct
       # @return [::Integer, nil]
       # @raise [ArgumentError, TypeError] when the value cannot be read
       def coerce(value, base: nil, strict: false, **)
-        return nil if value.nil?
-        return parse_string(value, base || 10) if value.is_a?(::String)
+        coerce_with(value, base, strict)
+      end
 
-        guard_number(value)
-        strict ? whole_number(value) : convert(value)
+      # Internal: {#coerce} with the options as one Hash, no keyword splat (see Types::Base.positional_coerce?).
+      #
+      # @param value [::Object]
+      # @param options [::Hash{::Symbol=>::Object}]
+      # @return [::Integer, nil]
+      # @api private
+      def coerce_positional(value, options)
+        coerce_with(value, options[:base], options[:strict])
       end
 
       # @return [::Class]
@@ -52,6 +58,14 @@ module FieldStruct
       end
 
       private
+
+      def coerce_with(value, base, strict)
+        return nil if value.nil?
+        return parse_string(value, base || 10) if value.is_a?(::String)
+
+        guard_number(value)
+        strict ? whole_number(value) : convert(value)
+      end
 
       def parse_string(text, radix)
         Integer(text, radix, exception: false) ||

@@ -13,15 +13,14 @@ gem 'mcp', '~> 1.8'        # for actionable/tools/mcp
 gem 'ruby_llm', '~> 2.1'   # for actionable/tools/ruby_llm
 ```
 
-Version `1.0.0.pre1`. Ruby 3.3 or newer.
+Version `1.0.0.pre1`. Ruby 3.3 or newer. Load it with `require 'actionable/tools'`.
 
 ## A tool from an action
 
 Nothing is exposed unless you name it. The input schema comes from the action's `input` block, minus the context
 fields; the model never sees them and cannot set them.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'actionable/tools'
 
 class ReadGauge < Actionable::Action
@@ -51,6 +50,7 @@ tool = Actionable::Tools.definition(ReadGauge,
                                     context: { network_id: ->(source) { source[:network_id] } })
 
 tool.name                                  # => "read_gauge"
+tool.action                                # => ReadGauge
 tool.input_schema['properties'].keys       # => ["code"]
 tool.input_schema['required']              # => ["code"]
 tool.call({ 'code' => '1234', 'network_id' => 999 }, { network_id: 3 })['output'] # => {"summary"=>"Station 1234 on network 3"}
@@ -59,8 +59,7 @@ tool.call({ 'code' => '1234', 'network_id' => 999 }, { network_id: 3 })['output'
 Every call returns the same six-key Hash, whether the run succeeded, failed or was skipped. A failure carries the
 declared code and its metadata. The tool's `output_schema` describes it, including the declared codes.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'actionable/tools'
 
 class ConvertDepth < Actionable::Action
@@ -96,8 +95,7 @@ propagates.
 
 ## MCP
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'actionable/tools/mcp'
 
 class FathomsToFeet < Actionable::Action
@@ -135,8 +133,7 @@ arguments (a number for a decimal, which the schema calls a string) are rejected
 
 The class you get is a `RubyLLM::Tool`; construct it with the object your context procs read (the current operator, say).
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'actionable/tools/ruby_llm'
 
 class FathomsToFeet < Actionable::Action
@@ -169,10 +166,15 @@ The tool returns the envelope Hash, and a failure is returned, not raised. `Ruby
 ## What is and is not covered
 
 - Actions with a discriminated input (`input_for`) and actions without an `input` block raise `ArgumentError`.
-- A descriptive text is required until actions can describe themselves.
+- `description:` is required, even when the action has a `desc`: the tool's text is written for a model, the
+  action's for people.
 - A `big_decimal` is a string in the schema (`"12.50"`); ranges (`in:`) are not in the schema, but the action still
   enforces them.
 - Output is checked against the schema only on success.
 - Nothing here rescues the action, authenticates, streams or exposes resources.
 
 Signatures are in `sig/`; the library names mcp and ruby_llm return are typed `Class`.
+
+## Docs
+
+The guide on the docs site, with every example run in CI: https://gliders-rb.github.io/adapters/tools/

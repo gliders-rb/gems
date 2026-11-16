@@ -27,10 +27,27 @@ module Actionable
       !failure?
     end
 
+    # The values a failed result's report keeps as they are (AC-B#failedoutput).
+    PLAIN = [::NilClass, ::TrueClass, ::FalseClass, ::String, ::Symbol, ::Numeric, ::Date, ::Time].freeze
+    private_constant :PLAIN
+
     required :code, :symbol
     optional :message, :string
     optional :output, :value, default: -> { {} }
     optional :history, :value, default: -> { [] }
+
+    # Freezes the plain data too: errors, output, history, metadata and the structs, Hashes, Arrays and Strings
+    # inside them. A foreign object, such as a record in a +:value+ field, is never frozen. +.run+ calls this
+    # after the last hook; a hand-built result stays unfrozen until you call it.
+    #
+    # @return [self]
+    def freeze
+      return self if frozen?
+
+      freeze_fields(self)
+      @output_fields_set&.freeze
+      super
+    end
 
     # @return [Symbol] +:success+, +:skipped+ or +:failure+
     def status
@@ -40,15 +57,30 @@ module Actionable
       end
     end
 
-    # @return [Hash{Symbol=>Object}] code, message, output, history and errors as plain data
+    # The result as a report: status first, then code, message, output, history and errors, as plain data.
+    #
+    # @return [Hash{Symbol=>Object}]
     def to_h
       {
+        status: status,
         code: code,
         message: message,
         output: output_hash,
         history: history_data,
         errors: errors.to_h
       }
+    end
+
+    # The JSON-ready form of {#to_h}: the same keys in the same order, with values as FieldStruct's +as_json+
+    # renders them (Symbols as Strings, a struct output as its own +as_json+). A failed or skipped result writes
+    # each live object in its output or metadata as a description such as +"#<Lantern id=4>"+, never its own JSON.
+    #
+    # @param _options [Object, nil] ignored (accepted like FieldStruct::Base#as_json)
+    # @return [Hash{Symbol=>Object, nil}]
+    def as_json(_options = nil)
+      fields = success? ? super() : super(describe_foreign: true)
+      fields[:history] = history.as_json if history.is_a?(History)
+      { status: status.to_s, **fields.except(:metadata), errors: errors.to_h, **fields.slice(:metadata) }
     end
 
     # @param index [Integer, nil]
@@ -67,12 +99,16 @@ module Actionable
 
     alias to_s inspect
 
-    # Copies every message of +source.errors+ onto this result, one at a time.
+    # Copies every message of +source.errors+ onto this result. A FieldStruct source stays the origin of those keys,
+    # so +errors.paths+ walks it (FS-B40a).
     #
     # @param source [::FieldStruct::Base] a FieldStruct or another result (anything whose +errors+ answers +to_h+ works)
     # @return [self]
     def absorb_errors_from(source)
-      source.errors.to_h.each do |field, messages|
+      theirs = source.errors
+      return tap { errors.absorb(theirs) } if theirs.is_a?(::FieldStruct::Errors)
+
+      theirs.to_h.each do |field, messages|
         messages.each { |message| errors.add(field, message) }
       end
       self
@@ -119,7 +155,53 @@ module Actionable
     end
 
     def output_hash
-      output.respond_to?(:to_h) ? output.to_h : output
+      plain = output.respond_to?(:to_h) ? output.to_h : output
+      success? ? plain : described(plain)
+    end
+
+    # Deep-freezes plain data, leaving foreign objects alone (AC-B#frozenresult).
+    def freeze_plain(value)
+      case value
+      when FieldStruct::Base then freeze_struct(value)
+      when ::Hash, ::Array then freeze_container(value)
+      when ::String, History then value.freeze
+      end
+    end
+
+    def freeze_struct(struct)
+      return struct.freeze if struct.is_a?(Result)
+
+      freeze_fields(struct)
+      struct.freeze
+    end
+
+    def freeze_fields(struct)
+      struct.class.metadata.each { |field| freeze_plain(struct.public_send(field.name)) }
+      struct.errors.freeze
+    end
+
+    def freeze_container(container)
+      if container.is_a?(::Hash)
+        container.each_value { |item| freeze_plain(item) }
+      else
+        container.each { |item| freeze_plain(item) }
+      end
+      container.freeze
+    end
+
+    # Plain data as it is; anything else as "#<Lantern id=4>", reading only its class and id (AC-B#failedoutput).
+    def described(value)
+      case value
+      when ::Hash then value.transform_values { |item| described(item) }
+      when ::Array then value.map { |item| described(item) }
+      when *PLAIN then value
+      else description_of(value)
+      end
+    end
+
+    def description_of(value)
+      name = value.class.name || 'anonymous'
+      value.respond_to?(:id) ? "#<#{name} id=#{value.id}>" : "#<#{name}>"
     end
 
     def history_data
@@ -150,9 +232,9 @@ module Actionable
     # @return [Boolean]
     def failure? = true
 
-    # @return [Hash{Symbol=>Object}] {Result#to_h} plus +metadata+
+    # @return [Hash{Symbol=>Object}] {Result#to_h} plus +metadata+, live objects described
     def to_h
-      super.merge(metadata: metadata)
+      super.merge(metadata: described(metadata))
     end
   end
 
@@ -164,9 +246,9 @@ module Actionable
     # @return [Boolean]
     def skipped? = true
 
-    # @return [Hash{Symbol=>Object}] {Result#to_h} plus +metadata+
+    # @return [Hash{Symbol=>Object}] {Result#to_h} plus +metadata+, live objects described
     def to_h
-      super.merge(metadata: metadata)
+      super.merge(metadata: described(metadata))
     end
   end
 end

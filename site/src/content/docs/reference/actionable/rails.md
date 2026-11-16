@@ -5,7 +5,7 @@ sidebar:
   order: 9
 ---
 
-Three things come with the Rails adapter: `transactional`, `after_commit` and `ProxyValidator`. You have to require it. It never loads itself, not even when ActiveRecord is defined, and without it `transactional` is a plain `NoMethodError` when the class is defined (AC-B#railsload).
+Three things come with the Rails adapter: `transactional`, `after_commit` and `ProxyValidator`. You have to require it. It never loads itself, not even when ActiveRecord is defined, and without it `transactional` is a plain `NoMethodError` when the class is defined.
 
 ```ruby
 require 'actionable/rails'
@@ -43,10 +43,11 @@ LogCrossings.transaction_config # => {model: :voyage, options: {}}
 | recorded failure | rolls back, and the failure result is returned |
 | failure adopted from a hook (`fail!` in `on_success`) | rolls back |
 | exception | rolls back, and the exception propagates |
+| `ActiveRecord::Rollback` from a step or hook | rolls back, then `.run` raises `Actionable::DefinitionError`: "a step raised ActiveRecord::Rollback; call fail! to roll back a transactional action" |
 
 Every hook kind runs inside the transaction, `always` too, so what they write lives or dies with the run. Rollback on failure works through an internal error that is raised inside the block and swallowed just outside it.
 
-When a transaction is already open (`model.connection.transaction_open?`), the action opens a savepoint (`requires_new: true`) unless you give `requires_new:` yourself. A failing inner action undoes only its own writes, and the outer transaction never commits them. Give `requires_new: false` to join the outer transaction. Options go through as written, and actions without `transactional` are left alone (AC-B#txsavepoint).
+When a transaction is already open (`model.connection.transaction_open?`), the action opens a savepoint (`requires_new: true`) unless you give `requires_new:` yourself. A failing inner action undoes only its own writes, and the outer transaction never commits them. Give `requires_new: false` to join the outer transaction. Options go through as written, and actions without `transactional` are left alone.
 
 ## `after_commit`
 
@@ -55,13 +56,13 @@ after_commit(target, **options)
 after_commit_hooks # => the declared hooks, in order
 ```
 
-The declaration takes a method name or an action class, with `if:`, `unless:` and `input:`. It relies on `ActiveRecord.after_all_transactions_commit`, so declaring it without ActiveRecord, or on a version before 7.2, raises `DefinitionError`. Subclasses get a copy of the hooks.
+The declaration takes a method name or an action class, with `if:`, `unless:`, `input:` and `desc:`. It relies on `ActiveRecord.after_all_transactions_commit`, so declaring it without ActiveRecord, or on a version before 7.2, raises `DefinitionError`. Subclasses get a copy of the hooks.
 
 A run that ends in success registers its hooks with ActiveRecord. Each fires once, in order, when the outermost open transaction commits (the action's own savepoint doesn't count), or right away if none is open. A failure or a skip never fires them, and neither does a rollback of an enclosing transaction. Nested actions each fire their own hooks once, child first. If a transactional parent fails afterwards, a successful child's pending hook is dropped.
 
-By that point the run is over, so a hook can't alter the result that was returned. A halting verb only stops the `after_commit` hooks still to come. Hooks leave no trace in the history, and guards are evaluated at firing time. An exception propagates from the place the commit happened, with the writes already committed (AC §5.16).
+By that point the run is over, so a hook can't alter the result that was returned. A halting verb only stops the `after_commit` hooks still to come. Hooks leave no trace in the history, and guards are evaluated at firing time. An exception propagates from the place the commit happened, with the writes already committed.
 
-`describe[:hooks][:after_commit]` lists the names and is present whenever the adapter is loaded. `describe_text` prints an `after_commit:` line only when there is something to list. The missing-method and verb-position checks apply to these methods as well.
+`describe[:hooks][:after_commit]` lists the hooks as step entries (`{type:, name:, options:, description:}`, plus `guard:` when guarded) and is present whenever the adapter is loaded. `describe_text` prints an `after_commit:` line only when there is something to list. The missing-method and verb-position checks apply to these methods as well.
 
 ## `ProxyValidator`
 
@@ -83,6 +84,14 @@ rules.formatted_errors # => {callsign: ["can't be blank"]}
 
 # in a step, ready to splat into a failure
 fail!(:invalid, **rules.formatted_errors)
+```
+
+`formatted_errors` is the typed method. The gem's sig leaves out `include ActiveModel::Validations` (and `model_name`), so it loads in an app without Rails. If you call `valid?` or `errors` on a validator under Steep, add the module in your own sig:
+
+```rbs
+class Actionable::ProxyValidator
+  include ::ActiveModel::Validations
+end
 ```
 
 ## See also

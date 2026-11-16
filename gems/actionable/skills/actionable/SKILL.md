@@ -52,13 +52,15 @@ end
 | `skip(code = :skipped, msg = nil, **output)` | Skipped |
 | `fail_with(struct, code: :invalid)` | Failure with the struct's errors |
 | `succeed!`, `fail!`, `skip!`, `fail_with!` | the same, then stop |
-| `halt!` | nothing, stops |
+| `halt!` | nothing, stops (in the steps it raises when nothing was recorded yet: use `skip!`) |
 
 Plain verbs record and continue, and the last record wins. A plain verb must be the last thing a method does, otherwise
 the first `.run` raises `DefinitionError`. Use the bang form to stop.
 
 ## Common mistakes
 
+- Inventing a step or hook option. They take `if:`, `unless:`, `input:`, `expose:` and `desc:`; anything else
+  (`iff:`, `retry:`) raises `DefinitionError` when the class loads. `retry:` belongs on `fails`.
 - Treating `fail` as `raise`. Inside an action it is not `Kernel#fail`: it records a failure and keeps going. To raise, use `raise`.
 - `fail(:x) if bad?` with code after it. Use `fail!`.
 - A sentence as a code. Codes are identifiers, `:deck_full`.
@@ -68,6 +70,12 @@ the first `.run` raises `DefinitionError`. Use the bang form to stop.
 - Passing a Hash positionally to `.run`. Splat it.
 - Forgetting the adapter require: `actionable/rails` for `transactional`, `actionable/job`, `actionable/rspec`.
 - Reading metadata from `fail`'s keywords. Metadata comes from the declaration.
+- Changing a result after `.run`. It's frozen once the last hook ran; hooks may still change it, and
+  `result.with(message: 'x')` gives a changed copy.
+- Expecting hooks on invalid input. Input is checked before the run starts, so `:invalid_input` runs no hook, not even
+  `always`; `result.errors.paths` says where each message belongs.
+- Expecting `.run` to catch exceptions. Only the verbs' throw is caught: a real exception leaves `.run` and skips every
+  hook.
 
 ## Compose
 
@@ -87,8 +95,8 @@ the first `.run` raises `DefinitionError`. Use the bang form to stop.
 ## Jobs
 
 `require 'actionable/job'`. `Actionable::Job.disposition(result)` answers `:ack`, `:discard` or `:retry`. Include
-`Actionable::Job::Mixin` and call `run_actionable(Klass, **args)`; it raises `RetryableFailure` to retry. Metadata
-decides only after `honor_retry_metadata` on the action.
+`Actionable::Job::Mixin` and call `run_actionable(Klass, **args)`; it raises `RetryableFailure` to retry. A `retry:`
+in the failure's metadata decides first; an action opts out with `honor_retry_metadata(enabled: false)`.
 
 ## Test
 

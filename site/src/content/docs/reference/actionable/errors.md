@@ -5,7 +5,7 @@ sidebar:
   order: 13
 ---
 
-There are only a few exception classes, but a lot of checks happen at declaration time, so a misconfigured action fails loudly the first time it loads or runs. Each message names the action (`action` when the class is anonymous) and what is wrong. One rule is different from the rest: a real exception raised inside a step, hook or guard passes straight out of `.run`, because the runner never rescues one (AC-I2).
+There are only a few exception classes, but a lot of checks happen at declaration time, so a misconfigured action fails loudly the first time it loads or runs. Each message names the action (`action` when the class is anonymous) and what is wrong. One rule is different from the rest: a real exception raised inside a step, hook or guard passes straight out of `.run`, because the runner never rescues one.
 
 ## Exception classes
 
@@ -30,14 +30,18 @@ FieldStruct::UnknownAttributeError.ancestors.include?(Actionable::Error) # => fa
 
 | Check | When | Message starts |
 |---|---|---|
-| missing step method | start of `.run` | `<Action> declares step(s) calling :a, :b but does not implement them` |
+| missing step or hook method | start of `.run` | `<Action> declares step(s) calling :a, :b and hook(s) calling :c but does not implement them` |
 | undeclared failure code | at the `fail` call | `<Action> fails with :x, which it does not declare; declare it with `fails :x` (declared: ...)` |
 | undeclared skip code | at the `skip` call | `<Action> skips with :x, which it does not declare; ...` |
 | reserved output name | at the `output` or `fails`/`skips` block | `<Action>: output field(s) :code conflict with reserved result attributes / methods / instance variables; rename them` |
-| output for a code without a schema | at the call, typed outcomes on | `<Action> fails with :x and output, but :x declares no output schema; declare one with `fails :x do ... end`` |
+| output for a code without a schema | at the call, typed outcomes on | `<Action> fails with :x and output, but :x declares no output schema; declare one with `fails :x do … end`` |
 | own result constant | turning on `typed_outcomes` | `<Action> has its own Success, which typed outcomes would replace; rename it` |
 | verb not last | first `.run` of a class | one line per offense, see below |
+| unknown step option | at the step, hook or `case_step` declaration | `unknown step option iff: on Kiln#fire (did you mean if:?)` |
+| a second description | at `desc` or `description` | `<Action> already has a description; give it once, with desc or description` |
 | `after_commit` without ActiveRecord 7.2 | at the declaration | see [Rails adapter](/reference/actionable/rails/) |
+| bare `halt!` | after the main steps, nothing recorded | `<Action>: halt! with nothing recorded; record an outcome first, or use skip!` |
+| `ActiveRecord::Rollback` in a transactional run | after the rollback | `<Action>: a step raised ActiveRecord::Rollback; call fail! to roll back a transactional action` |
 
 ```ruby run
 class RaiseGangway < Actionable::Action
@@ -57,7 +61,7 @@ rescue Actionable::DefinitionError => e
 end
 ```
 
-The missing-method check looks at steps, hooks, case-step value sources and branch targets, plus `after_commit` hooks once the Rails adapter is loaded. A method is implemented when the instance has it, public or private, and it doesn't belong to `Kernel`, `Object` or `BasicObject`, which is why `step :puts` fails. Steps that a guard would skip are checked as well, but the guard methods themselves are not (AC-B#missingmethod).
+The missing-method check looks at steps, hooks, case-step value sources and branch targets, plus `after_commit` hooks once the Rails adapter is loaded. A method is implemented when the instance has it, public or private, and it doesn't belong to `Kernel`, `Object` or `BasicObject`, which is why `step :puts` fails. Steps that a guard would skip are checked as well, but the guard methods themselves are not.
 
 The declared-code checks fire at the call, so a code nobody reaches never raises. The gem's own codes are always allowed on failures. See [Declared outcomes](/reference/actionable/declared-outcomes/).
 
@@ -70,7 +74,7 @@ Moor#tie_up (app/actions/moor.rb:6) calls `fail` with more code after it, which 
 (see USAGE, Control flow)
 ```
 
-[Control flow](/reference/actionable/control-flow/#where-a-plain-verb-may-go) lists the tail positions that are accepted. How the check behaves (AC §5.14):
+[Control flow](/reference/actionable/control-flow/#where-a-plain-verb-may-go) lists the tail positions that are accepted. How the check behaves:
 
 - It happens once per class. A pass is remembered and a failure is not, so the error repeats on each run until you fix it.
 - Source files are read and cached by path and modification time. Methods with no readable source (`eval`, `define_method`, C), files that don't parse, and a Prism that can't load are all skipped without an error.
@@ -82,8 +86,12 @@ Moor#tie_up (app/actions/moor.rb:6) calls `fail` with more code after it, which 
 | Check | Message contains |
 |---|---|
 | a code that is not an identifier | `failure code "a b" is not an identifier; use a Symbol like :out_of_stock` |
+| `fails` or `skips` with a code that is not an identifier, at the declaration | `fails code 5 is not an identifier; use a Symbol like :out_of_stock` |
 | `step` with an unsupported target | `unsupported step target: 5` |
+| a guard that is neither a method name nor a callable, at the declaration | `Kiln#fire: if: takes a method name (Symbol or String) or a callable, got Integer (5)` |
+| `desc`, or a `desc:` on a step, hook or code, that isn't a String | `Kiln#fire: desc: takes a String, got Integer` |
 | unknown `measure` mode | `unknown measure mode :weird` |
+| `register_step_option` with a built-in key, a key another owner registered, or no owner | `step option if: is built into actionable-rb and can't be registered` |
 | `:sampled` without a valid rate | `measure :sampled requires rate: between 0 and 1, got 3` |
 | a schema block on `:invalid_input` or `:invalid_output` | `is a gem failure code and cannot declare an output schema` |
 | `output:` that is not a Hash or a FieldStruct | `output: must be a Hash or a FieldStruct, got Integer` |

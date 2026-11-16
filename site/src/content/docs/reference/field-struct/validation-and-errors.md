@@ -7,7 +7,7 @@ sidebar:
 
 A field setter coerces the value, stores it, and validates that one field. Problems go onto `obj.errors` and aren't raised unless you ask for `:raise`. Building an object and asking whether it is valid are two different things: `new` always hands back an instance, and `valid?` reports the outcome.
 
-Rules: FS-B24, FS-B32 to FS-B51, FS-I1 to FS-I3, FS-I5. The macros that set policies live on [Class macros](/reference/field-struct/class-macros/).
+The macros that set policies live on [Class macros](/reference/field-struct/class-macros/).
 
 ## The setter pipeline
 
@@ -25,23 +25,40 @@ Any other exception, like `NoMethodError` or a `FieldStruct::Error`, propagates.
 Once coercion succeeds, validation goes in this order and stops at the first step that applies:
 
 1. Clear that field's errors.
-2. If the type calls the value missing, add `"is required"` when the field is required and stop. A missing optional value is fine.
-3. Otherwise, when the value fails `format:` (a Regexp only), `enum:` or `in:`, or is an invalid nested struct or holds one, add `"is invalid"`. It is added once, however many checks fail.
-4. For an array with `element:` options, add the element-index message (see [Types](/reference/field-struct/types/)).
+2. If the type calls the value missing, add `"is required"` when the field is required and stop. A missing optional value is fine, and so is a given `nil` on a field declared `nullable: true`.
+3. Otherwise, when a string-family value is outside its `length:`, or an array holds more than its `max_items:`, add that size message and stop.
+4. Otherwise, when the value fails `format:` (a Regexp only), `enum:` or `in:`, or is an invalid nested struct or holds one, add `"is invalid"`. It is added once, however many checks fail.
+5. For an array with `element:` options, add the element-index message, and for a map with them the entry-count message (see [Types](/reference/field-struct/types/)).
 
 | Message | When |
 |---|---|
-| `"is required"` | a required field is missing: nil, a blank String, an empty Array |
+| `"is required"` | a required field is missing: nil, a blank String, an empty Array or Hash |
+| `"is too short (minimum is 3)"`, `"is too long (maximum is 40)"` | a string-family value is outside its `length:` |
 | `"is invalid"` | `format:`, `enum:` or `in:` failed, or a nested struct inside is invalid |
 | `"element at index 1 is invalid"` | an element of an array failed an `element:` check |
+| `"1 entry is invalid"`, `"2 entries are invalid"` | values of a map failed an `element:` check; the message names no key |
+| `"has too many items (maximum is 3)"` | an array holds more elements than its `max_items:` |
 | `"could not be coerced: <reason>"` | the type couldn't read the value |
 | anything you add | from `validate` or `errors.add` |
 
 `format:`, `enum:` and `in:` can be combined, and any failure gives a single `"is invalid"`. `nil` never fails them. A Symbol or String `format:` (temporal presets and strftime strings) only drives parsing and adds no error. Coercion goes first, so `'10'` is already `10` when `in:` looks at it.
 
+`length:` takes a Range of whole numbers (`3..40`, `..40`, `3..`) and counts characters, or bytes on `:binary`. It runs before `format:` and `enum:`, and a value that breaks it gets only the length message, which names the limit and never the value. A blank String is missing, so it skips `length:` the way it skips every check: `''` passes `length: 3..` on an optional field, and is `"is required"` on a required one.
+
+```ruby run
+class Burrow < FieldStruct::Base
+  required :name, :string, length: 3..12
+  optional :entrance, :string, length: 2..
+end
+
+Burrow.new(name: 'Ox').errors[:name]                  # => ["is too short (minimum is 3)"]
+Burrow.new(name: 'Underhill-East').errors[:name]      # => ["is too long (maximum is 12)"]
+Burrow.new(name: 'Sett', entrance: '').valid?         # => true
+```
+
 When coercion fails on a required field, only the coercion error is recorded, never `"is required"` as well, even if `:replace` stored `nil`. Defaults satisfy `required`, because the check looks at the stored value.
 
-Messages carry the class of the input, never the value (FS-I5). That covers coercion errors, `CoercionError`, union and array messages, `from_json` errors and the `cause` chain, so it is safe to log them. Custom types write their own messages, and those should name the class as well.
+Messages carry the class of the input, never the value. That covers coercion errors, `CoercionError`, union and array messages, `from_json` errors and the `cause` chain, so it is safe to log them. Custom types write their own messages, and those should name the class as well.
 
 ```ruby run
 class Seedling < FieldStruct::Base
@@ -168,11 +185,13 @@ band.errors[:base]                                # => ["warmest must exceed col
 | `#clear(field)` | removes the field's entry and returns `nil` |
 | `#empty?` | true when no field has a message |
 | `#to_h`, `#messages` | `{field => [messages]}` for fields that have messages, a new Hash on each call, ordered by when each field first got a message |
+| `#paths` | `{"slats[1].width" => ["is required"]}`: where each message comes from, nested structs included. See below |
 | `#full_messages` | `"Name is required"`: the humanized field name, a space, the message. `:base` gets no prefix |
 | `#inspect` | `#<FieldStruct::Errors empty>` or `#<FieldStruct::Errors name=["is required"]>` |
-| `dup`, `clone` | a deep copy of the message arrays |
+| `#freeze` | freezes the message arrays too, so `add` and `clear` raise `FrozenError` |
+| `dup`, `clone` | a deep copy of the message arrays; a `dup` of frozen errors can be changed again |
 
-Humanizing swaps underscores for spaces and upcases the first character, nothing more. The `inspect` prefix follows [`use_alias!`](/reference/field-struct/introspection-and-tooling/).
+Humanizing swaps underscores for spaces and upcases the first character, nothing more. The `inspect` prefix follows [`use_alias!`](/reference/field-struct/registries-and-custom-types/#use_alias).
 
 Error keys appear in this order: first those from the defaults pass, in declaration order, then those from the input, in input order. Take three required fields `genus`, `species` and `cultivar` and the input `{cultivar: nil, genus: nil}`: the keys are `[:species, :cultivar, :genus]`.
 
@@ -198,6 +217,53 @@ end
 
 Label.new(cultivar: nil, genus: nil).errors.to_h.keys   # => [:species, :cultivar, :genus]
 ```
+
+Once an instance's errors are frozen, `valid?` reads them as they are and runs no validator, since a validator could no longer record anything. The errors on a frozen Actionable result are frozen this way.
+
+```ruby run
+class Hedge < FieldStruct::Base
+  required :species, :string
+end
+
+hedge = Hedge.new(species: nil)
+hedge.errors.freeze
+hedge.valid?                         # => false
+begin
+  hedge.errors.add(:species, 'try again')
+rescue FrozenError
+  hedge.errors[:species]             # => ["is required"]
+end
+hedge.dup.errors.frozen?             # => false
+```
+
+### Paths into nested structs
+
+An invalid nested struct shows in `to_h` as one `"is invalid"` on the parent field. `paths` says which part was wrong: a nested field adds `.name`, an array element adds `[index]`, a map value adds `{"key"}`, and a top-level field is just its name. `to_h` doesn't change.
+
+```ruby run
+class Slat < FieldStruct::Base
+  required :width, :integer
+end
+
+class Trellis < FieldStruct::Base
+  required :bed, :string
+  optional :slats, :array, of: Slat
+end
+
+trellis = Trellis.new(bed: 'east', slats: [{ width: 4 }, {}])
+trellis.errors.to_h      # => {slats: ["is invalid"]}
+trellis.errors.paths     # => {"slats[1].width" => ["is required"]}
+Trellis.new(slats: []).errors.paths   # => {"bed" => ["is required"]}
+
+class Arbor < FieldStruct::Base
+  optional :slats_by_side, :hash, of: Slat
+end
+
+Arbor.new(slats_by_side: { north: { width: 3 }, south: {} }).errors.paths
+# => {"slats_by_side{\"south\"}.width" => ["is required"]}
+```
+
+`paths` reads the nested structs as they are when you call it and runs no validators. If you fix a nested struct in place, the parent still says `"is invalid"` (validity is computed on assignment), and since no child explains it any more, `paths` keeps the parent's own entry. A failed `:invalid_input` run in Actionable answers `paths` for its input the same way.
 
 ## Errors in inspect
 

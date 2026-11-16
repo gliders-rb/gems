@@ -14,7 +14,8 @@ module FieldStruct
           {
             format: option(type: [::Regexp, ::Symbol]),
             enum: option(type: ::Array),
-            strict: option(type: [::TrueClass, ::FalseClass])
+            strict: option(type: [::TrueClass, ::FalseClass]),
+            length: option(type: ::Range)
           }
         end
       end
@@ -24,10 +25,17 @@ module FieldStruct
       # @return [::String, nil]
       # @raise [TypeError] under +strict: true+ for any other class
       def coerce(value, strict: false, **)
-        return nil if value.nil?
+        coerce_with(value, strict)
+      end
 
-        refuse_strict(value) if strict && !strict_input?(value)
-        value.to_s
+      # Internal: {#coerce} with the options as one Hash, no keyword splat (see Types::Base.positional_coerce?).
+      #
+      # @param value [::Object]
+      # @param options [::Hash{::Symbol=>::Object}]
+      # @return [::String, nil]
+      # @api private
+      def coerce_positional(value, options)
+        coerce_with(value, options[:strict])
       end
 
       # @param value [::Object]
@@ -46,6 +54,13 @@ module FieldStruct
       end
 
       private
+
+      def coerce_with(value, strict)
+        return nil if value.nil?
+
+        refuse_strict(value) if strict && !strict_input?(value)
+        value.to_s
+      end
 
       def strict_input?(value)
         value.is_a?(::String) || value.is_a?(::Symbol) || value.is_a?(::Integer) || value.respond_to?(:to_str)

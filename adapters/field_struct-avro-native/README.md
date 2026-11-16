@@ -3,8 +3,7 @@
 An optional Rust encoder for [field_struct-avro](../field_struct-avro). It writes the same Avro bytes as the
 pure-Ruby path, about 2.6x faster end to end on an Order-like struct.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'field_struct/avro'
 
 class Beacon < FieldStruct::Base
@@ -31,12 +30,12 @@ object (so it follows the adapter's cache: a rebuilt or cleared entry gets a new
 walks the datum in Rust into one buffer.
 
 The contract is byte-for-byte identical output. When the plan is not sure about a datum, it doesn't raise.
-It hands the datum to the pure path, which then writes it or raises exactly the error the field_struct-avro
-spec describes. It falls back for:
+It hands the datum to the pure path, which then writes it or raises exactly the error field_struct-avro
+would raise. It falls back for:
 
 - a value of a class the plan doesn't expect, like an Integer in a `double` field or a DateTime in a `date` field
 - a value out of range: an integer past `int`/`long`, a decimal past its precision or scale, a time past `long`
-- a String in an encoding other than UTF-8, or 7-bit US-ASCII/binary
+- a String in an encoding other than UTF-8 (7-bit US-ASCII and binary Strings are fine)
 - a record datum that isn't exactly what `to_datum` builds (String keys, one per field, in field order)
 - a union member it can't rule in or out the way the avro gem would
 - schema shapes it doesn't cover: `fixed`, logical types other than `decimal` (on bytes), `date`,
@@ -45,13 +44,34 @@ spec describes. It falls back for:
 Two avro gem 1.12 quirks the plan copies by falling back: a decimal zero at scale 0 raises "Rounding
 necessary", and a map with a key that is not valid UTF-8 raises inside a union.
 
+## Install
+
+```ruby
+gem 'field_struct-avro'
+gem 'field_struct-avro-native'
+```
+
+Ruby 3.3 or newer. Precompiled gems aren't published yet, so installing builds the extension from source, and the
+machine needs Rust (stable) and a C toolchain.
+
+If the extension can't load, `require 'field_struct/avro/native'` raises `LoadError`. The per-datum fallback above
+doesn't cover that case. To keep the native encoder optional, rescue it around the require:
+
+```ruby
+begin
+  require 'field_struct/avro/native'
+rescue LoadError
+  # field_struct-avro keeps encoding in pure Ruby
+end
+```
+
 ## Building
 
 You need Rust (stable) and a C toolchain. From this directory:
 
 ```sh
 bundle install
-bundle exec rake compile   # builds lib/field_struct/avro/field_struct_avro_native.bundle
+bundle exec rake compile   # builds lib/field_struct/avro/field_struct_avro_native.bundle (.so on Linux)
 bundle exec rake           # compile, specs, field_struct-avro's suite with native, rubocop, clippy, cargo test
 ```
 
@@ -73,7 +93,8 @@ source gem, smoke-tests each, and uploads them as artifacts. It never publishes.
   and leave both good and bad ones to the pure path
 - `struct_differential_spec.rb` - 3,000 random structs over every field type the adapter maps, at each timestamp
   precision: same bytes, and they decode and re-encode to the same bytes
-- `fallback_spec.rb` - each error in the adapter spec (AV-B21, B33, B34, B35) comes out the same with native on
+- `fallback_spec.rb` - each error the adapter raises comes out the same with native on: a time too precise for
+  its timestamp, an invalid struct, a decimal past its precision or scale, an integer past 64 bits
 - `rake upstream` - field_struct-avro's whole suite with `FIELD_STRUCT_AVRO_NATIVE=1`
 
 ## Numbers
@@ -95,3 +116,7 @@ we want one, is a plan that reads the struct directly instead of the datum Hash.
 - Published precompiled platform gems. The release workflow builds them (x86_64-linux, aarch64-linux, arm64-darwin)
   but nothing is published yet, so installing compiles from source.
 - `decode` stays pure Ruby. The avro gem's decimal reader is the hot spot there, ceiling about 1.6x.
+
+## Docs
+
+The guide on the docs site, with every example run in CI: https://gliders-rb.github.io/adapters/avro-native/

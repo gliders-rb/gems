@@ -10,12 +10,18 @@ on:
       - 'adapters/field_struct-avro/**'
       - 'gems/field_struct/**'
       - '.github/workflows/field_struct-avro-native.yml'
+      - 'tools/doctest/**'
+      - 'tools/doccheck/**'
+      - 'site/src/content/docs/**'
   pull_request:
     paths:
       - 'adapters/field_struct-avro-native/**'
       - 'adapters/field_struct-avro/**'
       - 'gems/field_struct/**'
       - '.github/workflows/field_struct-avro-native.yml'
+      - 'tools/doctest/**'
+      - 'tools/doccheck/**'
+      - 'site/src/content/docs/**'
   workflow_dispatch:
 
 # Pull request code runs here, so the token stays read-only.
@@ -53,11 +59,53 @@ jobs:
         working-directory: adapters/field_struct-avro
       - run: bundle exec rake
 
+  # Doctests, YARD completeness and the signature guards: everything `rake release:check` covers.
+  release-check:
+    name: release:check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oxidize-rb/actions/setup-ruby-and-rust@ec90b4aa48795518d79be3f5cc478d1d7ccd02a8 # v1.5.0
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+          cargo-cache: true
+          working-directory: adapters/field_struct-avro-native
+      - run: bundle exec rake release:check
+
+  # The suite with ActiveSupport loaded first, under a non-UTC TZ, deprecations raising (SH-B22).
+  active-support:
+    name: ActiveSupport ${{ matrix.activesupport }}
+    runs-on: ubuntu-latest
+    env:
+      BUNDLE_GEMFILE: ${{ github.workspace }}/adapters/field_struct-avro-native/gemfiles/active_support.gemfile
+      ACTIVE_SUPPORT_LANE: '1'
+      ACTIVE_SUPPORT_VERSION: ${{ matrix.requirement }}
+      TZ: America/Denver
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - activesupport: '7.2'
+            requirement: '~> 7.2.0'
+          - activesupport: '8.1'
+            requirement: '~> 8.1.0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oxidize-rb/actions/setup-ruby-and-rust@ec90b4aa48795518d79be3f5cc478d1d7ccd02a8 # v1.5.0
+        with:
+          ruby-version: '3.4'
+          cargo-cache: true
+          working-directory: adapters/field_struct-avro-native
+      - run: bundle install
+      - run: bundle exec rake compile
+      - run: bundle exec rspec --tag '~doctest' --format progress
+
   # The one check to require in branch protection: green only when every gating job passed.
   required:
     name: field_struct-avro-native (required)
     if: always()
-    needs: [test]
+    needs: [test, release-check, active-support]
     runs-on: ubuntu-latest
     defaults:
       run:

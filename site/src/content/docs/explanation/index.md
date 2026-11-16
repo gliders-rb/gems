@@ -16,12 +16,16 @@ Each page here answers "why is it like this?". Teaching a task is the job of the
 ## actionable
 
 - [Success, failure, skip](/explanation/three-outcomes/): why a skip is its own outcome, and why halting is a throw
+- [The runner is a railway](/explanation/the-runner-is-a-railway/): the first outcome leaves the main track, and each track has its own hooks
+- [A result is a report, not a handle](/explanation/a-result-is-a-report/): you get plain data back, never the action
 - [Declared failures and result codes](/explanation/declared-outcomes/): why the codes are a contract
 
 ## Both
 
 - [ActiveModel-shaped, framework-free](/explanation/framework-independence/): copy the shape, keep Rails optional
 - [How the two gems fit together](/explanation/how-the-gems-fit/): input, output and result are all structs
+- [Metadata is the product](/explanation/metadata-is-the-product/): declarations are data, and adapters read them
+- [Typed, and documented once](/explanation/typed-and-documented-once/): every fact written once, every type generated from it
 - [Why these gems](/explanation/why-these-gems/): where they came from
 - [The Gliders idea](/explanation/gliders/): work with the forces already in a system, not against them
 - [History](/explanation/history/): the earlier versions, and why this is a complete rewrite

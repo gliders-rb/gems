@@ -14,8 +14,18 @@ module FieldStruct
     # 
     # _@param_ `serialization` — the serialization whose +serialize+ names the properties use
     # 
-    # _@return_ — a fresh deep copy; mutating it changes nothing else
-    def self.generate: (singleton(FieldStruct::Base) klass, ?serialization: (::Symbol | ::String)) -> ::Hash[::String, ::Object]
+    # _@param_ `decimals` — +:to_json+ describes decimals as +to_json+ writes them (numbers, unless a field keeps the string); +:string+ describes every decimal as the String +as_json+ gives
+    # 
+    # _@param_ `freeze` — true returns the cached schema itself, deep-frozen, instead of a copy (JS-B44)
+    # 
+    # _@return_ — a fresh deep copy (mutating it changes nothing else), or with
+    # +freeze: true+ the shared deep-frozen schema
+    def self.generate: (
+                         singleton(FieldStruct::Base) klass,
+                         ?serialization: (::Symbol | ::String),
+                         ?decimals: ::Symbol,
+                         ?freeze: bool
+                       ) -> ::Hash[::String, ::Object]
 
     # An ECMA-262 pattern matching exactly the strings +regexp+ matches (under the +u+ flag), or nil.
     # 
@@ -36,8 +46,10 @@ module FieldStruct
       module ClassMethods
         # _@param_ `serialization` — the serialization whose names the schema uses
         # 
+        # _@param_ `freeze` — true for the shared, deep-frozen schema instead of a fresh copy
+        # 
         # _@return_ — see {FieldStruct::JSONSchema.generate}
-        def to_json_schema: (?serialization: (::Symbol | ::String)) -> ::Hash[::String, ::Object]
+        def to_json_schema: (?serialization: (::Symbol | ::String), ?freeze: bool) -> ::Hash[::String, ::Object]
       end
     end
   end

@@ -26,6 +26,18 @@ module Actionable
       @steps = []
     end
 
+    # Freezes the steps and their nested histories too, so a frozen result's history can't change.
+    #
+    # @return [self]
+    def freeze
+      steps.each do |step|
+        step.nested&.freeze
+        step.freeze
+      end
+      steps.freeze
+      super
+    end
+
     # @param step [Step]
     # @return [self]
     def <<(step)

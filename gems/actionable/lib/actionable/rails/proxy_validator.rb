@@ -9,6 +9,9 @@ module Actionable
     attr_reader :delegate
 
     class << self
+      # Called by ActiveModel only (for error messages), so it stays out of the shipped sig.
+      #
+      # @!visibility private
       # @return [::ActiveModel::Name] built from the class name, +ProxyValidator+ for an anonymous class
       def model_name
         ::ActiveModel::Name.new(self, nil, name || 'ProxyValidator')

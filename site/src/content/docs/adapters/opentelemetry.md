@@ -2,9 +2,6 @@
 title: "OpenTelemetry"
 description: "Give each action run a span, and each step a child span, that carry the outcome and the code but never a value."
 sidebar:
-  badge:
-    text: Unreleased
-    variant: caution
   label: "OpenTelemetry"
   order: 4
 ---
@@ -170,7 +167,7 @@ A run costs one span, and every step or hook that executes costs one more. With 
 
 ## Compatibility
 
-You need Ruby 3.3 or newer, `actionable-rb` 2.x and `opentelemetry-api` 1.7 or newer. The adapter wraps `Action.run` and one internal method of the runner, so a new major of `actionable-rb` may call for a new release here.
+You need Ruby 3.3 or newer, `actionable-rb` 2.x and `opentelemetry-api` 1.7 or a later 1.x. The adapter wraps `Action.run` and one internal method of the runner, so a new major of `actionable-rb` may call for a new release here.
 
 ## See also
 

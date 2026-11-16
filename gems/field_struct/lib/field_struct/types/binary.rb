@@ -11,6 +11,16 @@ module FieldStruct
         text&.b
       end
 
+      # Internal: {#coerce} with the options as one Hash, no keyword splat (see Types::Base.positional_coerce?).
+      #
+      # @param value [::Object]
+      # @param options [::Hash{::Symbol=>::Object}]
+      # @return [::String, nil]
+      # @api private
+      def coerce_positional(value, options)
+        super&.b
+      end
+
       # @param value [::Object]
       # @return [Boolean] true for nil and the empty string
       def missing?(value)

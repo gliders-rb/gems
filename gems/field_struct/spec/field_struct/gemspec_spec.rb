@@ -17,7 +17,8 @@ RSpec.describe 'field_struct.gemspec' do
 
   it 'ships the library, signatures, docs and agent assets' do
     files = spec.files
-    expect(files).to include('lib/field_struct.rb', 'sig/field_struct.rbs', 'README.md', 'USAGE.md', 'CHANGELOG.md', 'LICENSE.txt')
+    expect(files).to include('lib/field_struct.rb', 'sig/field_struct.rbs', 'sig/manifest.yaml')
+    expect(files).to include('README.md', 'USAGE.md', 'CHANGELOG.md', 'LICENSE.txt')
     expect(files).to include('AGENTS.md', 'docs/getting_started.md', 'skills/field-struct/SKILL.md')
     expect(files).to include('.claude-plugin/plugin.json', '.claude-plugin/marketplace.json')
   end

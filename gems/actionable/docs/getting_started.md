@@ -30,6 +30,7 @@ end, and lists the mistakes people make first. [USAGE.md](../USAGE.md) is the fu
 | Stub a child action | `allow_actionable_failure(Child, code: :deck_full)` |
 | Find declared outcomes no spec reached | `require 'actionable/rspec/coverage'` |
 | See what an action does | `Klass.describe_text` |
+| Describe it for people, or for docs pages | `desc '...'`, `step :x, desc: '...'`, then the actionable-docs adapter |
 | Get RBS for an action | `Actionable::RBS.generate(Klass)` |
 
 ## What an error means
@@ -53,6 +54,12 @@ Exceptions are for mistakes in the action itself:
 | `DefinitionError: X fails with :plain and output, but :plain declares no output schema` | typed outcomes refuse output with nowhere to go | add a block: `fails(:plain) { ... }` |
 | `DefinitionError: output field(s) :status conflict with reserved result attributes` | the field name is a Result method | rename the field |
 | `DefinitionError: X set @result to a ...` | a step overwrote the reserved `@result` | rename the instance variable |
+| `DefinitionError: X: halt! with nothing recorded; record an outcome first, or use skip!` | `halt!` in the steps before any verb recorded a result | record an outcome first, or use `skip!` |
+| `DefinitionError: X: a step raised ActiveRecord::Rollback; call fail! to roll back a transactional action` | a step in a `transactional` action raised Rollback, which the transaction swallows | call `fail!` instead |
+| `DefinitionError: unknown step option iff: on X#step (did you mean if:?)` | a step or hook got a key it doesn't read | use `if:`, `unless:`, `input:`, `expose:` or `desc:`; an adapter's own key needs that adapter required first |
+| `DefinitionError: X already has a description; give it once, with desc or description` | the action calls `desc` and `description`, or one twice | keep one |
+| `ArgumentError: X: desc takes a String, got Integer` | `desc`, or a `desc:` on a step, hook or code, that isn't a String | pass the text |
+| `ArgumentError: X#step: if: takes a method name (Symbol or String) or a callable, got Integer (5)` | a guard that can never be called | pass a method name or a lambda |
 | `ArgumentError: ... code "..." is not an identifier` | a sentence or odd string was used as a code | use a Symbol like `:deck_full`, and `raise` to raise |
 | `ArgumentError: unsupported step target` | `step` got something that is not a Symbol, String or Action class | pass a method name or an action class |
 | `ArgumentError: unknown measure mode` | `measure` got a mode other than `:all`, `:none`, `:sampled` | use one of those |
@@ -62,8 +69,7 @@ Exceptions are for mistakes in the action itself:
 
 ## One action, end to end
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'actionable'
 
 class SendFlare < Actionable::Action

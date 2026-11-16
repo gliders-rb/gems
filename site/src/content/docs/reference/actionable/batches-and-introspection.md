@@ -13,7 +13,7 @@ Three tools here treat actions as data. `run_each` feeds many inputs to one acti
 Action.run_each(items) { |item| args } # => BatchResult
 ```
 
-The action runs once per item, in order, and each run is independent of the others. You get back a `BatchResult` that keeps the same order. The block turns an item into run arguments: a Hash becomes keywords, an Array becomes positional arguments, and anything else is one positional argument. With no block, items follow that same rule. One item failing never affects another, and nothing wraps the whole batch in a transaction (AC-B#runeach).
+The action runs once per item, in order, and each run is independent of the others. You get back a `BatchResult` that keeps the same order. The block turns an item into run arguments: a Hash becomes keywords, an Array becomes positional arguments, and anything else is one positional argument. With no block, items follow that same rule. One item failing never affects another, and nothing wraps the whole batch in a transaction.
 
 ```ruby run
 class TrimLoad < Actionable::Action
@@ -85,24 +85,49 @@ registry.register(Class.new(Actionable::Action)).equal?(registry) # => true
 registry.each.first.class         # => Array
 ```
 
+## Descriptions
+
+`desc 'text'` in the class body describes the action in prose; `description` is the same macro, and either one reads it back with no argument. A class gets one description (a second raises `DefinitionError`), and a subclass doesn't inherit it. `desc:` describes a step, a `case_step`, a branch, a hook or a `fails`/`skips` code, and must be a String. On `fails` and `skips` it never becomes metadata, so it can't reach a result's `to_h` or `as_json`. A run never reads any of it; `describe` carries it, for people and for docs.
+
+```ruby run
+class SharpenSaw < Actionable::Action
+  desc 'Files every tooth of a hand saw back to an edge.'
+
+  fails :tooth_broken, retry: false, desc: 'A tooth snapped off while filing'
+  step :clamp_blade, desc: 'Clamp the blade in the saw vice'
+
+  private
+
+  def clamp_blade = nil
+end
+
+SharpenSaw.desc                                  # => "Files every tooth of a hand saw back to an edge."
+SharpenSaw.description                           # => "Files every tooth of a hand saw back to an edge."
+SharpenSaw.declared_failures                     # => {tooth_broken: {retry: false}}
+SharpenSaw.describe[:description]                # => "Files every tooth of a hand saw back to an edge."
+SharpenSaw.describe[:steps].first[:description]  # => "Clamp the blade in the saw vice"
+```
+
 ## `describe`
 
 ```ruby
 Action.describe # => Hash
 ```
 
-The Hash `describe` returns has exactly nine keys.
+The Hash `describe` returns has exactly eleven keys.
 
 | Key | Value |
 |---|---|
 | `name` | the class name, or `nil` when anonymous |
+| `description` | the action's `desc`, or `nil` |
 | `input` | the input schema's `metadata.to_h`; `{discriminated_on:, shapes:}` for a dispatched action; `nil` when free-form |
 | `output` | the output schema's `metadata.to_h`, or `nil` |
-| `steps` | `[{type:, name:, options:}]`; `type` is `:method`, `:action` or `:case`; an action step's `name` is the class |
-| `failures`, `skips` | `{code => {message:, metadata:}}`, plus `output:` when the code has a schema |
-| `hooks` | `{on_success:, on_failure:, on_skip:, always:}` as name lists |
+| `steps` | step entries `{type:, name:, options:, description:}`; `type` is `:method`, `:action` or `:case`; an action step's `name` is the class; `options` leaves out `desc:`, which is `description`; plus `guard:` when guarded and, on a case step, `branches:` and `default:` (below) |
+| `failures`, `skips` | `{code => {message:, metadata:, description:}}`, plus `output:` when the code has a schema |
+| `hooks` | `{on_success:, on_failure:, on_skip:, always:}`, each a list of step entries |
 | `measure` | the mode Symbol |
 | `transactional` | the transaction config, or `nil` |
+| `calls` | the actions its methods run by hand (`Child.run` in a step, hook or a helper they call), found in the source; `[]` when none |
 
 On a dispatched action, `shapes` lists the values each branch matches on, not the schema classes the name might suggest. Load the Rails adapter and `hooks` also carries an `after_commit` key, there even when empty.
 
@@ -121,15 +146,70 @@ class Sounding < Actionable::Action
 end
 
 description = Sounding.describe
-description.keys.size                # => 9
+description.keys.size                # => 11
 description[:name]                   # => "Sounding"
-description[:steps]                  # => [{type: :method, name: :lower_line, options: {}}]
-description[:hooks][:always]         # => [:coil_line]
-description[:failures]               # => {aground: {message: "keel touched bottom", metadata: {retry: true}}}
+description[:steps]                  # => [{type: :method, name: :lower_line, options: {}, description: nil}]
+description[:hooks][:always]         # => [{type: :method, name: :coil_line, options: {}, description: nil}]
+description[:failures]               # => {aground: {message: "keel touched bottom", metadata: {retry: true}, description: nil}}
 description[:input].keys             # => [:berth]
 description[:output]                 # => nil
 description[:measure]                # => :none
 description[:transactional]          # => nil
+description[:calls]                  # => []
+```
+
+### Guards, branches and defaults
+
+A guarded entry, step or hook, has `guard:` with a label for each of `if:` and `unless:`. A Symbol or String guard gives its method name. A callable gives its own `desc` when it responds to `desc` with a String, and `"a custom condition"` otherwise. Entries without a guard have no `guard:` key. A case step's entry adds `branches:`, one `{on:, step:}` per branch in order (`on` is the match value as you wrote it, an Array for `on %w[a b]`), and `default:`, the default's entry or `nil`.
+
+```ruby run
+class StowGear < Actionable::Action
+  step :coil_rope, if: :rope_wet?
+  step :lock_shed, unless: ->(action) { false }
+
+  case_step :gear do
+    on 'oar', :rack_oars
+    on %w[sail jib], :fold_sail, desc: 'Fold it dry'
+  end
+
+  on_failure :report_loss, if: :something_missing?
+
+  private
+
+  def rope_wet? = true
+  def something_missing? = false
+  def gear = 'oar'
+  def coil_rope = nil
+  def lock_shed = nil
+  def rack_oars = nil
+  def fold_sail = nil
+  def report_loss = nil
+end
+
+steps = StowGear.describe[:steps]
+steps[0][:guard]                              # => {if: "rope_wet?"}
+steps[1][:guard]                              # => {unless: "a custom condition"}
+steps[2][:branches].map { |branch| branch[:on] }   # => ["oar", ["sail", "jib"]]
+steps[2][:branches].last[:step][:description]      # => "Fold it dry"
+steps[2][:default]                            # => nil
+StowGear.describe[:hooks][:on_failure].first[:guard]   # => {if: "something_missing?"}
+```
+
+`calls` is read from the source with Prism, not from a run: a `run` or `run!` on a constant that names an action, in a step, a hook, or one of the class's own methods they call. A receiver held in a variable isn't seen, and neither is an action defined in irb or by `eval`, which has no source file to read (so this example is shown, not run).
+
+```ruby
+class Restock < Actionable::Action
+  step :order_more
+
+  private
+
+  def order_more
+    Sounding.run(berth: 'dock 2')
+  end
+end
+
+Restock.describe[:calls]           # [Sounding]
+Restock.describe_text.lines.last   # "  Calls: Sounding (found in source)"
 ```
 
 ## `describe_text`
@@ -142,6 +222,7 @@ description[:transactional]          # => nil
 4. `  Steps:` and one `    - <name> (<kind>)` line per step, or `    (none)`.
 5. `  Failures:` and `  Skips:`, only when non-empty, one `    - <code>` line each, with the metadata in parentheses and `: <message>` when there is one.
 6. `  Hooks:`, only when some list is non-empty, one `    <section>: <names>` line per non-empty section.
+7. `  Calls: <names> (found in source)`, only when `calls` is non-empty.
 
 The field lines are FieldStruct's own description, so they change with its version.
 

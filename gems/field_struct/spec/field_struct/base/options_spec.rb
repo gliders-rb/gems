@@ -46,10 +46,10 @@ RSpec.describe FieldStruct::Base, 'declaration-time option validation' do
     end
   end
 
-  describe 'FS-B10 pass-through options' do
-    it 'stores unknown keys verbatim on the Field' do
-      klass = declare(:integer, avro_doc: 'the id', proto: { tag: 1 })
-      expect(klass.metadata[:x].options).to include(avro_doc: 'the id', proto: { tag: 1 })
+  describe 'FS-B10a registered options' do
+    it 'stores registered keys verbatim on the Field' do
+      klass = declare(:integer, shelf_mark: 'the id', archive: { tag: 1 })
+      expect(klass.metadata[:x].options).to include(shelf_mark: 'the id', archive: { tag: 1 })
     end
 
     it 'FS-B11: keeps universal options off Field#options' do

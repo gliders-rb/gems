@@ -10,6 +10,7 @@ require 'oj'
 require_relative 'field_struct/version'
 require_relative 'field_struct/exceptions'
 require_relative 'field_struct/errors'
+require_relative 'field_struct/suggestion'
 require_relative 'field_struct/registry'
 require_relative 'field_struct/types/base'
 require_relative 'field_struct/types/preset_resolver'
@@ -35,6 +36,8 @@ require_relative 'field_struct/types/value'
 require_relative 'field_struct/types/nested'
 require_relative 'field_struct/types/element_options'
 require_relative 'field_struct/types/array'
+require_relative 'field_struct/types/hash'
+require_relative 'field_struct/types/union_pick'
 require_relative 'field_struct/types/union'
 require_relative 'field_struct/types/builtin'
 require_relative 'field_struct/restrictions'
@@ -44,8 +47,12 @@ require_relative 'field_struct/option_checker'
 require_relative 'field_struct/metadata'
 require_relative 'field_struct/model_name'
 require_relative 'field_struct/field_builder'
+require_relative 'field_struct/registered_option'
 require_relative 'field_struct/class_macros'
+require_relative 'field_struct/partial'
 require_relative 'field_struct/json_codec'
+require_relative 'field_struct/presence'
+require_relative 'field_struct/field_checks'
 require_relative 'field_struct/base'
 require_relative 'field_struct/scaffold'
 require_relative 'field_struct/introspection'
@@ -98,6 +105,28 @@ module FieldStruct
       end
       @inspect_namespace = name.to_s
       self
+    end
+
+    # Makes +name+ a known field option, so declaring it on a field doesn't raise (FS-B10a). Adapters call this
+    # for the keys they read; an app can too. Registering the same name, type and owner again does nothing.
+    #
+    # @example
+    #   FieldStruct.register_option(:catalog, type: Hash, owner: 'my_app')
+    #
+    # @param name [Symbol] the option key
+    # @param type [Class, Array<Class>] what a declared value must be an instance of (+nil+ is always allowed)
+    # @param owner [String] the gem or app that reads the option, named in error messages
+    # @return [Symbol] +name+
+    # @raise [ArgumentError] for a universal or built-in native key, or a name already registered differently
+    def register_option(name, type:, owner:)
+      OptionRegistry.register(name, type, owner)
+    end
+
+    # Every registered field option, by name, in registration order.
+    #
+    # @return [Hash{Symbol=>FieldStruct::RegisteredOption}] frozen
+    def registered_options
+      OptionRegistry.entries
     end
 
     # The prefix library +inspect+ output uses.

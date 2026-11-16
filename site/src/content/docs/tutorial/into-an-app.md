@@ -149,10 +149,6 @@ A timeout is worth another try and an unknown pass is not. The metadata we decla
 ```ruby run title="plan_trek_job.rb"
 require 'actionable/job'
 
-class PlanTrek
-  honor_retry_metadata
-end
-
 class PlanTrekJob
   include Actionable::Job::Mixin
 

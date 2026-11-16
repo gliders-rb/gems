@@ -184,11 +184,10 @@ RSpec.describe 'FieldStruct::Avro caching' do
       expect(calls).to eq(1)
     end
 
-    it 'AV-B56: checks the avro: option shape when the list is first built' do
-      k = define_struct('Loose2') { required :v, :string, avro: 'string' }
-      msg = %(FieldStruct::Avro (Loose2#v) avro: takes a Hash of options, like avro: {type: 'string'}, got "string")
-      expect { avro.to_datum(k.new(v: 'x')) }.to raise_error(ArgumentError, msg)
-      expect { avro.from_datum(k, { 'v' => 'x' }) }.to raise_error(ArgumentError, msg)
+    it 'AV-B56: a non-Hash avro: never reaches the property list: it is refused at declaration (FS-B10a)' do
+      expect { define_struct('Loose2') { required :v, :string, avro: 'string' } }.to raise_error(
+        ArgumentError, 'avro: on String expects Hash, got String ("string")'
+      )
     end
   end
 

@@ -10,14 +10,12 @@ A `PullTimetable` job downloads a ferry timetable. A `:tide_late` answer deserve
 
 ## 1. Declare the codes and say which retry
 
-Write the decision beside the code, as `retry:` metadata, and switch it on with `honor_retry_metadata`. The core never reads metadata by itself, so without that opt-in the job ignores it.
+Write the decision beside the code, as `retry:` metadata. The core never reads metadata by itself, but the job adapter does once `actionable/job` is loaded. An action that should ignore it says `honor_retry_metadata(enabled: false)`.
 
 ```ruby run
 require 'actionable/job'
 
 class PullTimetable < Actionable::Action
-  honor_retry_metadata
-
   input { required :source, :string }
 
   fails :tide_late, retry: true
@@ -37,7 +35,7 @@ end
 
 ## 2. Include the mixin in the job
 
-`run_actionable` runs the action and keeps its result. It raises `Actionable::Job::RetryableFailure` when the result deserves a retry, and for an acknowledged or discarded one it simply returns the result, so the job ends.
+`run_actionable` runs the action and keeps its result. It raises `Actionable::Job::RetryableFailure` when the result deserves a retry, and for an acknowledged or discarded one it returns the result, so the job ends.
 
 ActiveJob needs to be told to retry that error. Sidekiq retries every job that raises, so there is nothing to add.
 
@@ -89,7 +87,7 @@ end
 
 ## 4. Change what counts as permanent
 
-When `honor_retry_metadata` is off, every failure gets a retry unless its code is permanent. Out of the box the permanent codes are `:invalid_input`, `:invalid_output` and `:not_found`, because retrying input the action already refused can't change the answer. To use another list, override `actionable_permanent_codes`.
+Without a `retry:` key, or in an action that opted out with `honor_retry_metadata(enabled: false)`, every failure gets a retry unless its code is permanent. Out of the box the permanent codes are `:invalid_input`, `:invalid_output` and `:not_found`, because retrying input the action already refused can't change the answer. To use another list, override `actionable_permanent_codes`.
 
 ```ruby run
 class PickyRunner

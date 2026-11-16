@@ -138,8 +138,9 @@ RSpec.describe FieldStruct::JSONSchema, 'document shape' do
       expect(schema_of(:integer)).to eq('type' => 'integer')
       expect(schema_of(:float)).to eq('type' => 'number')
       expect(schema_of(:value)).to eq({})
-      expect(schema_of(:big_decimal)).to eq('type' => 'string', 'pattern' => described_class::DECIMAL_PATTERN)
-      expect(schema_of(:big_decimal, in: 1..2)).to eq('type' => 'string', 'pattern' => described_class::DECIMAL_PATTERN)
+      expect(schema_of(:big_decimal)).to eq('type' => 'number')
+      expect(schema_of(:big_decimal, in: 1..2)).to eq('type' => 'number')
+      expect(schema_of(:big_decimal, json: :string)).to eq('type' => 'string', 'pattern' => described_class::DECIMAL_PATTERN)
       expect(schema_of(:symbol, enum: %i[a b])).to eq('type' => 'string', 'enum' => %w[a b])
       expect(schema_of(:symbol)).to eq('type' => 'string')
     end

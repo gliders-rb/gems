@@ -15,8 +15,7 @@ the API classes is named here (`rake docs:check` enforces it).
 An action is a subclass of `Actionable::Action`. Each step is an instance method, public or private, and `.run`
 builds a fresh instance every time, so no state survives between runs.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'actionable'
 
 class ArchiveLog < Actionable::Action
@@ -47,8 +46,7 @@ ArchiveLog.run.code      # => :invalid_input
 `always_hooks` are the four hook lists. An action with no `input` block is free-form: `.run(*args, **kwargs)` hands
 both to `new`, and the default constructor ignores them.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'actionable'
 
 class Hail < Actionable::Action
@@ -84,10 +82,10 @@ subclass, in place. There is no way to remove an inherited step, so guard it off
 | `halt!` | nothing | never |
 
 Plain verbs record and keep going, and the last record wins. Bang verbs record and stop the main steps (hooks still
-run). With no record at all the run auto-succeeds. All verbs are private, and `result` and `input` are public readers.
+run). With no record at all the run auto-succeeds, but a bare `halt!` with nothing recorded raises `DefinitionError`
+("record an outcome first, or use skip!"). All verbs are private, and `result` and `input` are public readers.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'actionable'
 
 class Recover < Actionable::Action
@@ -108,8 +106,7 @@ Recover.run.message     # => "recovered"
 The keywords after `fail`'s message are all errors, each `field => message` or `field => [messages]`. Nothing is
 reserved for metadata, so `fail!(:x, nil, kind: 'is not valid')` gives `errors[:kind]`. Values are turned into Strings.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'actionable'
 
 class Reject < Actionable::Action
@@ -128,8 +125,7 @@ result.message       # => "cannot ship"
 `fail_with(source, ...)` copies `source.errors` from any FieldStruct. It is the way to turn a side struct's
 validation into a failure.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'actionable'
 
 class Mooring < FieldStruct::Base
@@ -188,8 +184,7 @@ plugins:
 `Actionable::Result` is abstract, and `Success`, `Failure` and `Skipped` are FieldStruct classes with `code`,
 `message`, `output` and `history` (and `metadata` on failures and skips). `errors` is FieldStruct's own collection.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'actionable'
 
 failure = Actionable::Failure.new(code: :adrift)
@@ -201,7 +196,8 @@ Actionable::Success.new.successful?   # => true
 Actionable::Skipped.new.skipped?      # => true
 Actionable::Skipped.new.ok?           # => true
 Actionable::Success.new.code          # => :success
-failure.to_h.keys    # => [:code, :message, :output, :history, :errors, :metadata]
+failure.to_h.keys    # => [:status, :code, :message, :output, :history, :errors, :metadata]
+failure.to_json      # => "{\"status\":\"failure\",\"code\":\"adrift\",\"message\":null,\"output\":{},\"history\":[],\"errors\":{},\"metadata\":{}}"
 failure.to_api_h(index: 2)   # => {index: 2, status: :failure, id: nil, errors: {}}
 failure.inspect      # => "#<Actionable::Failure code=:adrift errors={} history=[] message=nil metadata={} output={}>"
 ```
@@ -210,8 +206,12 @@ A declared output field is readable off the result, and `output_fields_set` list
 `nil` for a hand-built result). `Failure#absorb_errors_from(source)` copies errors and returns the failure. Results
 compare by exact class and attributes, and pattern matching works (`in Actionable::Failure(code:)`).
 
-<!-- doctest -->
-```ruby
+`.run` returns a frozen result, frozen after the last hook. `Result#freeze` reaches the plain data inside (errors,
+output, history, metadata, and their Strings, Arrays, Hashes and structs) but never a foreign object such as a record,
+and `with(...)` gives a copy frozen the same way. A hand-built result is not frozen. A failure or skip writes a live
+object in its output or metadata as `"#<Kiln id=4>"` in `to_h`, `as_json` and `to_json`, never through its own JSON.
+
+```ruby run
 require 'actionable'
 
 class Count < Actionable::Action
@@ -226,6 +226,8 @@ end
 result = Count.run
 result.fare                 # => 42
 result.output_fields_set     # => [:fare]
+result.frozen?               # => true
+result.with(message: 'counted').message   # => "counted"
 
 case result
 in Actionable::Success(code:)
@@ -239,8 +241,7 @@ end
 `input`. Unknown keywords are dropped, unless the schema says `unknown_attributes :raise`, which makes `.run` itself
 raise. Reading `input` or `input_schema` on an action without one gives `nil`.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'actionable'
 
 class Moor < Actionable::Action
@@ -273,8 +274,7 @@ call `super`.
 Regexp, and the first match wins, then `default`. No match is `Failure(:invalid_input)`. When both `input` and
 `input_for` are declared, the dispatch decides.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'actionable'
 
 class ManifestShape < FieldStruct::Base
@@ -322,8 +322,7 @@ instance variable of the same name (a variable set to `nil` counts as set), `suc
 the struct is coerced and validated. A struct that is not valid ends the run as `Failure(:invalid_output)` with the
 field errors and the invalid struct as `output`, so you can look at it.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'actionable'
 
 class Fare < Actionable::Action
@@ -357,8 +356,7 @@ Field names that clash with a result attribute or any public Result method (`cod
 step replaces its options in place. Hooks use the same targets and run after the main steps: `on_success`,
 `on_failure` and `on_skip` depending on the outcome, and `always` after them.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'actionable'
 
 class Announce < Actionable::Action
@@ -406,14 +404,42 @@ method is not covered by the missing-method check.
 Before a run, every step, hook and branch method must exist on the instance or `DefinitionError` is raised naming them
 (`step :puts` does not pass, since `Kernel` owns `puts`).
 
+Steps, hooks, `case_step` and its branches take the option keys `if:`, `unless:`, `input:`, `expose:` and `desc:`. Any other
+key raises `DefinitionError` when declared (`unknown step option iff: on Announce#audit (did you mean if:?)`). An
+adapter that reads its own key registers it first with `Actionable.register_step_option(name, owner:)`; registering
+twice with the same owner is fine, and a built-in key or another owner's key raises `ArgumentError`.
+`Actionable.registered_step_options` returns `{name => owner}`.
+
+```ruby run
+require 'actionable'
+
+Actionable.register_step_option(:lamp_wattage, owner: 'lamp-room')   # => :lamp_wattage
+Actionable.registered_step_options[:lamp_wattage]                    # => "lamp-room"
+
+class Relight < Actionable::Action
+  step :trim_wick, lamp_wattage: 40
+
+  private
+
+  def trim_wick = nil
+end
+
+Relight.steps.first.options   # => {lamp_wattage: 40}
+
+begin
+  Class.new(Actionable::Action) { step :trim_wick, iff: :dark? }
+rescue Actionable::DefinitionError => e
+  e.message   # => "unknown step option iff: on action#trim_wick (did you mean if:?)"
+end
+```
+
 ## Case steps
 
 `case_step :method do ... end` reads a value from a method and runs the first branch whose value matches. A branch
 target is a method name or an action class, and `default` catches the rest. No match is a no-op, and a matched branch
 whose guard opts out does not fall through.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'actionable'
 
 class Route < Actionable::Action
@@ -456,8 +482,48 @@ a Symbol, String or Action subclass raises `ArgumentError`.
 for each `input:` name, and copies the fields the child actually set back as instance variables (narrowed by `expose:`).
 A child failure becomes the parent's failure and halts it: the code, message, errors and metadata are adopted, and the
 parent must declare the code if it declares any. A child skip is a non-event for the parent, which keeps going. A
-measuring parent attaches the child's history to its step record. See the nested example in the
-[README](README.md#composition).
+measuring parent attaches the child's history to its step record.
+
+```ruby run
+require 'actionable'
+
+class Claim < Actionable::Action
+  input { required :berth, :string }
+  output { optional :reservation, :string }
+
+  fails :deck_full
+
+  step :reserve
+
+  private
+
+  def reserve
+    fail!(:deck_full) if input.berth == 'gone'
+    @reservation = "R-#{input.berth}"
+  end
+end
+
+class Embark < Actionable::Action
+  output { optional :reservation, :string }
+
+  fails :deck_full
+
+  def initialize(berth: nil)
+    super()
+    @berth = berth
+  end
+
+  step Claim, input: %i[berth], expose: %i[reservation]
+  on_success :log
+
+  private
+
+  def log = @log = 'checked out'
+end
+
+Embark.run(berth: 'book').reservation      # => "R-book"
+Embark.run(berth: 'gone').code             # => :deck_full
+```
 
 ## Declared failures and skips
 
@@ -466,8 +532,7 @@ message and opaque metadata. Once an action declares any failure it may only fai
 own `:invalid_input` and `:invalid_output`, and the same holds for skips, with no exemptions. The check raises
 `DefinitionError` at the call.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'actionable'
 
 class Weigh < Actionable::Action
@@ -498,7 +563,7 @@ Weigh.allows_skip_code?(:adrift)          # => false
 A block on `fails` or `skips` declares that code's output schema (see typed outcomes), read back with
 `failure_output_schema(code)` and `skip_output_schema(code)`. Declaring `:invalid_input` or `:invalid_output` attaches
 metadata to the failures the gem builds, and a schema block there raises `ArgumentError`. The metadata stays opaque to
-the core. The one reader is the job adapter, after an explicit `honor_retry_metadata`.
+the core. The one reader is the job adapter, which reads `retry:` unless the action opts out (see Jobs).
 
 ## Typed outcomes
 
@@ -507,8 +572,7 @@ action, subclasses of the gem's), and gives every failure and skip code its own 
 carries `{}` as output, and output given to such a code raises `DefinitionError`. `typed_outcomes?` reads the flag and
 `typed_outcomes(enabled: false)` turns it off. It is inherited by snapshot.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'actionable'
 
 class Disembark < Actionable::Action
@@ -552,8 +616,7 @@ share of runs, and `measure :none` (the default) records nothing, so `history` i
 nested inside it measure too. `measure` with no argument reads the mode, and `measure_rate`, `measure_all?`,
 `measure_sampled?` and `measure_sample_hit?` are the readers behind it.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'actionable'
 
 class Slow < Actionable::Action
@@ -580,7 +643,7 @@ Slow.measure_rate            # => nil
 Slow.measure_sampled?        # => false
 ```
 
-`History#<<` appends a step and returns the history, `as_json` is the Array form, and `to_json` goes through Oj. State is
+`History#<<` appends a step and returns the history, `freeze` freezes its steps too, `as_json` is the Array form, and `to_json` goes through Oj. State is
 fiber-local, so concurrent runs never interfere. `code` on an entry is set only when the step changed the recorded result.
 
 ## Batches and the registry
@@ -589,8 +652,7 @@ fiber-local, so concurrent runs never interfere. `code` on an entry is set only 
 item to arguments: a Hash is keywords, an Array positionals, anything else one argument. A failure in one item never
 touches another.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'actionable'
 
 class Double < Actionable::Action
@@ -628,8 +690,7 @@ batch.to_api_h(id_field: :doubled).first   # => {index: 0, status: :failure, id:
 `Actionable.registry` is a process-wide `Registry` filled when a named subclass is created: `[]` (String or Symbol),
 `keys`, `values`, `size`, `empty?`, `each` and `register`. A class named after creation is not registered.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'actionable'
 
 class Named < Actionable::Action; end
@@ -647,11 +708,11 @@ registry.each.first.class # => Array
 
 ## Introspection
 
-`Action.describe` returns a Hash with `name`, `input`, `output`, `steps`, `failures`, `skips`, `hooks`, `measure` and
-`transactional`. `describe_text` renders the same as plain text.
+`Action.describe` returns a Hash with `name`, `description`, `input`, `output`, `steps`, `failures`, `skips`, `hooks`, `measure`,
+`transactional` and `calls`. `calls` lists the actions the source runs by hand (`Child.run` in a step, a hook or a helper
+they call), read statically with Prism from the class's source file, so an action defined in irb or by `eval` lists none. `describe_text` renders the same as plain text.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'actionable'
 
 class Probe < Actionable::Action
@@ -666,11 +727,71 @@ class Probe < Actionable::Action
   def cleanup = nil
 end
 
-Probe.describe.keys.size   # => 9
-Probe.describe.keys.first(3)   # => [:name, :input, :output]
-Probe.describe[:steps]   # => [{type: :method, name: :compute, options: {}}]
-Probe.describe[:hooks][:always]   # => [:cleanup]
+Probe.describe.keys.size   # => 11
+Probe.describe.keys.first(3)   # => [:name, :description, :input]
+Probe.describe[:steps]   # => [{type: :method, name: :compute, options: {}, description: nil}]
+Probe.describe[:hooks][:always]   # => [{type: :method, name: :cleanup, options: {}, description: nil}]
 puts Probe.describe_text
+```
+
+Steps and hooks share one entry shape: `{type:, name:, options:, description:}`. A guarded entry adds `guard:`, with a
+readable label for each of `if:` and `unless:`: a method name, a callable's own `desc` when it has one, or
+`"a custom condition"`. A case step adds `branches:` (`[{on:, step:}]`, the match value as declared) and `default:`
+(a step entry, or `nil`).
+
+```ruby run
+require 'actionable'
+
+class SortParcels < Actionable::Action
+  case_step :size do
+    on 'small', :shelf_it
+    on %w[large huge], :pallet_it, if: :forklift_free?
+    default :hold_it
+  end
+
+  private
+
+  def size = 'small'
+  def shelf_it = nil
+  def pallet_it = nil
+  def hold_it = nil
+  def forklift_free? = true
+end
+
+kase = SortParcels.describe[:steps].first
+kase[:branches].map { |branch| branch[:on] }   # => ["small", ["large", "huge"]]
+kase[:branches].last[:step][:guard]            # => {if: "forklift_free?"}
+kase[:default][:name]                          # => :hold_it
+```
+
+### Descriptions
+
+Descriptions are prose for people reading about an action: `describe` carries them, and a docs page can be built
+from them. A run never reads them. `desc 'text'` describes the action (`description` is the same macro, and either one
+reads it back with no argument). A class gets one description, and a subclass doesn't inherit it. `desc:` describes a
+step, a `case_step`, a branch, a hook or a `fails`/`skips` code. On `fails` and `skips` it is kept out of the metadata,
+so it never reaches a result.
+
+```ruby run
+require 'actionable'
+
+class ProveDough < Actionable::Action
+  desc 'Lets a batch of dough rise before it is shaped.'
+
+  fails :overproofed, 'the dough collapsed', retry: false, desc: 'It rose too long and fell'
+  step :rest_dough, desc: 'Rest the dough somewhere warm'
+
+  private
+
+  def rest_dough = fail!(:overproofed)
+end
+
+ProveDough.desc                                      # => "Lets a batch of dough rise before it is shaped."
+ProveDough.description                               # => "Lets a batch of dough rise before it is shaped."
+ProveDough.declared_failures                         # => {overproofed: {retry: false}}
+ProveDough.run.metadata                              # => {retry: false}
+ProveDough.describe[:steps].first[:description]      # => "Rest the dough somewhere warm"
+ProveDough.describe[:failures][:overproofed][:description]   # => "It rose too long and fell"
 ```
 
 ## Guardrails
@@ -697,7 +818,8 @@ ImportManifests.transaction_config      # => {model: :voyage, options: {}}
 ImportManifests.after_commit_hooks      # => the hooks, in order
 ```
 
-A recorded failure rolls the transaction back, and so does a raised exception (which still propagates). Inside an
+A recorded failure rolls the transaction back, and so does a raised exception (which still propagates). A step that
+raises `ActiveRecord::Rollback` rolls back too, and `.run` then raises `DefinitionError` pointing to `fail!`. Inside an
 already open transaction the action takes its own savepoint unless you pass `requires_new: false`. `after_commit` runs
 after the run is over, so it cannot change the result.
 
@@ -717,10 +839,10 @@ rules.delegate           # => voyage
 
 `require 'actionable/job'` needs no queue gem. `Actionable::Job.disposition(result, permanent:, honor_retry:)` answers
 `:ack` (success or skip), `:discard` (a failure with a permanent code) or `:retry`. The default permanent codes are
-`DEFAULT_PERMANENT_CODES`: `invalid_input`, `invalid_output` and `not_found`.
+`DEFAULT_PERMANENT_CODES`: `invalid_input`, `invalid_output` and `not_found`. A `retry` key in the metadata decides
+first, unless you pass `honor_retry: false` or the action opts out with `honor_retry_metadata(enabled: false)`.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'actionable'
 require 'actionable/job'
 
@@ -729,15 +851,15 @@ Actionable::Job.disposition(Actionable::Failure.new(code: :invalid_input)) # => 
 Actionable::Job.disposition(Actionable::Failure.new(code: :timeout))       # => :retry
 
 flagged = Actionable::Failure.new(code: :invalid_input, metadata: { retry: true })
-Actionable::Job.disposition(flagged, honor_retry: true)   # => :retry
-Actionable::Job.disposition(flagged)                      # => :discard
+Actionable::Job.disposition(flagged)                       # => :retry
+Actionable::Job.disposition(flagged, honor_retry: false)   # => :discard
 
-class Flaky < Actionable::Action
-  honor_retry_metadata
+class Steady < Actionable::Action
+  honor_retry_metadata(enabled: false)
 end
 
-Flaky.honor_retry_metadata?   # => true
-Actionable::Action.honor_retry_metadata?   # => false
+Steady.honor_retry_metadata?               # => false
+Actionable::Action.honor_retry_metadata?   # => true
 ```
 
 Include `Actionable::Job::Mixin` in a Sidekiq or ActiveJob class: `run_actionable(ActionClass, **args)` runs the action,
@@ -793,7 +915,7 @@ Actionable::Coverage.only_observed = true                      # for a local par
 file ratchets by name, so a new gap cannot hide behind a fixed one. `Coverage.write(path)` and `Coverage.read(path)`
 handle shard files for parallel suites, and `ACTIONABLE_COVERAGE_FILE` makes the suite hook write one.
 The settings are `root`, `include_prefixes`, `exclude_prefixes`, `loader`, `gem_codes`, `only_observed`, `baseline`
-and `new_gap_hint`, and `reset_config!` restores the defaults. Recording itself has `observed`, `stubbed`, `record_stub`,
+and `new_gap_hint`, and `reset_config!` restores the defaults. Recording itself has `record`, `observed`, `stubbed`, `record_stub`,
 `reset!`, `enable!`, `disable!` and `enabled?`: disabled means recording is a no-op.
 
 ## Types with RBS
@@ -802,8 +924,7 @@ and `new_gap_hint`, and `reset_config!` restores the defaults. Recording itself 
 input, output fields become nullable instance variables so steps type-check, and under typed outcomes you get the
 result classes.
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'actionable'
 
 class Rebate < Actionable::Action
@@ -816,6 +937,16 @@ puts Actionable::RBS.generate(Rebate)
 ```
 
 The library's own signatures ship in `sig/`. Run the generator in a rake task and commit the file next to your code.
+The shipped sig names only `field_struct` and `prism`, so it loads in an app without Rails or RuboCop. So it leaves out
+the framework parents (`Railtie`, the RuboCop plugin and cop) and `ProxyValidator`'s ActiveModel module. Its typed
+method is `formatted_errors`. If you call `valid?` or `errors` on a validator under Steep, add the module in your own
+sig:
+
+```rbs
+class Actionable::ProxyValidator
+  include ::ActiveModel::Validations
+end
+```
 
 ## Exceptions
 

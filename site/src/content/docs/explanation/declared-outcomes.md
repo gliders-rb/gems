@@ -2,7 +2,7 @@
 title: "Declared failures and result codes"
 description: "Why an action lists the codes it can end with, why metadata stays neutral, and what a complete list makes possible."
 sidebar:
-  order: 6
+  order: 8
 ---
 
 Picture a caller that has to deal with this failure code.
@@ -36,7 +36,7 @@ That list is the contract, and a reader, a test, a retry policy and a type gener
 
 ## Strict once declared
 
-Declaring any failure code means the action can fail only with those (AC-I7). A typo then raises on the first run, where before it became a result nobody handled.
+Declaring any failure code means the action can fail only with those. A typo then raises the first time it fires, where before it became a result nobody handled.
 
 ```ruby run
 class Slip < Actionable::Action
@@ -61,9 +61,9 @@ Skips follow the same contract, with no exemption. The gem emits no skip codes o
 
 ## Metadata is neutral
 
-The `retry: false` above is metadata. The core keeps it, shows it in `describe` and puts it on the result, but never interprets it (AC-I7). Two reasons for that. A free-form keyword on `fail` used to collide with error field names, so metadata lives apart from errors. And a core that understands retries ends up with opinions about queues, and those belong in an adapter.
+The `retry: false` above is metadata. The core keeps it, shows it in `describe` and puts it on the result, but never interprets it. Two reasons for that. A free-form keyword on `fail` used to collide with error field names, so metadata lives apart from errors. And a core that understands retries ends up with opinions about queues, and those belong in an adapter.
 
-Only one reader exists, and it is opt-in: the job adapter, after `honor_retry_metadata` (see [Run in a background job](/how-to/background-jobs/)). Anything else you attach is yours.
+Only one reader exists, and you load it on purpose: the job adapter, which reads `retry:` unless an action opts out (see [Run in a background job](/how-to/background-jobs/)). Anything else you attach is yours.
 
 ## What a full list buys
 
@@ -71,7 +71,7 @@ When every ending of an action is written down, several things come along for fr
 
 - Tools can tell a model or a client what an action may return
 - A retry policy comes from the declaration, so no job needs its own list
-- A suite can ask which declared outcomes no spec has reached - that is outcome coverage, and a named baseline keeps a new gap from hiding behind an old one
+- A suite can ask which declared outcomes no spec has reached. That is outcome coverage, and a named baseline keeps a new gap from hiding behind an old one
 - Stubs can refuse a code the action can never produce, so a spec can't test a failure that does not exist
 - Generated types can name the codes
 

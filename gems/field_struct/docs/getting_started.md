@@ -19,7 +19,10 @@ end, and lists the mistakes people make first. [USAGE.md](../USAGE.md) is the fu
 | Limit values | `in:` (numbers, dates), `enum:` (strings, symbols), `format:` (strings) |
 | Nest one model in another | `optional :author, Botanist` |
 | A list of things | `optional :tags, :array, of: :string` |
+| A map from names to values | `optional :stock, :hash, of: :integer` (keys become Strings) |
 | One of several types | `optional :tag, :union, of: %i[integer uuid]` |
+| Take a PATCH body | `Plant.partial.new(params)`, then `given_fields`; the partial has `json_omit :unset`, so `as_json` writes only what was sent |
+| Read another object (a record, a Struct) into a model | `mirror!` on the model, then pass the object to a field of that type |
 | Keep a secret out of logs | `sensitive: true` |
 | Add your own type | subclass `FieldStruct::Types::Base`, register it in a registry |
 | See what a model accepts | `Plant.describe`, `Plant.metadata.to_h` |
@@ -32,27 +35,35 @@ end, and lists the mistakes people make first. [USAGE.md](../USAGE.md) is the fu
 
 | Message | Meaning | Fix |
 |---|---|---|
-| `is required` | the field is nil, blank (strings), or empty (arrays) | send a value, or declare it `optional` |
+| `is required` | the field is nil, blank (strings), or empty (arrays and hashes) | send a value, or declare it `optional` |
 | `is invalid` | the value was read fine but broke `format:`, `enum:` or `in:`, or a nested struct inside it is invalid | send an allowed value; for a nested struct, look at its own `errors` |
 | `could not be coerced: ...` | the type could not read the value (the text after the colon says why) | send something the type can read; see the type's row in USAGE |
+| `is too long (maximum is 4)`, `is too short (minimum is 2)` | a string broke `length:` | send a value of that length |
 | `element at index 2 is invalid` | an array element broke the `element:` options | fix those elements |
 | `could not be coerced: element at index 1: ...` | an array element could not be read | fix that element |
+| `1 entry is invalid`, `2 entries are invalid` | values of a `:hash` broke the `element:` options | fix those values |
+| `has too many items (maximum is 3)` | an array is longer than its `max_items:` | send fewer |
 
-Raised errors, when a policy asks for them:
+Raised errors, when a policy asks for them or a declaration or call can't go on:
 
 | Exception | When | Look at |
 |---|---|---|
 | `FieldStruct::CoercionError` | `coercion_policy :raise` and a value could not be read | `field_name`, `original` |
 | `FieldStruct::UnknownAttributeError` | `unknown_attributes :raise` and a key matched no field | `keys` |
 | `FieldStruct::ImmutableError` | a setter was called on an `immutable!` object | use `with` |
-| `ArgumentError` at class definition | a bad declaration (unknown type, bad option, reserved name) | the message names the field and the fix |
+| `KeyError` at class definition | an unknown type name (`no FieldStruct type registered for :strng (did you mean :string?)`) | the suggested name, or register the type |
+| `ArgumentError` at class definition | a bad declaration (bad option, reserved name) | the message names the field and the fix |
+| `ArgumentError` at class definition | an unknown option key (`unknown option defualt: on field :slot (did you mean default:?)`), or an adapter key like `avro:` before its `require` | the suggested key, or require the adapter first |
+| `ArgumentError` from `register_option` | the key is built in, or already registered with another `type:` or `owner:` | pick another key |
+| `ArgumentError` from `partial` | the class already defines its own `Partial` constant | rename that constant |
+| `ArgumentError` when a mirror reads an object | the object lacks a public reader for a field (`LampView mirrors Bulb, but Bulb has no public reader for :watts`) | add the reader, or build from a Hash |
+| `ArgumentError` when a mirror reads a lazy collection | an array of mirrors has no `max_items:` (`set max_items: on Hall#lamps, or load the relation yourself`) | set `max_items:`, or pass an Array |
 | `EncodingError` from `from_json` | malformed JSON | check the source |
 | `ArgumentError` from `from_json` | the JSON root isn't an object | send an object |
 
 ## One model, start to finish
 
-<!-- doctest -->
-```ruby
+```ruby run
 require 'field_struct'
 
 class Botanist < FieldStruct::Base
@@ -103,9 +114,9 @@ puts Plant.describe.lines.first
 1. **Expecting setters to raise.** They don't. `plant.leaves = 'many'` stores `'many'` and adds an error. Check `valid?`,
    or set `coercion_policy :raise` on the class.
 2. **Reading "required" as "never nil".** Required means `valid?` fails when the value is missing. A fresh object with a
-   required field unset is allowed to exist; its reader returns `nil`. Whitespace-only strings and empty arrays count as
-   missing.
-3. **Forgetting `of:`.** `:array` and `:union` need it, and the declaration raises without it.
+   required field unset is allowed to exist; its reader returns `nil`. Whitespace-only strings, empty arrays and empty hashes
+   count as missing.
+3. **Forgetting `of:`.** `:array`, `:hash` and `:union` need it, and the declaration raises without it.
 4. **Putting options on the wrong type.** `round:` belongs to numbers, `format:` to strings and dates, `enum:` to strings
    and symbols. The error lists where the option does apply. Options for an element go in `element: {...}`, not on the
    field.
@@ -128,10 +139,12 @@ specifics:
 - **Params.** Pass permitted parameters straight in: `Plant.new(params.require(:plant).permit(:species, :leaves))`. Anything
   that responds to `to_hash` works, with String or Symbol keys. Pass `unknown_attributes :raise` to the class if you'd
   rather fail on extra keys than drop them.
-- **Naming.** `Plant.model_name` and `plant.to_model` exist, so form builders and URL helpers can name the class. A struct
-  is not an Active Model object: it has no persistence methods and no `ActiveModel::Validations`. `valid?` and `errors`
-  are field_struct's own; `errors.full_messages` returns Strings.
-- **JSON.** `render json: plant` works: `as_json` ignores its options and returns every field.
+- **Naming.** `Plant.model_name` and `plant.to_model` exist, so form builders and URL helpers can name the class.
+  `form_with model: plant, url: '/plants'` nests the fields under `model_name.param_key` (`plant[species]`). Always pass
+  `url:`, since a struct has no routes. A struct is not an Active Model object: it has no persistence methods and no
+  `ActiveModel::Validations`. `valid?` and `errors` are field_struct's own; `errors.full_messages` returns Strings.
+- **JSON.** `render json: plant` works: `as_json` ignores Rails' options and returns every field, except under
+  `json_omit :unset`, which leaves out a `nil` field the caller didn't send.
 - **Time zones.** `zone:` takes IANA names (`America/Denver`), `UTC` or an offset, not Rails names like
   `"Mountain Time (US & Canada)"`. Give it `ActiveSupport::TimeZone::MAPPING['Mountain Time (US & Canada)']` if you hold a
   Rails name. Values come back as plain `Time` or `DateTime`, not `TimeWithZone`.

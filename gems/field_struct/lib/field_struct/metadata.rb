@@ -54,6 +54,7 @@ module FieldStruct
     # @param name [Symbol, String] the format
     # @param mapping [Hash{Symbol=>String}] internal field name to external name
     # @return [self]
+    # @api private
     def add_serialization(name, mapping)
       @serializations[name.to_sym] = mapping.frozen? ? mapping : mapping.dup.freeze
       self
@@ -84,6 +85,7 @@ module FieldStruct
     #
     # @param parent [FieldStruct::Metadata]
     # @return [self]
+    # @api private
     def merge(parent)
       parent.each { |field| @fields[field.name] = field unless @fields.key?(field.name) }
       parent.serializations.each { |format, mapping| @serializations[format] = mapping unless @serializations.key?(format) }

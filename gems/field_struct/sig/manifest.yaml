@@ -1,0 +1,6 @@
+# Standard libraries the shipped signature refers to (PP, ::Date, ::DateTime, ::BigDecimal). RBS loads them
+# along with this gem's sig, so `rbs collection` and Steep users need not list them.
+dependencies:
+  - name: pp
+  - name: date
+  - name: bigdecimal

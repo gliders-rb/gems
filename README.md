@@ -4,15 +4,24 @@ Ruby gems for typed data and the actions that move it around, plus the
 adapters that carry both into other formats. One repo, one docs site, each
 gem published on its own.
 
+<a href="https://gliders-rb.github.io/">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="site/public/hero/hero-dark.gif">
+    <img src="site/public/hero/hero-light.gif" width="600" alt="An action, ReservePlaces, called three times: the string '4' arrives as the integer 4 and both steps run to a success; nine places stops at check_room with :fully_booked; a missing hut code fails with :invalid_input before any step runs.">
+  </picture>
+</a>
+
 | Gem | Path | What it does |
 |---|---|---|
 | `field_struct` | `gems/field_struct` | Plain Ruby objects with declared fields that coerce, check presence and validate |
 | `actionable-rb` | `gems/actionable` | Action objects with declared input, steps and outcomes |
 | `field_struct-json_schema` | `adapters/field_struct-json_schema` | JSON Schema from a struct class |
 | `field_struct-avro` | `adapters/field_struct-avro` | Avro schemas, encode and decode, schema evolution |
-| `field_struct-protobuf` | `adapters/field_struct-protobuf` | Protobuf descriptors, `.proto` output and messages (preview) |
+| `field_struct-avro-native` | `adapters/field_struct-avro-native` | An optional Rust encoder for `field_struct-avro`, same bytes, faster |
+| `field_struct-protobuf` | `adapters/field_struct-protobuf` | Protobuf descriptors, `.proto` output and messages (API may change) |
 | `actionable-otel` | `adapters/actionable-otel` | OpenTelemetry spans for action runs and steps |
 | `actionable-tools` | `adapters/actionable-tools` | Actions as LLM and MCP tools |
+| `actionable-docs` | `adapters/actionable-docs` | Process pages for actions: Markdown and a Mermaid chart (API may change) |
 
 The docs site lives in `site/`.
 
@@ -26,8 +35,11 @@ bundle exec rake                 # specs + rubocop
 bundle exec rake release:check   # adds doctests, signatures and YARD
 ```
 
-From the repo root, `bin/oracle` runs every gem's default task and fails if
-any of them fails. Nothing is done until it passes.
+From the repo root, `bin/oracle` runs every gem's default task, then runs its
+suite again with ActiveSupport loaded first, and fails if any run fails.
+Nothing is done until it passes. `bin/oracle --rails` also runs
+`integration/rails`, a one-file Rails app that uses the gems the way an app
+does: params, `render json:`, transactions, jobs and eager loading.
 
 Gems that depend on each other point at the local copy through `path:` in
 their Gemfile, so a change in `field_struct` is tested against every adapter

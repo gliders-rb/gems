@@ -29,8 +29,8 @@ RSpec.describe FieldStruct::Types::Union do
     end
 
     it 'removes of: from options and keeps members on the type instance' do
-      klass = build(%i[integer string], doc: 1)
-      expect(klass.metadata[:v].options).to eq(doc: 1)
+      klass = build(%i[integer string], shelf_mark: 'U1')
+      expect(klass.metadata[:v].options).to eq(shelf_mark: 'U1')
       members = klass.metadata[:v].type_instance.member_types
       expect(members.map(&:class)).to eq([FieldStruct::Types::Integer, FieldStruct::Types::String])
       expect(klass.metadata[:v].type).to equal(described_class)
@@ -71,7 +71,7 @@ RSpec.describe FieldStruct::Types::Union do
     end
 
     it 'does not hand field options to members' do
-      expect(build(%i[integer string], doc: 'x').new(v: '7').v).to eq(7)
+      expect(build(%i[integer string], shelf_mark: 'x').new(v: '7').v).to eq(7)
     end
 
     it 'lets a struct member that rejects the value fall through to the next' do

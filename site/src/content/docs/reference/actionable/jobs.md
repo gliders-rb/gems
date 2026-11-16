@@ -5,7 +5,7 @@ sidebar:
   order: 8
 ---
 
-Inside your job class, the adapter runs an action and converts its result into a queue disposition. It is plain Ruby and wants neither queue gem (AC-B#jobpure). The run stays synchronous, and nothing gets enqueued by the adapter. Require it yourself:
+Inside your job class, the adapter runs an action and converts its result into a queue disposition. It is plain Ruby and wants neither queue gem. The run stays synchronous, and nothing gets enqueued by the adapter. Require it yourself:
 
 ```ruby
 require 'actionable/job'
@@ -14,9 +14,11 @@ require 'actionable/job'
 ## `Job.disposition`
 
 ```ruby
-Actionable::Job.disposition(result, permanent: DEFAULT_PERMANENT_CODES, honor_retry: false)
+Actionable::Job.disposition(result, permanent: DEFAULT_PERMANENT_CODES, honor_retry: true)
 # => :ack | :discard | :retry
 ```
+
+With `honor_retry: false`, or for a result with no `retry` key in its metadata:
 
 | Result | Disposition |
 |---|---|
@@ -26,7 +28,7 @@ Actionable::Job.disposition(result, permanent: DEFAULT_PERMANENT_CODES, honor_re
 
 `DEFAULT_PERMANENT_CODES` is `[:invalid_input, :invalid_output, :not_found]`, because retrying input the action already turned down can't help.
 
-Pass `honor_retry: true` and the `retry` key in a failure's or skip's metadata settles the question on its own. Truthy means `:retry`, permanent code or not, skip or not. Falsy means `:discard` for a failure and `:ack` for a skip. A result without that key, and any success, follows the table above. Results that don't respond to `metadata` are never affected by the flag.
+By default the `retry` key in a failure's or skip's metadata settles the question on its own. Truthy means `:retry`, permanent code or not, skip or not. Falsy means `:discard` for a failure and `:ack` for a skip. A result without that key, and any success, follows the table above. Results that don't respond to `metadata` are never affected by the flag. Pass `honor_retry: false` to use only the table.
 
 ```ruby run
 require 'actionable/job'
@@ -41,12 +43,12 @@ Actionable::Job.disposition(Actionable::Failure.new(code: :rough_sea))       # =
 Actionable::Job.disposition(Actionable::Failure.new(code: :rough_sea), permanent: [:rough_sea]) # => :discard
 
 flagged = Actionable::Failure.new(code: :invalid_input, metadata: { retry: true })
-Actionable::Job.disposition(flagged, honor_retry: true) # => :retry
-Actionable::Job.disposition(flagged)                    # => :discard
+Actionable::Job.disposition(flagged)                       # => :retry
+Actionable::Job.disposition(flagged, honor_retry: false)   # => :discard
 
 stop = Actionable::Failure.new(code: :rough_sea, metadata: { retry: false })
-Actionable::Job.disposition(stop, honor_retry: true)    # => :discard
-Actionable::Job.disposition(Actionable::Skipped.new(metadata: { retry: true }), honor_retry: true) # => :retry
+Actionable::Job.disposition(stop)                          # => :discard
+Actionable::Job.disposition(Actionable::Skipped.new(metadata: { retry: true })) # => :retry
 ```
 
 ## `honor_retry_metadata`
@@ -56,13 +58,12 @@ honor_retry_metadata(enabled: true)
 honor_retry_metadata?
 ```
 
-Metadata-driven retries are opt-in per action, through `honor_retry_metadata`. The reader looks up the superclass chain at call time and answers `false` unless someone enabled it, and a subclass can switch it back off with `enabled: false`. The macro only exists on `Action` once the adapter is loaded. Without the opt-in a job ignores metadata, which is how the core keeps it opaque (AC-I7). You declare the metadata itself with `fails` (see [Declared outcomes](/reference/actionable/declared-outcomes/)).
+Once the adapter is loaded, jobs read `retry` metadata by default. An action opts out with `honor_retry_metadata(enabled: false)`, and a subclass can switch it back on with `honor_retry_metadata`. The reader looks up the superclass chain at call time and answers `true` unless someone switched it off. The macro only exists on `Action` once the adapter is loaded, and the core itself still never reads metadata. You declare the metadata itself with `fails` (see [Declared outcomes](/reference/actionable/declared-outcomes/)).
 
 ```ruby run
 require 'actionable/job'
 
 class TideTable < Actionable::Action
-  honor_retry_metadata
   fails :rough_sea, retry: true
   fails :smudged_chart, retry: false
 end
@@ -73,7 +74,7 @@ end
 
 TideTable.honor_retry_metadata?          # => true
 StrictTideTable.honor_retry_metadata?        # => false
-Actionable::Action.honor_retry_metadata?  # => false
+Actionable::Action.honor_retry_metadata?  # => true
 TideTable.declared_failures              # => {rough_sea: {retry: true}, smudged_chart: {retry: false}}
 ```
 

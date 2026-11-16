@@ -40,10 +40,12 @@ end
 
 ## 3. Test the outcome in one line
 
-`perform_actionable` calls `.run` on the class and inspects the result. On its own it expects success, and the chains name every other outcome.
+`perform_actionable` calls `.run` on the class and inspects the result. On its own it expects success, and the chains name every other outcome. Make the class the subject: RSpec's default subject is an instance, which has no `.run`.
 
 ```ruby
 RSpec.describe LogCrossing do
+  subject { described_class }
+
   it { is_expected.to perform_actionable(route: 'Quay-Isle') }
   it { is_expected.to perform_actionable(route: 'Quay-Isle', logged: true).and_skip(:already_logged) }
   it { is_expected.to perform_actionable.and_fail(:missing_route, /needs a route/) }
@@ -56,7 +58,10 @@ If the action declares its codes, asking for one it doesn't declare raises `Argu
 require 'actionable/rspec'
 
 class LogCrossing < Actionable::Action
-  input { optional :route, :string }
+  input do
+    optional :route, :string
+    optional :logged, :boolean
+  end
 
   fails :missing_route, 'a crossing needs a route'
   skips :already_logged
@@ -67,6 +72,7 @@ class LogCrossing < Actionable::Action
 
   def check
     fail!(:missing_route) if input.route.nil?
+    skip!(:already_logged) if input.logged
     succeed
   end
 end
@@ -76,6 +82,7 @@ spec = Object.new.extend(Actionable::RSpec::Matchers, Actionable::RSpec::Stubs)
 spec.perform_actionable(route: 'Quay-Isle').matches?(LogCrossing)                                # => true
 spec.perform_actionable.and_fail(:missing_route, /needs a route/).matches?(LogCrossing)          # => true
 spec.perform_actionable.and_skip(:already_logged).matches?(LogCrossing)                          # => false
+spec.perform_actionable(route: 'Quay-Isle', logged: true).and_skip(:already_logged).matches?(LogCrossing)   # => true
 
 begin
   spec.perform_actionable.and_fail(:missing_rout).matches?(LogCrossing)

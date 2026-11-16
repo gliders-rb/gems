@@ -9,6 +9,7 @@
 --exclude lib/field_struct/types/zone.rb
 --exclude lib/field_struct/types/element_options.rb
 --exclude lib/field_struct/types/preset_resolver.rb
+--exclude lib/field_struct/types/union_pick.rb
 lib/**/*.rb
 -
 README.md

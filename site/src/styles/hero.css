@@ -1,0 +1,497 @@
+/* Home page hero: the copy beside the code animation (src/components/Hero.astro). The animation's timeline
+   lives in src/generated/hero.css, written by bin/hero; this sheet is its static look. Every colour here is a
+   site token, so both schemes keep the contrast the theme sheet already checks. */
+
+/* ---- the hero layout (Starlight's own hero styles are scoped to its component, so they are restated) ---- */
+
+.af-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: 2rem;
+  padding-block: 1rem 2rem;
+}
+
+.af-hero .stack {
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.af-hero .copy {
+  flex-direction: column;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.af-hero .copy > * {
+  max-width: 50ch;
+}
+
+.af-hero .tagline {
+  max-width: 44ch;
+  font-size: clamp(var(--sl-text-base), calc(0.0625rem + 1.6vw), var(--sl-text-lg));
+  color: var(--sl-color-gray-2);
+}
+
+.af-hero h1 {
+  font-size: clamp(var(--sl-text-3xl), calc(0.25rem + 5vw), var(--sl-text-6xl));
+  line-height: var(--sl-line-height-headings);
+  color: var(--sl-color-white);
+}
+
+/* The Gliders mark: small, inline, left of the word, as tall as the letters. */
+.af-hero-mark img {
+  width: 0.82em;
+  height: 0.82em;
+  margin-inline-end: 0.18em;
+  vertical-align: -0.06em;
+}
+
+/* B: one column of equal pills. */
+.af-hero .actions {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+  width: min(100%, 21rem);
+}
+
+.af-hero .actions .sl-link-button {
+  justify-content: flex-start;
+  gap: 0.75rem;
+  min-height: 3rem;
+  margin: 0;
+  padding: 0.55rem 1.25rem;
+  border-radius: 999rem;
+  font-size: var(--sl-text-base);
+}
+
+.af-hero .actions .sl-link-button.primary {
+  justify-content: space-between;
+}
+
+.af-hero .actions .sl-link-button.minimal {
+  border: 1px solid var(--sl-color-gray-5);
+  color: var(--sl-color-white);
+}
+
+.af-hero .actions .sl-link-button.minimal:hover {
+  border-color: var(--sl-color-gray-3);
+  background: var(--sl-color-gray-7);
+}
+
+.af-hero .actions .sl-link-button.minimal > svg:last-child {
+  margin-inline-start: auto;
+  color: var(--sl-color-gray-3);
+}
+
+.af-hero .actions .af-gem-link {
+  padding-inline-start: 0.75rem;
+}
+
+.af-gem {
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  color: var(--sl-color-white);
+}
+
+.af-gem .dot {
+  fill: var(--af-spark);
+}
+
+.af-hero-demo {
+  min-width: 0;
+}
+
+@media (min-width: 64rem) {
+  .af-hero {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    align-items: start;
+    gap: 3rem;
+    padding-block: clamp(2rem, calc(1rem + 5vmin), 3.5rem) 3rem;
+  }
+}
+
+/* ---- C: the idea band, contained, between rules ---- */
+
+.af-band {
+  margin-block: 1rem 0;
+  padding-block: 2.5rem;
+  border-block: 1px solid var(--sl-color-gray-6);
+  background: radial-gradient(60% 120% at 0% 50%, var(--af-glow), transparent 70%);
+}
+
+.af-band p {
+  max-width: 34ch;
+  margin: 0;
+  padding-inline-start: 1.25rem;
+  border-inline-start: 3px solid var(--af-spark);
+  font-family: var(--af-font-display);
+  font-weight: 500;
+  font-size: clamp(1.25rem, 0.9rem + 1.4vw, 1.75rem);
+  line-height: 1.35;
+  letter-spacing: -0.015em;
+  color: var(--sl-color-white);
+  text-wrap: balance;
+}
+
+.af-band .more {
+  display: inline-block;
+  color: var(--sl-color-text-accent);
+  margin-top: 1rem;
+  margin-inline-start: 1.5rem;
+  font-size: var(--sl-text-sm);
+}
+
+/* ---- G: what's in the docs ---- */
+
+.af-map {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11.5rem, 1fr));
+  gap: 0.75rem;
+  margin-top: 2.5rem;
+}
+
+.af-map a {
+  display: block;
+  margin: 0;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 0.5rem;
+  color: var(--sl-color-gray-2);
+  font-size: var(--sl-text-sm);
+  line-height: 1.45;
+  text-decoration: none;
+}
+
+.af-map a:hover {
+  border-color: var(--sl-color-accent);
+  background: var(--sl-color-gray-7);
+}
+
+.af-map b {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+  font-family: var(--af-font-display);
+  font-weight: 600;
+  font-size: var(--sl-text-lg);
+  color: var(--sl-color-white);
+}
+
+.af-map b span {
+  font-family: var(--af-font-body);
+  font-weight: 500;
+  font-size: var(--sl-text-xs);
+  color: var(--sl-color-gray-3);
+  white-space: nowrap;
+}
+
+/* ---- the figure ---- */
+
+.hx {
+  position: relative;
+  margin: 0;
+  container-type: inline-size;
+  display: grid;
+  gap: 0.75rem;
+  font-family: var(--af-font-body);
+}
+
+.hx-window {
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: radial-gradient(70% 60% at 100% 0%, var(--af-glow), transparent 70%), var(--hx-bg);
+}
+
+.hx-pane + .hx-pane {
+  border-top: 1px solid var(--sl-color-gray-5);
+}
+
+.hx-bar {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 2.1rem;
+  padding: 0;
+  border-bottom: 1px solid var(--sl-color-gray-6);
+  background-image: repeating-linear-gradient(135deg, var(--af-hatch) 0 1px, transparent 1px 7px);
+  font-family: var(--af-font-code);
+  font-size: 0.75rem;
+  color: var(--sl-color-gray-3);
+}
+
+.hx-file {
+  display: flex;
+  align-items: center;
+  padding-inline: 0.9rem;
+  background: var(--hx-bg);
+  border-inline-end: 1px solid var(--sl-color-gray-6);
+  color: var(--sl-color-gray-2);
+}
+
+.hx code,
+.hx pre {
+  font-family: var(--af-font-code);
+  font-feature-settings: 'liga' 0, 'calt' 0;
+  font-variant-ligatures: none;
+}
+
+.hx-pre {
+  margin: 0;
+  padding: 0.6rem 0;
+  overflow-x: auto;
+  background: none;
+  border: 0;
+  font-size: clamp(0.6875rem, 0.45rem + 1.15cqi, 0.875rem);
+  line-height: 1.6;
+}
+
+.hx-pre > code {
+  display: block;
+  padding: 0;
+  background: none;
+  font-size: inherit;
+}
+
+.hx-line {
+  display: block;
+  position: relative;
+  padding-inline: 0.9rem;
+  white-space: pre;
+}
+
+.hx-src {
+  position: relative;
+}
+
+/* A marked line: a tint behind the code and a worded tag at its end (the word is the meaning, not the tint). */
+.hx-hl {
+  position: absolute;
+  inset: 0;
+  border-inline-start: 3px solid var(--hx-tone);
+  background: var(--hx-tone-bg);
+}
+
+.hx-tag {
+  position: absolute;
+  inset-inline-end: 0.6rem;
+  top: 50%;
+  translate: 0 -50%;
+  padding: 0 0.45rem;
+  border: 1px solid var(--hx-tone);
+  border-radius: 0.3rem;
+  background: var(--hx-tone-bg);
+  color: var(--hx-tone);
+  font-family: var(--af-font-body);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.hx .ok {
+  --hx-tone: var(--af-success);
+  --hx-tone-bg: var(--af-success-bg);
+}
+
+.hx .stop {
+  --hx-tone: var(--af-failure);
+  --hx-tone-bg: var(--af-failure-bg);
+}
+
+.hx .skip {
+  --hx-tone: var(--af-skipped);
+  --hx-tone-bg: var(--af-skipped-bg);
+}
+
+/* Too narrow for a tag beside the longest line: the tint and the caption carry the beat. */
+@container (max-width: 34rem) {
+  .hx-tag {
+    display: none;
+  }
+}
+
+/* ---- the calls and their results ---- */
+
+.hx-runs {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0.7rem 0;
+  list-style: none;
+}
+
+.hx-runs > li + li {
+  margin-top: 0;
+}
+
+.hx-run {
+  position: relative;
+  padding-inline: 0.9rem;
+  font-size: clamp(0.6875rem, 0.45rem + 1.15cqi, 0.875rem);
+  line-height: 1.6;
+}
+
+.hx-active {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 3px;
+  background: var(--af-spark);
+}
+
+/* A call not yet played: dimmed, so the pane shows what is coming without claiming a result. */
+.hx-veil {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--hx-bg) 55%, transparent);
+  pointer-events: none;
+}
+
+.hx-call,
+.hx-value {
+  padding: 0;
+  background: none;
+  font-size: inherit;
+  overflow-wrap: anywhere;
+}
+
+.hx-call {
+  display: block;
+  white-space: pre-wrap;
+}
+
+.hx-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.6rem;
+  margin: 0.15rem 0 0;
+}
+
+.hx-result .af-badge {
+  font-size: 0.75rem;
+}
+
+/* ---- captions ---- */
+
+/* Every caption shares one cell, so the box is as tall as the longest and nothing below it moves. */
+.hx-captions {
+  display: grid;
+  font-size: 0.9375rem;
+  color: var(--sl-color-gray-1);
+}
+
+.hx-cap {
+  grid-area: 1 / 1;
+}
+
+.hx-cap code {
+  padding: 0 0.2em;
+  font-size: 0.92em;
+}
+
+/* ---- the stepper: ‹ 1 2 3 4 5 › and play/pause, under the figure ---- */
+
+.hx-steps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.hx-steps[hidden],
+.hx-steps button[hidden] {
+  display: none;
+}
+
+.hx-numbers {
+  display: flex;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hx-numbers > li + li {
+  margin-top: 0;
+}
+
+.hx-steps button {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 999rem;
+  background: transparent;
+  color: var(--sl-color-gray-2);
+  font: 600 0.8125rem/1 var(--af-font-body);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.hx-steps button:hover:not(:disabled) {
+  border-color: var(--sl-color-gray-3);
+  background: var(--sl-color-gray-7);
+  color: var(--sl-color-white);
+}
+
+.hx-steps button:focus-visible {
+  outline: 2px solid var(--sl-color-accent);
+  outline-offset: 2px;
+}
+
+.hx-steps button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.hx-steps .hx-step[aria-current='step'] {
+  border-color: var(--af-spark);
+  background: var(--af-spark);
+  color: #1a1206;
+}
+
+/* Light: the spark is too pale against the page to mark the current step (2.8:1), so it takes the deeper accent. */
+:root[data-theme='light'] .hx-steps .hx-step[aria-current='step'] {
+  border-color: var(--sl-color-accent);
+  background: var(--sl-color-accent);
+  color: #fff;
+}
+
+.hx-prev,
+.hx-next {
+  font-size: 1.1rem;
+}
+
+.hx-play {
+  margin-inline-start: auto;
+}
+
+/* Two bars while playing, a triangle while paused; the label says which. */
+.hx-icon {
+  width: 0.7rem;
+  height: 0.75rem;
+  background: linear-gradient(to right, currentColor 0 35%, transparent 35% 65%, currentColor 65%);
+}
+
+.hx-play[data-state='paused'] .hx-icon {
+  background: currentColor;
+  clip-path: polygon(10% 0, 100% 50%, 10% 100%);
+}
+
+.hx-live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
