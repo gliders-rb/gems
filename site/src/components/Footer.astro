@@ -1,0 +1,23 @@
+---
+// Starlight's footer, plus the license note on every page.
+import Default from '@astrojs/starlight/components/Footer.astro';
+---
+
+<Default />
+<p class="af-license-note">
+  FieldStruct, Actionable and their adapters are open source under the <a
+    href="https://github.com/gliders-rb/gems/blob/main/LICENSE">MIT license</a
+  >.
+</p>
+
+<style>
+  .af-license-note {
+    margin-top: 1.5rem;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+
+  .af-license-note a {
+    color: var(--sl-color-text-accent);
+  }
+</style>

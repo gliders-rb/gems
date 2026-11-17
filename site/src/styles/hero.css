@@ -576,3 +576,13 @@
 .sl-heading-wrapper:has(> #actionable-service-objects) {
   margin-top: 4.5rem;
 }
+
+.af-license-line {
+  margin-top: 1rem;
+  font-size: var(--sl-text-sm);
+  color: var(--sl-color-gray-3);
+}
+
+.af-license-line a {
+  color: var(--sl-color-text-accent);
+}

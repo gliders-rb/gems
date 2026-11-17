@@ -30,8 +30,9 @@ export default defineConfig({
       favicon: '/brand/favicon.svg',
       head: [{ tag: 'link', attrs: { href: '/brand/apple-touch-icon.png', rel: 'apple-touch-icon' } }],
       customCss: [...fonts, './src/styles/theme.css'],
-      // The home page hero carries the code animation; every other page keeps Starlight's hero.
-      components: { Hero: './src/components/Hero.astro' },
+      // The home page hero carries the code animation; every other page keeps Starlight's hero. The footer adds the
+      // license note to every page.
+      components: { Hero: './src/components/Hero.astro', Footer: './src/components/Footer.astro' },
       plugins: [starlightLlmsTxt(llmsOptions)],
       // One link to the monorepo; the home hero links each gem's own directory.
       social: [{ icon: 'github', label: 'Gliders on GitHub', href: 'https://github.com/gliders-rb/gems' }],
