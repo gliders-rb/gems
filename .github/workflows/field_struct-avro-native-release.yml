@@ -130,7 +130,9 @@ jobs:
           merge-multiple: true
           path: ${{ runner.temp }}/gems
       - name: List the gems
-        run: ls -l "$RUNNER_TEMP/gems"
+        # No checkout in this job, so the workflow's default working directory doesn't exist here.
+        working-directory: ${{ runner.temp }}/gems
+        run: ls -l
 
   # Pushes them, only on a manual run with `publish` ticked.
   publish:
