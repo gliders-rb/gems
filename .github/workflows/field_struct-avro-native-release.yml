@@ -73,6 +73,10 @@ jobs:
       - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
         with:
           ruby-version: '3.4'
+      # rb-sys-dock bind-mounts the host's cargo registry into its container, and docker refuses a missing source
+      # ("bind source path does not exist: /home/runner/.cargo/registry", run 44114925413). This runner has no Rust.
+      - name: Create the cargo dirs rb-sys-dock mounts
+        run: mkdir -p ~/.cargo/registry ~/.cargo/git
       - uses: oxidize-rb/actions/cross-gem@ec90b4aa48795518d79be3f5cc478d1d7ccd02a8 # v1.5.0
         id: cross
         with:
