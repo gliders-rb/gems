@@ -16,6 +16,10 @@ on:
         description: Push the built gems to RubyGems (trusted publishing)
         type: boolean
         default: false
+      probe:
+        description: Only check that RubyGems accepts this workflow's token (builds and publishes nothing)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -32,6 +36,7 @@ jobs:
   # The source gem: what installs on any platform without a precompiled gem, compiling the Rust at install time.
   source-gem:
     name: source gem
+    if: ${{ !inputs.probe }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -53,6 +58,7 @@ jobs:
   # One cross-compiled gem per platform, built in the rb-sys-dock containers for Ruby 3.3, 3.4 and 4.0.
   cross-gem:
     name: build ${{ matrix.platform }}
+    if: ${{ !inputs.probe }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -145,3 +151,20 @@ jobs:
           for gem in field_struct-avro-native-source.gem $(ls *.gem | grep -v -- -source.gem); do
             gem push "$gem"
           done
+
+  # Trades the OIDC token for a push key and stops: shows the publisher for this workflow file matches.
+  probe:
+    name: probe the trusted publisher
+    if: github.event_name == 'workflow_dispatch' && inputs.probe
+    runs-on: ubuntu-latest
+    environment: rubygems
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        with:
+          ruby-version: '3.4'
+      - uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
+      - name: The publisher matched
+        run: echo "RubyGems accepted the token for this workflow file and environment. Nothing was built or pushed."

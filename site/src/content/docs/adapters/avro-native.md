@@ -89,7 +89,7 @@ The plan lives on the parsed schema, so it follows the adapter's cache. A rebuil
 
 ## Install
 
-Today `gem install field_struct-avro-native` compiles the Rust extension on your machine. You need a stable Rust toolchain and a C compiler.
+Today `gem install field_struct-avro-native --pre` (it has only a prerelease so far) compiles the Rust extension on your machine. You need a stable Rust toolchain and a C compiler.
 
 Precompiled gems are planned, so that installing needs no Rust. They will be built with `rb-sys` cross-compilation for `x86_64-linux`, `aarch64-linux` and `arm64-darwin`, and every other platform keeps the source gem as its fallback. The release workflow builds and smoke-tests them, but nothing has been published yet.
 

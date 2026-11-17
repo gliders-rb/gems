@@ -14,6 +14,10 @@ on:
         description: The gem's directory in this repository
         type: string
         required: true
+      probe:
+        description: Only trade the OIDC token for a push key, then stop
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -38,7 +42,13 @@ jobs:
           ruby-version: '3.4'
           bundler-cache: true
           working-directory: ${{ inputs.dir }}
+      - uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
+        if: inputs.probe
+      - name: The publisher matched
+        if: inputs.probe
+        run: echo "RubyGems accepted the token for this repository, workflow file and environment. Nothing was pushed."
       - name: Read the version
+        if: ${{ !inputs.probe }}
         id: version
         env:
           GEM_NAME: ${{ inputs.name }}
@@ -47,6 +57,7 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "$GEM_NAME $version"
       - name: Skip a version RubyGems already has
+        if: ${{ !inputs.probe }}
         id: published
         env:
           GEM_NAME: ${{ inputs.name }}

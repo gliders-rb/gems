@@ -28,6 +28,10 @@ on:
           - actionable-docs
           - actionable-otel
           - actionable-tools
+      probe:
+        description: Only check that RubyGems accepts this workflow's token (publishes nothing)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -49,7 +53,7 @@ jobs:
     steps:
       - id: plan
         env:
-          CHOSEN: ${{ inputs.gem }}
+          CHOSEN: ${{ inputs.probe && 'none' || inputs.gem }}
         run: |
           layer() {
             out='['
@@ -71,6 +75,20 @@ jobs:
               actionable-tools=adapters/actionable-tools)"
           } >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
+
+  # Trades the OIDC token for a push key and stops. RubyGems finds the publisher from the token alone, so this shows
+  # that the repository, workflow file and environment match a publisher, but not that every gem is attached to it.
+  probe:
+    name: probe the trusted publisher
+    if: inputs.probe
+    uses: ./.github/workflows/release-gem.yml
+    with:
+      name: field_struct
+      dir: gems/field_struct
+      probe: true
+    permissions:
+      contents: write
+      id-token: write
 
   layer0:
     name: publish ${{ matrix.gem.name }}
