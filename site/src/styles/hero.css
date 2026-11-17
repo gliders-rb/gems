@@ -181,6 +181,7 @@
 }
 
 .af-map a {
+  position: relative;
   display: block;
   margin: 0;
   padding: 1rem 1.1rem;
@@ -195,6 +196,38 @@
 .af-map a:hover {
   border-color: var(--sl-color-accent);
   background: var(--sl-color-gray-7);
+}
+
+/* The arrow says "this is a link", as the tutorial button's does; it moves toward where the card goes on hover. */
+.af-map .text {
+  display: block;
+  padding-inline-end: 1.75rem;
+}
+
+.af-map .go {
+  position: absolute;
+  inset-inline-end: 1.1rem;
+  bottom: 0.9rem;
+  font-size: 1.4rem;
+  color: var(--sl-color-gray-3);
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.af-map a:hover .go,
+.af-map a:focus-visible .go,
+.af-map a.lead .go {
+  color: var(--sl-color-text-accent);
+}
+
+.af-map a:hover .go,
+.af-map a:focus-visible .go {
+  transform: translateX(3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .af-map .go {
+    transition: none;
+  }
 }
 
 .af-map a.lead {

@@ -5,7 +5,7 @@
 // The figure is static HTML and renders as its final frame. The script below turns it into a stepper with
 // autoplay; with scripts off the reader gets the finished figure and no controls.
 import Default from '@astrojs/starlight/components/Hero.astro';
-import { LinkButton } from '@astrojs/starlight/components';
+import { Icon, LinkButton } from '@astrojs/starlight/components';
 import { Image } from 'astro:assets';
 import { getCollection } from 'astro:content';
 import demo from '../generated/hero.html?raw';
@@ -89,7 +89,8 @@ const sections = [
               <b>
                 {s.name} <span>{s.n} {s.unit}</span>
               </b>
-              {s.text}
+              <span class="text">{s.text}</span>
+              <Icon name="right-arrow" class="go" />
             </a>
           ))}
         </nav>

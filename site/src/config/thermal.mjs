@@ -18,13 +18,14 @@ export const palettes = {
   light: {
     background: '#f2eee7',
     foreground: '#1a1612',
-    keyword: '#2f5f8f',
-    constant: '#7a4f12',
-    symbol: '#6b4c9a',
-    string: '#4d6b2f',
-    number: '#7a4f12',
+    // Each token is at least 7:1 on the background (WCAG AAA); at 5-6:1 they read faint next to 15:1 body text.
+    keyword: '#275078',
+    constant: '#6a4510',
+    symbol: '#5a4082',
+    string: '#3c5425',
+    number: '#6a4510',
     method: '#4a433b',
-    comment: '#6b6358',
+    comment: '#534d44',
   },
 };
 
