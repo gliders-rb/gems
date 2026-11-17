@@ -89,3 +89,22 @@ jobs:
         with:
           working-directory: ${{ inputs.dir }}
           setup-trusted-publisher: 'false'
+          # v1.4.1 waits with rubygems-await 0.5.4, which raises NoMethodError on current RubyGems (it pushed
+          # field_struct 1.0.0.pre1, then timed out). v1.4.2 fixes it but is days old, so we wait ourselves.
+          await-release: 'false'
+      - name: Wait until the index serves the new version
+        if: steps.published.outputs.already == 'false'
+        env:
+          GEM_NAME: ${{ inputs.name }}
+          GEM_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # The next layer resolves this gem from rubygems.org, so it has to be on the compact index first.
+          for _ in $(seq 1 60); do
+            if curl -sf "https://index.rubygems.org/info/$GEM_NAME" | grep -q "^$GEM_VERSION "; then
+              echo "$GEM_NAME $GEM_VERSION is on the index"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::$GEM_NAME $GEM_VERSION is not on the index after 10 minutes"
+          exit 1
