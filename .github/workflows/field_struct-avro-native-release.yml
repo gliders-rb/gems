@@ -103,7 +103,7 @@ jobs:
           - { platform: x86_64-linux, os: ubuntu-latest, ruby: '3.4' }
           - { platform: x86_64-linux, os: ubuntu-latest, ruby: '4.0' }
           - { platform: aarch64-linux, os: ubuntu-24.04-arm, ruby: '3.4' }
-          - { platform: arm64-darwin, os: macos-14, ruby: '3.4' }
+          - { platform: arm64-darwin, os: macos-latest, ruby: '3.4' }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
