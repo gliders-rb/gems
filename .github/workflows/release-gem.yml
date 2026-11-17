@@ -22,6 +22,10 @@ on:
 permissions:
   contents: read
 
+env:
+  # The RubyGems.org account (aemadrid-twx) that owns each new gem's first push. Public, not a secret.
+  RUBYGEMS_OWNER: '171078'
+
 jobs:
   publish:
     name: ${{ inputs.name }}
@@ -42,11 +46,13 @@ jobs:
           ruby-version: '3.4'
           bundler-cache: true
           working-directory: ${{ inputs.dir }}
-      - uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
+      - uses: ./.github/actions/rubygems-push-key
         if: inputs.probe
+        with:
+          owner: ${{ env.RUBYGEMS_OWNER }}
       - name: The publisher matched
         if: inputs.probe
-        run: echo "RubyGems accepted the token for this repository, workflow file and environment. Nothing was pushed."
+        run: echo "RubyGems accepted the token and the owner for this repository, workflow file and environment. Nothing was pushed."
       - name: Read the version
         if: ${{ !inputs.probe }}
         id: version
@@ -73,7 +79,13 @@ jobs:
       - name: release:check
         if: steps.published.outputs.already == 'false'
         run: bundle exec rake release:check
+      - uses: ./.github/actions/rubygems-push-key
+        if: steps.published.outputs.already == 'false'
+        with:
+          owner: ${{ env.RUBYGEMS_OWNER }}
+      # Our step above made the key, with the owner a new gem needs; the action only tags, pushes and waits.
       - uses: rubygems/release-gem@7f9650160c1a4e7989fdc9855807bdbd421d8b6b # v1.4.1
         if: steps.published.outputs.already == 'false'
         with:
           working-directory: ${{ inputs.dir }}
+          setup-trusted-publisher: 'false'

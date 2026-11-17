@@ -1,0 +1,47 @@
+name: RubyGems push key
+description: >-
+  Trades the job's OIDC token for a 15-minute RubyGems push key, as rubygems/configure-rubygems-credentials does,
+  and also names the account that will own a gem this key creates. RubyGems needs that `owner` to create a new gem
+  from a pending trusted publisher, and the official actions don't send it yet.
+
+inputs:
+  owner:
+    description: >-
+      The RubyGems.org account ID that owns any gem this key creates (shown on its Pending trusted publishers page).
+      An ID, not a handle: a handle can be renamed and taken again.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Trade the OIDC token for a push key
+      shell: bash
+      env:
+        OWNER: ${{ inputs.owner }}
+      run: |
+        set -euo pipefail
+        jwt="$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+          "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=rubygems.org" | jq -r .value)"
+        echo "::add-mask::$jwt"
+        body="$(jq -n --arg jwt "$jwt" --arg owner "$OWNER" '{jwt: $jwt, owner: $owner}')"
+        reply="$(mktemp)"
+        code="$(curl -sS -o "$reply" -w '%{http_code}' -X POST \
+          -H 'content-type: application/json' -H 'accept: application/json' \
+          --data "$body" https://rubygems.org/api/v1/oidc/trusted_publisher/exchange_token)"
+        if [ "$code" != 201 ]; then
+          echo "::error::RubyGems refused the token exchange ($code): $(jq -c 'del(.rubygems_api_key)' "$reply" 2>/dev/null || head -c 300 "$reply")"
+          rm -f "$reply"
+          exit 1
+        fi
+        key="$(jq -r .rubygems_api_key "$reply")"
+        echo "::add-mask::$key"
+        echo "RubyGems issued a push key: $(jq -c 'del(.rubygems_api_key)' "$reply")"
+        rm -f "$reply"
+        {
+          echo "RUBYGEMS_API_KEY=$key"
+          echo "BUNDLE_GEM__PUSH_KEY=$key"
+          echo "GEM_HOST_API_KEY=$key"
+        } >> "$GITHUB_ENV"
+        mkdir -p ~/.gem
+        printf -- '---\n:rubygems_api_key: %s\n' "$key" > ~/.gem/credentials
+        chmod 600 ~/.gem/credentials

@@ -24,6 +24,10 @@ on:
 permissions:
   contents: read
 
+env:
+  # The RubyGems.org account (aemadrid-twx) that owns the gem's first push. Public, not a secret.
+  RUBYGEMS_OWNER: '171078'
+
 concurrency:
   group: field_struct-avro-native-release-${{ github.ref }}
   cancel-in-progress: false
@@ -140,10 +144,15 @@ jobs:
           pattern: gem-*
           merge-multiple: true
           path: ${{ runner.temp }}/gems
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
         with:
           ruby-version: '3.4'
-      - uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
+      - uses: ./.github/actions/rubygems-push-key
+        with:
+          owner: ${{ env.RUBYGEMS_OWNER }}
       - name: Push the source gem, then each platform gem
         working-directory: ${{ runner.temp }}/gems
         run: |
@@ -162,9 +171,11 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ruby-version: '3.4'
-      - uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
+          persist-credentials: false
+      - uses: ./.github/actions/rubygems-push-key
+        with:
+          owner: ${{ env.RUBYGEMS_OWNER }}
       - name: The publisher matched
-        run: echo "RubyGems accepted the token for this workflow file and environment. Nothing was built or pushed."
+        run: echo "RubyGems accepted the token and the owner for this workflow file and environment. Nothing was built or pushed."
