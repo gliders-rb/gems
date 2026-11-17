@@ -34,7 +34,7 @@ const gemBadge = (href: string) =>
 const docs = home ? await getCollection('docs') : [];
 const count = (dir: string) => docs.filter((d) => d.id.startsWith(`${dir}/`) && !d.id.endsWith('/index') && d.id !== `${dir}/index`).length;
 const sections = [
-  { href: '/tutorial/trek-planner/', name: 'Tutorial', unit: 'parts', dir: 'tutorial', text: 'Build a small trek planner, one gem at a time.' },
+  { href: '/tutorial/trek-planner/', name: 'Tutorial', unit: 'parts', dir: 'tutorial', lead: true, text: 'Build a small trek planner, one gem at a time.' },
   { href: '/how-to/', name: 'How-to guides', unit: 'guides', dir: 'how-to', text: 'Recipes for one task each: Rails, jobs, RBS, testing.' },
   { href: '/reference/', name: 'Reference', unit: 'pages', dir: 'reference', text: 'Every option, method and outcome, checked against the code.' },
   { href: '/explanation/', name: 'Explanation', unit: 'pages', dir: 'explanation', text: 'Why the gems are shaped the way they are.' },
@@ -85,7 +85,7 @@ const sections = [
         </section>
         <nav class="af-map" aria-label="What's in the docs">
           {sections.map((s) => (
-            <a href={s.href}>
+            <a href={s.href} class={s.lead ? 'lead' : undefined}>
               <b>
                 {s.name} <span>{s.n} {s.unit}</span>
               </b>
@@ -103,9 +103,9 @@ const sections = [
 <script>
   // The hero's stepper (src/hero/hero.mjs renders the figure, its steps and their CSS). The figure starts on its
   // last step, the finished picture, and autoplay moves to step 1 only once the figure is in view, so the static
-  // figure, the end of each round, reduced motion and scripts off all show the same thing.
+  // figure, reduced motion and scripts off all show the same thing. After the last round it goes back to step 1.
   const HOLD_MS = 6000; // the last step's dwell before the next round
-  const ROUNDS = 3; // then it rests on the last step
+  const ROUNDS = 3; // then it goes back to step 1 and rests there
   const fig = document.querySelector<HTMLElement>('[data-hx]');
   const bar = fig?.querySelector<HTMLElement>('.hx-steps');
 
@@ -149,7 +149,8 @@ const sections = [
       timer = undefined;
       if (step < total) show(step + 1);
       else if (++rounds >= ROUNDS) {
-        auto = false; // rest on the finished picture
+        auto = false; // rest on step 1, ready to read from the start
+        show(1);
         showPlay();
         return;
       } else show(1);

@@ -172,8 +172,8 @@
     margin-top: 0;
   }
 
-  /* An odd card out takes the whole last row. */
-  .af-map a:last-child:nth-child(odd) {
+  /* The tutorial, where a new reader starts, takes the whole first row; the other four sit two by two. */
+  .af-map a.lead {
     grid-column: 1 / -1;
   }
 }
@@ -193,6 +193,20 @@
 .af-map a:hover {
   border-color: var(--sl-color-accent);
   background: var(--sl-color-gray-7);
+}
+
+.af-map a.lead {
+  --af-lead-glow: radial-gradient(
+    80% 180% at 0% 0%,
+    color-mix(in srgb, var(--af-spark) 26%, transparent),
+    transparent 70%
+  );
+  border-color: var(--af-spark);
+  background: var(--af-lead-glow);
+}
+
+.af-map a.lead:hover {
+  background: var(--af-lead-glow), var(--sl-color-gray-7);
 }
 
 .af-map b {
