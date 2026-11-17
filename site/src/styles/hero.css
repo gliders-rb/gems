@@ -114,11 +114,25 @@
 
 /* ---- C: the idea band, contained, between rules ---- */
 
-.af-band {
+/* The idea and the map side by side on wide screens: the callout on the left, the doc cards two by two on the right. */
+.af-idea {
   margin-block: 1rem 0;
   padding-block: 2.5rem;
   border-block: 1px solid var(--sl-color-gray-6);
   background: radial-gradient(60% 120% at 0% 50%, var(--af-glow), transparent 70%);
+}
+
+@media (min-width: 50rem) {
+  .af-idea {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 2.5rem;
+    align-items: center;
+  }
+}
+
+.af-band {
+  margin: 0;
 }
 
 .af-band p {
@@ -150,6 +164,18 @@
   grid-template-columns: repeat(auto-fit, minmax(11.5rem, 1fr));
   gap: 0.75rem;
   margin-top: 2.5rem;
+}
+
+@media (min-width: 50rem) {
+  .af-map {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 0;
+  }
+
+  /* An odd card out takes the whole last row. */
+  .af-map a:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
 }
 
 .af-map a {
@@ -494,4 +520,10 @@
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+/* The two gem sections open the page body; give them room from the cards above and the section before. */
+.sl-heading-wrapper:has(> #fieldstruct-typed-poros),
+.sl-heading-wrapper:has(> #actionable-service-objects) {
+  margin-top: 4.5rem;
 }

@@ -78,20 +78,22 @@ const sections = [
         </div>
         <div class="af-hero-demo" set:html={demo} />
       </div>
-      <section class="af-band" aria-label="The Gliders idea">
-        <p>A glider has no engine. It stays up on the air that is already there. These gems try to work the same way: with your data and your system, not against them.</p>
-        <a class="more" href="/explanation/gliders/">Why the name: the Gliders idea →</a>
-      </section>
-      <nav class="af-map" aria-label="What's in the docs">
-        {sections.map((s) => (
-          <a href={s.href}>
-            <b>
-              {s.name} <span>{s.n} {s.unit}</span>
-            </b>
-            {s.text}
-          </a>
-        ))}
-      </nav>
+      <div class="af-idea">
+        <section class="af-band" aria-label="The Gliders idea">
+          <p>A glider has no engine. It stays up on the air that is already there. These gems try to work the same way: with your data and your system, not against them.</p>
+          <a class="more" href="/explanation/gliders/">Why the name: the Gliders idea →</a>
+        </section>
+        <nav class="af-map" aria-label="What's in the docs">
+          {sections.map((s) => (
+            <a href={s.href}>
+              <b>
+                {s.name} <span>{s.n} {s.unit}</span>
+              </b>
+              {s.text}
+            </a>
+          ))}
+        </nav>
+      </div>
     </>
   ) : (
     <Default />
