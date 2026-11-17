@@ -133,6 +133,8 @@
 
 .af-band {
   margin: 0;
+  /* Clear of the band's left edge, so the amber rule doesn't sit on it. */
+  padding-inline-start: clamp(1rem, 3vw, 2.5rem);
 }
 
 .af-band p {
