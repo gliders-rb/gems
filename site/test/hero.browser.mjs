@@ -63,7 +63,7 @@ const scroll = async (page, y) => {
   await page.waitForTimeout(300); // the intersection report arrives in real time
 };
 
-test('in view, autoplay walks the steps, holds the last, and rests there after three rounds', async (t) => {
+test('in view, autoplay walks the steps, holds the last, and goes back to step 1 after three rounds', async (t) => {
   const page = await home(t);
   await page.clock.runFor(100);
   assert.equal(await step(page), '1', 'starts at step 1 once in view');
@@ -75,9 +75,9 @@ test('in view, autoplay walks the steps, holds the last, and rests there after t
   await page.clock.runFor(6100);
   assert.equal(await step(page), '1', 'holds about 6 s, then round two');
   await page.clock.runFor((15 + 6) * 1000 * 2 + 500);
-  assert.equal(await step(page), '5', 'after three rounds, the last step');
+  assert.equal(await step(page), '1', 'after round three and its hold, back on step 1');
   await page.clock.runFor(30000);
-  assert.equal(await step(page), '5', 'and it stays');
+  assert.equal(await step(page), '1', 'and rests there');
   assert.equal(await page.locator('.hx-play').getAttribute('aria-label'), 'Play autoplay');
 });
 
