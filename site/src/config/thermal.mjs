@@ -16,7 +16,8 @@ export const palettes = {
     comment: '#8a8174',
   },
   light: {
-    background: '#f2eee7',
+    // A touch lighter than the page (#faf8f4), so code reads as a raised sheet rather than a sunken well.
+    background: '#fdfcf9',
     foreground: '#1a1612',
     // Each token is at least 7:1 on the background (WCAG AAA); at 5-6:1 they read faint next to 15:1 body text.
     keyword: '#275078',

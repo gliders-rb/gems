@@ -282,6 +282,10 @@
   background: radial-gradient(70% 60% at 100% 0%, var(--af-glow), transparent 70%), var(--hx-bg);
 }
 
+:root[data-theme='light'] .hx-window {
+  background: var(--hx-bg);
+}
+
 .hx-pane + .hx-pane {
   border-top: 1px solid var(--sl-color-gray-5);
 }

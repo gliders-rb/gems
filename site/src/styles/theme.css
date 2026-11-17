@@ -205,6 +205,20 @@ samp,
   background: radial-gradient(70% 90% at 100% 0%, var(--af-glow), transparent 70%), var(--code-background);
 }
 
+/* Light scheme: code gets every bit of contrast. No glow behind it, and a step heavier than the 400 that reads
+   thin on paper. */
+:root[data-theme='light'] .sl-markdown-content .expressive-code .frame pre {
+  background: var(--code-background);
+}
+
+:root[data-theme='light'] .expressive-code {
+  --ec-codeFontWg: 500;
+}
+
+:root[data-theme='light'] .hx pre {
+  font-weight: 500;
+}
+
 /* Landing hero title: the Gliders name, with the two gems as a strong second line. */
 .hero h1 {
   font-weight: 700;
